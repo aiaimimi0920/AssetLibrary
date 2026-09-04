@@ -13,6 +13,14 @@ $loadRunnerPath = Join-Path $root 'scripts/Run-P8LoadTest.ps1'
 $jsonSchemaValidator = Join-Path $root 'scripts/validate-json-schema.mjs'
 . (Join-Path $PSScriptRoot 'RepositoryEvidencePath.ps1')
 
+function ConvertFrom-JsonDocument([string]$Json) {
+    $parameters = @{}
+    if ((Get-Command ConvertFrom-Json).Parameters.ContainsKey('DateKind')) {
+        $parameters.DateKind = 'String'
+    }
+    return $Json | ConvertFrom-Json @parameters
+}
+
 function Assert-PropertySet($Value, [string[]]$Expected, [string]$Context) {
     if ($null -eq $Value) { throw "$Context is required." }
     $actual = @($Value.PSObject.Properties.Name | Sort-Object)
@@ -193,7 +201,7 @@ foreach ($requiredFile in @($schemaPath, $runSchemaPath, $jsonSchemaValidator, $
 }
 Assert-JsonSchema $schemaPath '' 'P8 capacity evidence schema'
 Assert-JsonSchema $runSchemaPath '' 'P8 load run manifest schema'
-$schema = [IO.File]::ReadAllText($schemaPath) | ConvertFrom-Json
+$schema = ConvertFrom-JsonDocument ([IO.File]::ReadAllText($schemaPath))
 if ($schema.'$schema' -ne 'https://json-schema.org/draft/2020-12/schema' -or
     $schema.additionalProperties -ne $false -or $schema.properties.evidence_origin.const -ne 'cloud' -or
     $schema.properties.runs.minItems -ne 4 -or $schema.properties.runs.maxItems -ne 4) {
@@ -217,7 +225,7 @@ $manifestPath = Resolve-RepositoryEvidencePath -RepositoryRoot $root -RawPath $E
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'EvidenceManifest does not exist.' }
 $evidenceDirectory = Split-Path -Parent $manifestPath
 Assert-JsonSchema $schemaPath $manifestPath 'Evidence manifest'
-$manifest = [IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
+$manifest = ConvertFrom-JsonDocument ([IO.File]::ReadAllText($manifestPath))
 Assert-PropertySet $manifest @(
     'schema_version', 'evidence_origin', 'environment', 'git_commit', 'topology', 'runs', 'cost', 'review'
 ) 'evidence manifest'
@@ -297,7 +305,7 @@ foreach ($run in $manifest.runs) {
     $loadPath = Resolve-EvidenceFile $run.load_manifest "runs[$profile].load_manifest" $evidenceDirectory $seen
     $summaryPath = Resolve-EvidenceFile $run.k6_summary "runs[$profile].k6_summary" $evidenceDirectory $seen
     Assert-JsonSchema $runSchemaPath $loadPath "runs[$profile].load_manifest"
-    $runManifest = [IO.File]::ReadAllText($loadPath) | ConvertFrom-Json
+    $runManifest = ConvertFrom-JsonDocument ([IO.File]::ReadAllText($loadPath))
     $exitCode = Convert-Integer $runManifest.exit_code "runs[$profile].load_manifest.exit_code"
     if ($runManifest.schema_version -ne '1.1' -or $runManifest.profile -ne $profile -or
         $runManifest.git_commit -cne $manifest.git_commit -or $exitCode -ne 0 -or
@@ -315,7 +323,7 @@ foreach ($run in $manifest.runs) {
         [string]::IsNullOrWhiteSpace("$($runManifest.k6_version)")) {
         throw "runs[$profile].load_manifest is not time/version bound to the evidence manifest."
     }
-    $summary = [IO.File]::ReadAllText($summaryPath) | ConvertFrom-Json
+    $summary = ConvertFrom-JsonDocument ([IO.File]::ReadAllText($summaryPath))
     if ($profile -eq 'download') {
         Assert-K6Metric $summary 'http_req_failed'
         Assert-K6Metric $summary 'checks'
