@@ -139,6 +139,7 @@ function Assert-Rejected([string]$Name, [scriptblock]$Mutation) {
         # Expected: each mutation violates one fail-closed contract.
     }
     if ($accepted) { throw "P8 verifier accepted invalid fixture '$Name'." }
+    $global:LASTEXITCODE = 0
 }
 
 New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
