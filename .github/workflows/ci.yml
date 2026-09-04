@@ -126,7 +126,7 @@ jobs:
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 lint /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
-      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
           tofu_version_file: .opentofu-version
       - name: OpenTofu static gates
