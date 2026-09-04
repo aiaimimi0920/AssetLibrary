@@ -14,7 +14,7 @@ axum = "0.8"
 base64 = "0.22"
 jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs"] }
 hex = "0.4"
-hmac = "0.12"
+hmac = "0.13"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 redis = { version = "0.32", features = ["tokio-comp", "tokio-rustls-comp"] }
 sha2 = "0.10"
