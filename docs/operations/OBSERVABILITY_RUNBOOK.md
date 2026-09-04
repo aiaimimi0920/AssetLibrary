@@ -75,6 +75,41 @@ then confirm an `assetlibrary-*` service and
 `assetlibrary_http_requests_total` in Grafana Cloud. A running Collector proves
 only local configuration; provider-side receipt must be confirmed in Grafana.
 
+If port `9090` is already owned by an unrelated local process, do not stop or
+reconfigure that process as part of this smoke. Select a free loopback port and
+set both sides explicitly before recreating the Collector, for example:
+
+```powershell
+$env:ASSETLIBRARY_PROMETHEUS_TARGET = 'host.docker.internal:19090'
+$env:ASSETLIBRARY_METRICS_BIND = '0.0.0.0:19090'
+docker compose -f deploy/local/observability.compose.yaml up -d --force-recreate
+```
+
+The API metrics listener uses `0.0.0.0` here only so the local Docker VM can
+reach the chosen host port. Do not expose that port through a router, firewall
+rule, tunnel, or public compute security group.
+
+After at least two successful scrapes and one traced request, deploy or verify
+the repository dashboard with a Grafana service-account token. These variables
+are separate from the OTLP write credentials above:
+
+```powershell
+$env:GRAFANA_CLOUD_STACK_URL = 'https://your-stack.grafana.net'
+$env:GRAFANA_CLOUD_API_TOKEN = '<service-account-token>'
+./scripts/Deploy-GrafanaCloud.ps1
+```
+
+The script reads secrets only from the process environment, requires an HTTPS
+stack origin, verifies provider-side metric and trace receipt, creates the
+`Neuro AssetLibrary` folder when absent, and imports the 12-panel dashboard. It
+is idempotent and does not overwrite an existing dashboard unless the operator
+passes `-UpdateDashboard` explicitly. `-ValidateOnly` performs the repository
+contract checks without credentials or network calls.
+
+The Helm `PrometheusRule` and `AlertmanagerConfig` remain the production
+Kubernetes alerting path. This dashboard import does not claim that those CRDs
+were installed or that any alert was delivered.
+
 The cleanup CronJob is short lived, so a Prometheus scrape is best effort. Its
 JSON log, trace, audit rows, and object/database outcome remain the durable
 signals. Do not build an availability SLO from cleanup scrape series alone.

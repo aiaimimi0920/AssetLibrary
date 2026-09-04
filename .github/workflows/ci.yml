@@ -96,6 +96,7 @@ jobs:
           ./scripts/Test-ContainerBuildPolicy.ps1 -DockerfileCheck
           ./scripts/Test-InfrastructurePolicy.ps1
           ./scripts/Test-LocalCompose.ps1
+          ./scripts/Deploy-GrafanaCloud.ps1 -ValidateOnly
           ./scripts/Test-P8LoadHarness.ps1
           ./scripts/Test-P8CapacityEvidence.ps1 -ValidateOnly
           ./scripts/Test-P8CapacityEvidenceContract.ps1
