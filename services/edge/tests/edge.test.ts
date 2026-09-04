@@ -159,7 +159,9 @@ describe("restricted tickets", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     const swapped = new Request(`https://download.test${path.replace(fileName, "other.zip")}`, { headers: { Authorization: `Bearer ${token}` } });
     expect((await worker.fetch(swapped, env)).status).toBe(403);
-    const bad = `${token.slice(0, -1)}x`;
+    const signatureOffset = token.lastIndexOf(".") + 1;
+    const replacement = token[signatureOffset] === "A" ? "B" : "A";
+    const bad = `${token.slice(0, signatureOffset)}${replacement}${token.slice(signatureOffset + 1)}`;
     expect((await worker.fetch(new Request(`https://download.test${path}`, { headers: { Authorization: `Bearer ${bad}` } }), env)).status).toBe(403);
     policy.values.set(`revoked:session:${claims.session_id}`, "1");
     expect((await worker.fetch(request(), env)).status).toBe(403);

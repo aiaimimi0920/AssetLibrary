@@ -69,7 +69,7 @@ jobs:
             scan source --recursive --format json --output-file /evidence/osv.json /src
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 20.20.2
+          node-version: 22.23.1
       - name: Audit pnpm dependency graphs
         shell: bash
         run: |
@@ -149,8 +149,18 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: ${{ inputs.source_ref || github.sha }}
-      - uses: github/codeql-action/init@5ba2889ada762081db2c4f32a729827dce632c7b # v3
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           languages: ${{ matrix.language }}
-      - uses: github/codeql-action/autobuild@5ba2889ada762081db2c4f32a729827dce632c7b # v3
-      - uses: github/codeql-action/analyze@5ba2889ada762081db2c4f32a729827dce632c7b # v3
+      - uses: github/codeql-action/autobuild@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          output: release/evidence/codeql/${{ matrix.language }}
+          upload: never
+      - name: Upload CodeQL SARIF evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codeql-${{ matrix.language }}-${{ inputs.source_ref || github.sha }}
+          path: release/evidence/codeql/${{ matrix.language }}
+          if-no-files-found: error
+          retention-days: 30

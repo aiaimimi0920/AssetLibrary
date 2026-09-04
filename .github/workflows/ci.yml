@@ -39,7 +39,7 @@ jobs:
           echo "commit=$expected" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
-          node-version: 20.20.2
+          node-version: 22.23.1
       - name: Install pinned toolchains
         run: |
           rustup toolchain install 1.95.0 --profile minimal --component rustfmt

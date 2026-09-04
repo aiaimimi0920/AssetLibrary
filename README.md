@@ -148,7 +148,7 @@ App Update boundaries are documented in
 
 ## Local development
 
-Prerequisites: Rust stable, Node.js 20+, pnpm 10+, and Docker for the local
+Prerequisites: Rust stable, Node.js 22.23+, pnpm 10+, and Docker for the local
 dependency stack. Copy `.env.example` to `.env`; never commit local credentials.
 
 ```powershell

@@ -31,6 +31,12 @@ The shared security workflow runs:
 - Trivy deployment/IaC scanning;
 - CodeQL for Rust and JavaScript/TypeScript.
 
+CodeQL writes SARIF to a retained workflow artifact. This keeps the scan usable
+for a private trial repository whose plan has not enabled GitHub code scanning;
+it does not pretend that the SARIF was uploaded to the repository Security tab.
+When code scanning is enabled, a reviewed workflow change may switch the pinned
+analyze action back to provider upload.
+
 Each pnpm audit has a five-minute process deadline plus a termination grace
 period. Timeout is failure, never an empty or successful report. Scanner,
 dependency, secret, SBOM, provenance, signature, and quality failures prevent the
