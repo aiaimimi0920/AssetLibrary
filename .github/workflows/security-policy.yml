@@ -67,7 +67,7 @@ jobs:
             -v "$PWD/release/evidence:/evidence" \
             ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
             scan source --recursive --format json --output-file /evidence/osv.json /src
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.23.1
       - name: Audit pnpm dependency graphs
