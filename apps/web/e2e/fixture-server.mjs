@@ -6,6 +6,12 @@ const port = Number(process.env.ASSETLIBRARY_BROWSER_FIXTURE_PORT ?? "18900");
 const token = "browser-fixture-access-token-that-stays-server-only";
 const sessionCookie = "neuro_session=browser-fixture-session";
 const webOrigin = `http://127.0.0.1:${Number(process.env.ASSETLIBRARY_BROWSER_WEB_PORT ?? "18901")}`;
+const accountSessionModes = new Map([
+  ["browser-fixture-unauthenticated", "unauthenticated"],
+  ["browser-fixture-unavailable", "unavailable"],
+  ["browser-fixture-malformed", "malformed"],
+  ["browser-fixture-expired", "expired"],
+]);
 
 async function fixture(name) {
   return JSON.parse(await readFile(new URL(`../../../contracts/fixtures/${name}`, import.meta.url), "utf8"));
@@ -25,6 +31,7 @@ const uploadSessionId = "77777777-7777-4777-8777-777777777777";
 const uploadArtifactId = "88888888-8888-4888-8888-888888888888";
 let upload = null;
 let delayedSecondPart = false;
+let protectedRequestCount = 0;
 
 function send(response, status, body, cacheControl = "no-store") {
   response.writeHead(status, {
@@ -72,6 +79,13 @@ const server = createServer(async (request, response) => {
     delayedSecondPart = false;
     return send(response, 200, { reset: true });
   }
+  if (request.method === "GET" && url.pathname === "/fixture/account-state") {
+    return send(response, 200, { protected_request_count: protectedRequestCount });
+  }
+  if (request.method === "POST" && url.pathname === "/fixture/reset-account-state") {
+    protectedRequestCount = 0;
+    return send(response, 200, { reset: true });
+  }
   const objectPart = url.pathname.match(/^\/fixture-upload\/([0-9a-f-]+)\/(\d+)$/i);
   if (objectPart && request.method === "OPTIONS") {
     cors(response, 204);
@@ -108,15 +122,22 @@ const server = createServer(async (request, response) => {
     return send(response, 200, packages, "public, max-age=60");
   }
   if (request.method === "GET" && url.pathname === "/v1/session") {
-    if (!request.headers.cookie?.split(/;\s*/).includes(sessionCookie)) {
+    const cookies = request.headers.cookie?.split(/;\s*/) ?? [];
+    const session = cookies.find((value) => value.startsWith("neuro_session="));
+    const mode = accountSessionModes.get(session?.slice("neuro_session=".length));
+    if (mode === "unavailable") return send(response, 500, { error: "unavailable" });
+    if (!cookies.includes(sessionCookie) && !mode) {
       return send(response, 401, { error: "unauthenticated" });
     }
+    if (mode === "unauthenticated") return send(response, 401, { error: "unauthenticated" });
     return send(response, 200, {
       principal: { issuer: "https://accounts.browser.invalid", subject: "browser-private-subject" },
       access_token: token,
-      expires_at: "2099-01-01T00:00:00Z",
+      expires_at: mode === "expired" ? "2020-01-01T00:00:00Z" : "2099-01-01T00:00:00Z",
+      ...(mode === "malformed" ? { unexpected: true } : {}),
     }, "private, no-store");
   }
+  protectedRequestCount += 1;
   if (!authorized(request)) return send(response, 401, { error: "unauthenticated" });
   if (request.method === "GET" && url.pathname === "/v1/me/publishers") {
     return send(response, 200, memberships, "private, no-store");

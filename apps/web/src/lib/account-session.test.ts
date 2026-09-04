@@ -61,6 +61,33 @@ describe("external Account Service session adapter", () => {
     await expect(exchangeAccountSession("opaque")).resolves.toEqual({ ok: false, failure: "invalid_response" });
   });
 
+  it("maps Account Service rejection and outage states without using an invalid cookie", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("ASSETLIBRARY_ACCOUNT_SESSION_URL", "http://127.0.0.1:4100/v1/session");
+
+    for (const status of [401, 403]) {
+      fetchMock.mockResolvedValueOnce(new Response("{}", { status }));
+      await expect(exchangeAccountSession("opaque-session")).resolves.toEqual({
+        ok: false, failure: "unauthenticated",
+      });
+    }
+    fetchMock.mockResolvedValueOnce(new Response("{}", { status: 500 }));
+    await expect(exchangeAccountSession("opaque-session")).resolves.toEqual({
+      ok: false, failure: "unavailable",
+    });
+    fetchMock.mockRejectedValueOnce(new Error("connection refused"));
+    await expect(exchangeAccountSession("opaque-session")).resolves.toEqual({
+      ok: false, failure: "unavailable",
+    });
+
+    const callsBeforeUnsafeCookie = fetchMock.mock.calls.length;
+    await expect(exchangeAccountSession("line\nbreak")).resolves.toEqual({
+      ok: false, failure: "unauthenticated",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeUnsafeCookie);
+  });
+
   it("only exposes a safe configured login URL", () => {
     vi.stubEnv("ASSETLIBRARY_ACCOUNT_LOGIN_URL", "https://accounts.neuro.example/login");
     expect(accountLoginUrl()).toBe("https://accounts.neuro.example/login");

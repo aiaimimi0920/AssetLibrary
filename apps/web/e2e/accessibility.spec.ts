@@ -20,6 +20,8 @@ async function expectAccessible(page: import("@playwright/test").Page) {
   expect(results.violations).toEqual([]);
 }
 
+const fixtureUrl = `http://127.0.0.1:${Number(process.env.ASSETLIBRARY_BROWSER_FIXTURE_PORT ?? "18900")}`;
+
 test("public catalog is keyboard reachable, accessible, and viewport bounded", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: "独立安装，逐项验证。" })).toBeVisible();
@@ -52,6 +54,31 @@ test("Publisher signing workspace exposes public trust data without identity lea
   await expectNoOverflow(page);
   await expectAccessible(page);
   await expectVisual(page, "publisher-signing-keys");
+});
+
+test("Publisher workspace fails closed when the external Account Service cannot establish a session", async ({
+  context, page, request,
+}) => {
+  const cases = [
+    ["browser-fixture-unauthenticated", "需要外部账号会话"],
+    ["browser-fixture-unavailable", "账号服务暂时不可用"],
+    ["browser-fixture-malformed", "账号会话响应无效"],
+    ["browser-fixture-expired", "账号会话响应无效"],
+  ] as const;
+
+  for (const [cookie, heading] of cases) {
+    await request.post(`${fixtureUrl}/fixture/reset-account-state`);
+    await context.clearCookies();
+    await context.addCookies([{ name: "neuro_session", value: cookie, domain: "127.0.0.1", path: "/" }]);
+    await page.goto("/publisher/signing-keys?publisher=11111111-1111-4111-8111-111111111111");
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    const content = await page.locator("body").innerText();
+    expect(content).not.toContain("browser-fixture-access-token");
+    expect(content).not.toContain("browser-private-subject");
+    expect(content).not.toContain("accounts.browser.invalid");
+    const state = await request.get(`${fixtureUrl}/fixture/account-state`);
+    expect(await state.json()).toEqual({ protected_request_count: 0 });
+  }
 });
 
 test("Publisher owner edits bounded draft package metadata through the server boundary", async ({ context, page }) => {
