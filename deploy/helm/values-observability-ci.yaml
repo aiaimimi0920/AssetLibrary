@@ -1,0 +1,11 @@
+observability:
+  otlpEndpoint: http://otel-collector.monitoring.svc.cluster.local:4318
+  serviceMonitor:
+    enabled: true
+  prometheusRule:
+    enabled: true
+  alertmanager:
+    enabled: true
+    webhookSecretName: assetlibrary-alertmanager-webhook
+  grafanaDashboard:
+    enabled: true

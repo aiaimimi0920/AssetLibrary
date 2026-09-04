@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuro.example/schemas/release-candidate-evidence.schema.json",
+  "title": "AssetLibrary signed release candidate evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_state",
+    "version",
+    "source_commit",
+    "repository",
+    "registry_prefix",
+    "created_at",
+    "workflow",
+    "toolchain",
+    "security",
+    "tests",
+    "images",
+    "migrations",
+    "deployment",
+    "app_updates_enabled",
+    "production_release_eligible",
+    "unmet_production_gates"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "candidate_state": { "const": "signed_images_security_scanned" },
+    "version": { "$ref": "#/$defs/semver" },
+    "source_commit": { "$ref": "#/$defs/gitCommit" },
+    "repository": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "registry_prefix": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 240,
+      "pattern": "^ghcr\\.io/[a-z0-9._/-]+$"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "run_attempt", "identity"],
+      "properties": {
+        "run_id": { "type": "string", "pattern": "^[1-9][0-9]{0,19}$" },
+        "run_attempt": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "identity": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 500,
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/\\.github/workflows/release\\.yml@refs/"
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["security_policy_sha256", "build_matrix_sha256", "helm_image"],
+      "properties": {
+        "security_policy_sha256": { "$ref": "#/$defs/sha256" },
+        "build_matrix_sha256": { "$ref": "#/$defs/sha256" },
+        "helm_image": { "$ref": "#/$defs/digestImage" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sbom", "osv", "pnpm_audits", "iac_scan"],
+      "properties": {
+        "source_sbom": { "$ref": "#/$defs/evidenceFile" },
+        "osv": { "$ref": "#/$defs/evidenceFile" },
+        "pnpm_audits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["web", "api_client", "edge"],
+          "properties": {
+            "web": { "$ref": "#/$defs/evidenceFile" },
+            "api_client": { "$ref": "#/$defs/evidenceFile" },
+            "edge": { "$ref": "#/$defs/evidenceFile" }
+          }
+        },
+        "iac_scan": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ci", "image_runtime"],
+      "properties": {
+        "ci": { "$ref": "#/$defs/evidenceFile" },
+        "image_runtime": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "images": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/image" },
+      "allOf": [
+        { "$ref": "#/$defs/containsApi" },
+        { "$ref": "#/$defs/containsWeb" },
+        { "$ref": "#/$defs/containsScanner" },
+        { "$ref": "#/$defs/containsOutbox" },
+        { "$ref": "#/$defs/containsIndexer" },
+        { "$ref": "#/$defs/containsCleanup" }
+      ]
+    },
+    "migrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordered", "files"],
+      "properties": {
+        "ordered": { "const": true },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9999,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "evidence"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[0-9]{4}_[A-Za-z0-9_-]+\\.sql$" },
+              "evidence": { "$ref": "#/$defs/evidenceFile" }
+            }
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["helm_values", "rendered_manifest", "progressive_manifest", "images_digest_bound", "app_updates_enabled"],
+      "properties": {
+        "helm_values": { "$ref": "#/$defs/evidenceFile" },
+        "rendered_manifest": { "$ref": "#/$defs/evidenceFile" },
+        "progressive_manifest": { "$ref": "#/$defs/evidenceFile" },
+        "images_digest_bound": { "const": true },
+        "app_updates_enabled": { "const": false }
+      }
+    },
+    "app_updates_enabled": { "const": false },
+    "production_release_eligible": { "const": false },
+    "unmet_production_gates": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "p8_cloud_acceptance",
+          "provider_release_authenticity",
+          "canary_5_25_100",
+          "automatic_rollback_and_slo_burn"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "semver": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 128,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "digestImage": {
+      "type": "string",
+      "minLength": 72,
+      "maxLength": 400,
+      "pattern": "^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$"
+    },
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_length"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byte_length": { "type": "integer", "minimum": 1, "maximum": 536870912 }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "image", "digest", "evidence"],
+      "properties": {
+        "component": { "enum": ["api", "web", "scanner", "outbox", "indexer", "cleanup"] },
+        "image": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 300,
+          "pattern": "^ghcr\\.io/[a-z0-9._/-]+$"
+        },
+        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metadata", "sbom", "vulnerability_scan", "signature_verification", "provenance", "sbom_attestation", "checksums"],
+          "properties": {
+            "metadata": { "$ref": "#/$defs/evidenceFile" },
+            "sbom": { "$ref": "#/$defs/evidenceFile" },
+            "vulnerability_scan": { "$ref": "#/$defs/evidenceFile" },
+            "signature_verification": { "$ref": "#/$defs/evidenceFile" },
+            "provenance": { "$ref": "#/$defs/evidenceFile" },
+            "sbom_attestation": { "$ref": "#/$defs/evidenceFile" },
+            "checksums": { "$ref": "#/$defs/evidenceFile" }
+          }
+        }
+      }
+    },
+    "containsApi": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "api" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsWeb": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "web" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsScanner": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "scanner" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsOutbox": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "outbox" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsIndexer": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "indexer" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsCleanup": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "cleanup" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 }
+  }
+}

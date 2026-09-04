@@ -1,0 +1,352 @@
+PublisherRole:
+  type: string
+  enum: [owner, maintainer, release_manager]
+
+PublisherState:
+  type: string
+  enum: [pending, active, suspended, closed]
+
+PublisherMembership:
+  type: object
+  additionalProperties: false
+  required: [publisher, publisher_status, role]
+  properties:
+    publisher: { $ref: '../openapi.yaml#/components/schemas/PublisherSummary' }
+    publisher_status: { $ref: '#/PublisherState' }
+    role: { $ref: '#/PublisherRole' }
+
+PublisherMembershipPage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/PublisherMembership' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }
+
+OwnedPackageStatus:
+  type: string
+  enum: [draft, submitted, published, suspended, deprecated, archived]
+
+PackageVisibility:
+  type: string
+  enum: [public, unlisted, private]
+
+OwnedPackage:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - publisher_id
+    - slug
+    - kind
+    - status
+    - visibility
+    - name
+    - summary
+    - description
+    - tags
+    - created_at
+    - updated_at
+  properties:
+    id: { type: string, format: uuid }
+    publisher_id: { type: string, format: uuid }
+    slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    kind: { type: string, enum: [art, capability, app_update] }
+    status: { $ref: '#/OwnedPackageStatus' }
+    visibility: { $ref: '#/PackageVisibility' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    summary: { type: string, maxLength: 1000 }
+    description: { type: string, maxLength: 100000 }
+    tags:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+OwnedPackagePage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/OwnedPackageSummary' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }
+
+CreatePackageRequest:
+  type: object
+  additionalProperties: false
+  required: [slug, kind, visibility, name, summary, description, tags]
+  properties:
+    slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    kind: { type: string, enum: [art, capability, app_update] }
+    visibility: { $ref: '#/PackageVisibility' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    summary: { type: string, maxLength: 1000 }
+    description: { type: string, maxLength: 100000 }
+    tags:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+
+UpdatePackageRequest:
+  type: object
+  additionalProperties: false
+  required: [expected_updated_at, visibility, name, summary, description, tags]
+  properties:
+    expected_updated_at: { type: string, format: date-time }
+    visibility: { $ref: '#/PackageVisibility' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    summary: { type: string, maxLength: 1000 }
+    description: { type: string, maxLength: 100000 }
+    tags:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+
+OwnedPackageSummary:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - publisher_id
+    - slug
+    - kind
+    - status
+    - visibility
+    - name
+    - summary
+    - tags
+    - created_at
+    - updated_at
+  properties:
+    id: { type: string, format: uuid }
+    publisher_id: { type: string, format: uuid }
+    slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    kind: { type: string, enum: [art, capability, app_update] }
+    status: { $ref: '#/OwnedPackageStatus' }
+    visibility: { $ref: '#/PackageVisibility' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    summary: { type: string, maxLength: 1000 }
+    tags:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,63}$' }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+OwnedReleaseStatus:
+  type: string
+  enum: [draft, uploading, submitted, in_review, approved, published, rejected, yanked]
+
+OwnedRelease:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - package_id
+    - version
+    - status
+    - compatibility
+    - permissions
+    - created_by
+    - published_at
+    - yanked_at
+    - created_at
+    - updated_at
+  properties:
+    id: { type: string, format: uuid }
+    package_id: { type: string, format: uuid }
+    version:
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: '^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
+    status: { $ref: '#/OwnedReleaseStatus' }
+    compatibility: { $ref: './public-catalog.yaml#/PublicCompatibility' }
+    permissions:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 160 }
+    created_by: { $ref: '../openapi.yaml#/components/schemas/PrincipalRef' }
+    published_at: { type: [string, 'null'], format: date-time }
+    yanked_at: { type: [string, 'null'], format: date-time }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+OwnedReleasePage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/OwnedRelease' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }
+
+CreateReleaseRequest:
+  type: object
+  additionalProperties: false
+  required: [version, compatibility, permissions]
+  properties:
+    version:
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: '^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
+    compatibility: { $ref: './public-catalog.yaml#/PublicCompatibility' }
+    permissions:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 160 }
+
+UpdateReleaseRequest:
+  type: object
+  additionalProperties: false
+  required: [expected_updated_at, compatibility, permissions]
+  properties:
+    expected_updated_at: { type: string, format: date-time }
+    compatibility: { $ref: './public-catalog.yaml#/PublicCompatibility' }
+    permissions:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 160 }
+
+SigningKeyAlgorithm:
+  type: string
+  const: ed25519
+
+SigningKeyStatus:
+  type: string
+  enum: [active, revoked]
+
+RegisterSigningKeyRequest:
+  type: object
+  additionalProperties: false
+  required: [key_id, algorithm, public_key_base64]
+  properties:
+    key_id: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,79}$' }
+    algorithm: { $ref: '#/SigningKeyAlgorithm' }
+    public_key_base64:
+      type: string
+      format: byte
+      pattern: '^[A-Za-z0-9+/]{43}=$'
+
+RevokeSigningKeyRequest:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 500 }
+
+PublisherSigningKey:
+  type: object
+  additionalProperties: false
+  required: [publisher_id, key_id, algorithm, public_key_base64, fingerprint, status,
+    created_at, revoked_at]
+  properties:
+    publisher_id: { type: string, format: uuid }
+    key_id: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,79}$' }
+    algorithm: { $ref: '#/SigningKeyAlgorithm' }
+    public_key_base64: { type: string, format: byte, pattern: '^[A-Za-z0-9+/]{43}=$' }
+    fingerprint: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+    status: { $ref: '#/SigningKeyStatus' }
+    created_at: { type: string, format: date-time }
+    revoked_at: { type: [string, 'null'], format: date-time }
+
+PublisherSigningKeyPage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/PublisherSigningKey' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }
+
+PublisherArtifactSummary:
+  type: object
+  additionalProperties: false
+  required: [id, status, file_name, size_bytes, media_type, expected_digest, verified_digest,
+    scanner_version, rule_version, verified_at, created_at, updated_at]
+  properties:
+    id: { type: string, format: uuid }
+    status: { type: string, enum: [pending_upload, uploaded, scanning, verified, quarantined, deleted] }
+    file_name: { type: string, maxLength: 240, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,235}\\.zip$' }
+    size_bytes: { type: integer, minimum: 1, maximum: 2147483648 }
+    media_type: { type: string, minLength: 1, maxLength: 200 }
+    expected_digest: { type: [string, 'null'], pattern: '^sha256:[a-f0-9]{64}$' }
+    verified_digest: { type: [string, 'null'], pattern: '^sha256:[a-f0-9]{64}$' }
+    scanner_version: { type: [string, 'null'], minLength: 1, maxLength: 100 }
+    rule_version: { type: [string, 'null'], minLength: 1, maxLength: 100 }
+    verified_at: { type: [string, 'null'], format: date-time }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+PublisherSubmissionSummary:
+  type: object
+  additionalProperties: false
+  required: [id, artifact_id, revision, status, required_approvals, approval_count,
+    submitted_at, updated_at]
+  properties:
+    id: { type: string, format: uuid }
+    artifact_id: { type: string, format: uuid }
+    revision: { type: integer, minimum: 1, maximum: 10000 }
+    status: { type: string, enum: [in_review, changes_requested, approved, rejected, withdrawn] }
+    required_approvals: { type: integer, enum: [1, 2] }
+    approval_count: { type: integer, minimum: 0, maximum: 2 }
+    submitted_at: { type: [string, 'null'], format: date-time }
+    updated_at: { type: string, format: date-time }
+
+PublisherReviewFeedback:
+  type: object
+  additionalProperties: false
+  required: [revision, decision, reason, findings, decided_at]
+  properties:
+    revision: { type: integer, minimum: 1, maximum: 10000 }
+    decision: { type: string, enum: [approved, rejected, needs_changes] }
+    reason: { type: string, maxLength: 4000 }
+    findings:
+      type: array
+      maxItems: 100
+      items: { $ref: '../openapi.yaml#/components/schemas/ReviewFinding' }
+    decided_at: { type: string, format: date-time }
+
+PublisherReleaseWorkspace:
+  type: object
+  additionalProperties: false
+  required: [schema_version, release_id, artifacts, artifacts_truncated, submission,
+    feedback, feedback_truncated, can_upload]
+  properties:
+    schema_version: { const: '1.0' }
+    release_id: { type: string, format: uuid }
+    artifacts:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/PublisherArtifactSummary' }
+    artifacts_truncated: { type: boolean }
+    submission: { anyOf: [{ $ref: '#/PublisherSubmissionSummary' }, { type: 'null' }] }
+    feedback:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/PublisherReviewFeedback' }
+    feedback_truncated: { type: boolean }
+    can_upload: { type: boolean }

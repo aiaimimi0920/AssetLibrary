@@ -1,0 +1,7 @@
+cloudflare_account_id = "replace-with-staging-account-id"
+cloudflare_zone_id    = "replace-with-staging-zone-id"
+dns_zone              = "staging.example.invalid"
+web_origin_hostname   = "assetlibrary-staging-ingress.example.invalid"
+quarantine_abort_multipart_seconds = 86400
+quarantine_retention_seconds       = 604800
+published_lock_seconds             = 604800

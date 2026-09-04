@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "evidence_requirement": "measured_provider_export",
+  "budget_window": "calendar_month",
+  "currency_source": "provider_export",
+  "tax_treatment_source": "evidence_manifest",
+  "categories": [
+    "storage",
+    "requests",
+    "egress",
+    "database",
+    "cluster",
+    "search",
+    "analytics",
+    "observability"
+  ],
+  "thresholds": [
+    {
+      "percent": 50,
+      "severity": "informational",
+      "route": "independent_billing_channel"
+    },
+    {
+      "percent": 80,
+      "severity": "warning",
+      "route": "independent_billing_channel"
+    },
+    {
+      "percent": 100,
+      "severity": "critical",
+      "route": "independent_billing_channel"
+    }
+  ],
+  "allocation": {
+    "required_labels": [
+      "environment",
+      "service",
+      "component",
+      "region",
+      "owner",
+      "cost-center"
+    ],
+    "forbidden_labels": [
+      "publisher_id",
+      "package_id",
+      "digest",
+      "principal",
+      "request_id",
+      "trace_id"
+    ],
+    "value_policy": "bounded_allowlist"
+  },
+  "evidence": {
+    "required_fields": [
+      "environment",
+      "window_start",
+      "window_end",
+      "provider",
+      "provider_export_sha256",
+      "formula_version",
+      "currency",
+      "tax_treatment",
+      "reviewer",
+      "alert_delivery_evidence"
+    ],
+    "provider_export_redacted": true,
+    "provider_export_sha256_required": true,
+    "alert_delivery_thresholds": [50, 80, 100]
+  }
+}

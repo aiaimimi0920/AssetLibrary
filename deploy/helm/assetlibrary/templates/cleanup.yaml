@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "assetlibrary.name" . }}-cleanup
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+spec:
+  schedule: {{ .Values.cleanup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: {{ .Values.cleanup.activeDeadlineSeconds }}
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            {{- include "assetlibrary.labels" . | nindent 12 }}
+            app.kubernetes.io/component: cleanup
+          annotations:
+            assetlibrary.neuro/required-pids-limit: {{ .Values.cleanup.pidsLimit | quote }}
+        spec:
+          runtimeClassName: {{ required "cleanup.runtimeClassName must enforce sandbox and PID limits" .Values.cleanup.runtimeClassName }}
+          serviceAccountName: {{ include "assetlibrary.name" . }}
+          automountServiceAccountToken: false
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile: { type: RuntimeDefault }
+          containers:
+            - name: cleanup
+              image: {{ required "cleanup.image must be a digest-pinned image" .Values.cleanup.image }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                runAsUser: 65532
+                runAsGroup: 65532
+                allowPrivilegeEscalation: false
+                capabilities: { drop: ["ALL"] }
+                readOnlyRootFilesystem: true
+              env:
+                - { name: ASSETLIBRARY_ENVIRONMENT, value: {{ .Values.config.environment | quote }} }
+                - { name: ASSETLIBRARY_CLEANUP_BATCH_SIZE, value: {{ .Values.cleanup.batchSize | quote }} }
+                - { name: ASSETLIBRARY_CLEANUP_CLAIM_TIMEOUT_SECONDS, value: {{ .Values.cleanup.claimTimeoutSeconds | quote }} }
+                - { name: ASSETLIBRARY_QUARANTINE_RETENTION_SECONDS, value: {{ .Values.cleanup.quarantineRetentionSeconds | quote }} }
+                - { name: ASSETLIBRARY_ORPHAN_MULTIPART_GRACE_SECONDS, value: {{ .Values.cleanup.orphanMultipartGraceSeconds | quote }} }
+                - { name: ASSETLIBRARY_ORPHAN_MULTIPART_SCAN_LIMIT, value: {{ .Values.cleanup.orphanMultipartScanLimit | quote }} }
+                - { name: ASSETLIBRARY_ORPHAN_MULTIPART_BATCH_SIZE, value: {{ .Values.cleanup.orphanMultipartBatchSize | quote }} }
+                - { name: ASSETLIBRARY_METRICS_BIND, value: {{ printf "0.0.0.0:%v" .Values.observability.metricsPort | quote }} }
+              {{- with .Values.observability.otlpEndpoint }}
+                - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ . | quote }} }
+              {{- end }}
+              envFrom:
+                - secretRef: { name: {{ .Values.config.cleanupSecretName | quote }} }
+              resources:
+                {{- toYaml .Values.cleanup.resources | nindent 16 }}
+              ports:
+                - { name: metrics, containerPort: {{ .Values.observability.metricsPort }} }
+              volumeMounts:
+                - { name: temp, mountPath: /tmp }
+          volumes:
+            - name: temp
+              emptyDir: { sizeLimit: 128Mi }

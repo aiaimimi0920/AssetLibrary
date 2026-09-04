@@ -1,0 +1,7 @@
+cloudflare_account_id = "replace-with-production-account-id"
+cloudflare_zone_id    = "replace-with-production-zone-id"
+dns_zone              = "example.invalid"
+web_origin_hostname   = "assetlibrary-production-ingress.example.invalid"
+quarantine_abort_multipart_seconds = 86400
+quarantine_retention_seconds       = 2592000
+published_lock_seconds             = 31536000

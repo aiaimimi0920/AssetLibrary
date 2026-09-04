@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "assetlibrary.name" . }}-clamav
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+data:
+  clamd.conf: |
+    Foreground yes
+    TCPSocket 3310
+    TCPAddr 127.0.0.1
+    User clamav
+    DatabaseDirectory /var/lib/clamav
+    TemporaryDirectory /tmp
+    StreamMaxLength 2048M
+    MaxScanSize 10240M
+    MaxFileSize 2048M
+    MaxRecursion 32
+    MaxFiles 10000
+    MaxThreads 2
+    MaxQueue 4
+    ReadTimeout {{ .Values.scanner.scanTimeoutSeconds }}

@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Publisher Packages API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/me/publishers: { $ref: '../openapi.yaml#/paths/~1v1~1me~1publishers' }
+  /v1/me/publishers/{publisher_id}/packages: { $ref: '../openapi.yaml#/paths/~1v1~1me~1publishers~1{publisher_id}~1packages' }
+  /v1/me/packages/{package_id}: { $ref: '../openapi.yaml#/paths/~1v1~1me~1packages~1{package_id}' }

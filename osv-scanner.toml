@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+ignoreUntil = 2026-12-02
+reason = "Disabled jsonwebtoken rsa backend is absent from every compiled target; see security/dependency-exceptions.json."

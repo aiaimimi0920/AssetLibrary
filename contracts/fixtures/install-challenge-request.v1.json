@@ -1,0 +1,17 @@
+{
+  "receipt_id": "018f47d2-4a75-7fa1-a12b-9a1f19d46ec0",
+  "client_instance_id": "018f47d2-4a75-7fa1-a12b-9a1f19d46ec1",
+  "receipt_public_key_base64": "ERERERERERERERERERERERERERERERERERERERERERE=",
+  "host": {
+    "loom_version": "0.1.0",
+    "hook_version": "0.1.0",
+    "platform": "windows-x64",
+    "loom_capability_api": { "version": "1.0", "features": [] },
+    "hook_extension_api": { "version": "1.0", "features": [] },
+    "surface_api": { "version": "1.0", "features": [] },
+    "surface_nodes": [],
+    "frameworks": [
+      { "id": "neuro/runtime", "version": "1.0.0", "ready": true }
+    ]
+  }
+}

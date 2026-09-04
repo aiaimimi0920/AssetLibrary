@@ -1,0 +1,9 @@
+progressiveDelivery:
+  enabled: true
+  trafficRouter:
+    apiHost: api.assetlibrary.example
+    webHost: store.assetlibrary.example
+    apiTlsSecretName: assetlibrary-api-tls
+    webTlsSecretName: assetlibrary-web-tls
+  analysis:
+    prometheusAddress: http://prometheus-operated.monitoring.svc.cluster.local:9090

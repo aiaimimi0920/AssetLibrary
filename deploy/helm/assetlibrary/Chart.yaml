@@ -1,0 +1,6 @@
+apiVersion: v2
+name: assetlibrary
+description: Neuro AssetLibrary control-plane and web deployment
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

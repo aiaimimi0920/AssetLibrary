@@ -1,0 +1,55 @@
+ReviewQueue:
+  get:
+    summary: List a stable snapshot of submissions awaiting manual review
+    operationId: listReviewQueue
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Bounded review queue without raw scanner evidence or storage coordinates.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/operator-review.yaml#/OperatorReviewQueuePage' }
+      '400': { description: Cursor or limit is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active reviewer or operator role is required. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+Submission:
+  get:
+    summary: Get sanitized evidence and current-revision decisions for one submission
+    operationId: getOperatorSubmission
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/SubmissionId' }
+    responses:
+      '200':
+        description: Review workspace data without account principals, raw scan evidence, or object keys.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/operator-review.yaml#/OperatorSubmissionDetail' }
+      '400': { description: Submission identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active reviewer or operator role is required. }
+      '404': { description: Submission was not found. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+PageCursor:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string, maxLength: 256 }
+
+PageLimit:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+
+PrivateCacheControl:
+  description: Authenticated operator data must not be stored by shared or private caches.
+  schema: { type: string, const: 'private, no-store' }

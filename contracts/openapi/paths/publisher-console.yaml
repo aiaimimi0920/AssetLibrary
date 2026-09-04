@@ -1,0 +1,321 @@
+Memberships:
+  get:
+    summary: List active publisher memberships for the current external principal
+    operationId: listMyPublisherMemberships
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Publisher memberships scoped to the authenticated principal.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/PublisherMembershipPage' }
+      '400': { description: Cursor or limit is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+PublisherPackages:
+  get:
+    summary: List packages owned by one authorized publisher membership
+    operationId: listOwnedPackages
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PublisherId' }
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Newest-updated-first package page including non-public lifecycle states.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedPackagePage' }
+      '400': { description: "Publisher identifier, cursor, or limit is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '503': { description: Persistence dependency unavailable. }
+  post:
+    summary: Create an idempotent package draft
+    operationId: createPackageDraft
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PublisherId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/CreatePackageRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or newly created package draft.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedPackage' }
+      '400': { description: Package metadata or publisher identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active owner or maintainer role is required. }
+      '409': { description: "Slug, publisher lifecycle, or idempotency state conflicts." }
+      '501': { description: App Update package creation is feature-disabled. }
+      '503': { description: Persistence dependency unavailable. }
+
+SigningKeys:
+  get:
+    summary: List signing keys for an authorized publisher membership
+    operationId: listPublisherSigningKeys
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PublisherId' }
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Signing-key public material and lifecycle state; private key material never enters AssetLibrary.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/PublisherSigningKeyPage' }
+      '400': { description: "Publisher identifier, cursor, or limit is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '503': { description: Persistence dependency unavailable. }
+  post:
+    summary: Register immutable Ed25519 public key material
+    operationId: registerPublisherSigningKey
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PublisherId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/RegisterSigningKeyRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or newly registered public key.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/PublisherSigningKey' }
+      '400': { description: 'Key identifier, algorithm, or canonical public key is invalid.' }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher owner or maintainer role is required. }
+      '409': { description: "Publisher lifecycle, key identity, public-key reuse, or idempotency state conflicts." }
+      '503': { description: Persistence dependency unavailable. }
+
+SigningKeyRevoke:
+  post:
+    summary: Irreversibly revoke a publisher signing key
+    operationId: revokePublisherSigningKey
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PublisherId' }
+      - { $ref: '#/SigningKeyId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/RevokeSigningKeyRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or terminal revoked key state.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/PublisherSigningKey' }
+      '400': { description: 'Publisher identifier, key identifier, or reason is invalid.' }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher owner or maintainer role is required. }
+      '404': { description: Signing key was not found. }
+      '409': { description: Publisher lifecycle or idempotency state conflicts. }
+      '503': { description: Persistence dependency unavailable. }
+
+PackageReleases:
+  get:
+    summary: List releases owned by an authorized package publisher
+    operationId: listOwnedReleases
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PackageId' }
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Newest-created-first release page including non-public lifecycle states.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedReleasePage' }
+      '400': { description: "Package identifier, cursor, or limit is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '404': { description: Package was not found. }
+      '503': { description: Persistence dependency unavailable. }
+  post:
+    summary: Create an immutable semantic-version release draft
+    operationId: createReleaseDraft
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PackageId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/CreateReleaseRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or newly created release draft.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedRelease' }
+      '400': { description: "Version, compatibility, permissions, or package identifier is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: "Active owner, maintainer, or release-manager role is required." }
+      '409': { description: "Version, package lifecycle, publisher lifecycle, or idempotency state conflicts." }
+      '501': { description: App Update release creation is feature-disabled. }
+      '503': { description: Persistence dependency unavailable. }
+
+Package:
+  get:
+    summary: Get a complete package owned by an authorized publisher membership
+    operationId: getOwnedPackage
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PackageId' }
+    responses:
+      '200':
+        description: Complete owned package metadata including its bounded description.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedPackage' }
+      '400': { description: Package identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '404': { description: Package was not found. }
+      '503': { description: Persistence dependency unavailable. }
+  patch:
+    summary: Idempotently edit mutable metadata on a draft package
+    operationId: updatePackageDraft
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/PackageId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/UpdatePackageRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or newly updated draft package.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedPackage' }
+      '400': { description: "Editable metadata, timestamp, or package identifier is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active owner or maintainer role is required. }
+      '409': { description: "Package lifecycle, publisher lifecycle, optimistic concurrency, or idempotency state conflicts." }
+      '501': { description: App Update package editing is feature-disabled. }
+      '503': { description: Persistence dependency unavailable. }
+
+Release:
+  get:
+    summary: Get one release owned by an authorized publisher membership
+    operationId: getOwnedRelease
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ReleaseId' }
+    responses:
+      '200':
+        description: Complete owned release metadata without artifact storage or scanner evidence.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedRelease' }
+      '400': { description: Release identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '404': { description: Release was not found. }
+      '503': { description: Persistence dependency unavailable. }
+  patch:
+    summary: Idempotently edit compatibility and permissions on a draft release
+    operationId: updateReleaseDraft
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ReleaseId' }
+      - { $ref: '../openapi.yaml#/components/parameters/IdempotencyKey' }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/publisher-console.yaml#/UpdateReleaseRequest' }
+    responses:
+      '200':
+        description: Existing idempotent result or newly updated draft release.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/OwnedRelease' }
+      '400': { description: "Compatibility, permissions, timestamp, or release identifier is invalid." }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: "Active owner, maintainer, or release-manager role is required." }
+      '409': { description: "Release lifecycle, publisher lifecycle, optimistic concurrency, or idempotency state conflicts." }
+      '501': { description: App Update release editing is feature-disabled. }
+      '503': { description: Persistence dependency unavailable. }
+
+ReleaseWorkspace:
+  get:
+    summary: Read bounded artifact, submission, and review feedback for an owned release
+    operationId: getPublisherReleaseWorkspace
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/ReleaseId' }
+    responses:
+      '200':
+        description: Sanitized Publisher supply-chain state without object keys or reviewer principals.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-console.yaml#/PublisherReleaseWorkspace' }
+      '400': { description: Release identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active publisher membership is required. }
+      '503': { description: Persistence dependency unavailable. }
+
+PublisherId:
+  name: publisher_id
+  in: path
+  required: true
+  schema: { type: string, format: uuid }
+
+SigningKeyId:
+  name: key_id
+  in: path
+  required: true
+  schema: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,79}$' }
+
+PageCursor:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string, maxLength: 256 }
+
+PageLimit:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+PrivateCacheControl:
+  description: Authenticated publisher data must not be stored by shared or private caches.
+  schema: { type: string, const: 'private, no-store' }

@@ -1,0 +1,53 @@
+ModerationCases:
+  get:
+    summary: List applied moderation cases visible to the affected publisher
+    operationId: listMyPublisherModerationCases
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Stable page of enforcement summaries scoped to active publisher memberships.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-moderation.yaml#/PublisherModerationCasePage' }
+      '400': { description: Cursor or limit is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+ModerationCase:
+  get:
+    summary: Get an applied moderation case and appeal state as its publisher
+    operationId: getMyPublisherModerationCase
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CaseId' }
+    responses:
+      '200':
+        description: Enforcement and appeal facts without report evidence, principals, or internal storage data.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/publisher-moderation.yaml#/PublisherModerationCaseDetail' }
+      '400': { description: Case identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '404': { description: 'Case is absent, not yet enforced, or outside active publisher memberships.' }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+PageCursor:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string, maxLength: 256 }
+
+PageLimit:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+
+PrivateCacheControl:
+  description: Publisher moderation data must not be stored by shared or private caches.
+  schema: { type: string, const: 'private, no-store' }

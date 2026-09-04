@@ -1,0 +1,77 @@
+DownloadArtifact:
+  type: object
+  additionalProperties: false
+  required: [artifact_id, release_id, digest, size_bytes, media_type, file_name]
+  properties:
+    artifact_id: { type: string, format: uuid }
+    release_id: { type: string, format: uuid }
+    digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+    size_bytes: { type: integer, format: int64, minimum: 1 }
+    media_type: { type: string, minLength: 1, maxLength: 200 }
+    file_name: { type: string, pattern: '^[A-Za-z0-9._-]{1,180}$' }
+
+PublicDownload:
+  type: object
+  additionalProperties: false
+  required: [schema_version, artifact, download_url]
+  properties:
+    schema_version: { const: '1.0' }
+    artifact: { $ref: '#/DownloadArtifact' }
+    download_url: { type: string, format: uri }
+
+CreateDownloadSessionRequest:
+  type: object
+  additionalProperties: false
+  required: [client_type]
+  properties:
+    client_type: { type: string, enum: [web, loom, hook, cli] }
+
+DownloadSession:
+  type: object
+  additionalProperties: false
+  required: [schema_version, session_id, artifact, download_url, access_token, expires_at]
+  properties:
+    schema_version: { const: '1.0' }
+    session_id: { type: string, format: uuid }
+    artifact: { $ref: '#/DownloadArtifact' }
+    download_url: { type: string, format: uri }
+    access_token:
+      type: string
+      minLength: 64
+      maxLength: 4096
+      description: Sensitive bearer ticket; never persist or log this value.
+    expires_at: { type: string, format: date-time }
+
+UpdateLibraryEntryRequest:
+  type: object
+  additionalProperties: false
+  required: [status, favorite, installed_release_id, installed_artifact_id]
+  properties:
+    status: { type: string, enum: [listed, hidden, removed] }
+    favorite: { type: boolean }
+    installed_release_id: { type: [string, 'null'], format: uuid }
+    installed_artifact_id: { type: [string, 'null'], format: uuid }
+
+LibraryEntry:
+  type: object
+  additionalProperties: false
+  required: [package, status, favorite, installed_release_id, installed_artifact_id, updated_at]
+  properties:
+    package: { $ref: '../openapi.yaml#/components/schemas/Package' }
+    status: { type: string, enum: [listed, hidden, removed] }
+    favorite: { type: boolean }
+    installed_release_id: { type: [string, 'null'], format: uuid }
+    installed_artifact_id: { type: [string, 'null'], format: uuid }
+    updated_at: { type: string, format: date-time }
+
+LibraryPage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/LibraryEntry' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuro.example/schemas/cost-budget-policy.schema.json",
+  "title": "AssetLibrary cost budget policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_requirement",
+    "budget_window",
+    "currency_source",
+    "tax_treatment_source",
+    "categories",
+    "thresholds",
+    "allocation",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "evidence_requirement": { "const": "measured_provider_export" },
+    "budget_window": { "const": "calendar_month" },
+    "currency_source": { "const": "provider_export" },
+    "tax_treatment_source": { "const": "evidence_manifest" },
+    "categories": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "storage",
+          "requests",
+          "egress",
+          "database",
+          "cluster",
+          "search",
+          "analytics",
+          "observability"
+        ]
+      }
+    },
+    "thresholds": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["percent", "severity", "route"],
+        "properties": {
+          "percent": { "enum": [50, 80, 100] },
+          "severity": { "enum": ["informational", "warning", "critical"] },
+          "route": { "const": "independent_billing_channel" }
+        }
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_labels", "forbidden_labels", "value_policy"],
+      "properties": {
+        "required_labels": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z-]*$" }
+        },
+        "forbidden_labels": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z_]*$" }
+        },
+        "value_policy": { "const": "bounded_allowlist" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fields",
+        "provider_export_redacted",
+        "provider_export_sha256_required",
+        "alert_delivery_thresholds"
+      ],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+        },
+        "provider_export_redacted": { "const": true },
+        "provider_export_sha256_required": { "const": true },
+        "alert_delivery_thresholds": {
+          "type": "array",
+          "prefixItems": [{ "const": 50 }, { "const": 80 }, { "const": 100 }],
+          "items": false
+        }
+      }
+    }
+  }
+}

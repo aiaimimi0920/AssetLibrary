@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Publisher Moderation API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/me/moderation-cases: { $ref: '../openapi.yaml#/paths/~1v1~1me~1moderation-cases' }
+  /v1/me/moderation-cases/{case_id}: { $ref: '../openapi.yaml#/paths/~1v1~1me~1moderation-cases~1{case_id}' }
+  /v1/me/moderation-cases/{case_id}/appeal: { $ref: '../openapi.yaml#/paths/~1v1~1me~1moderation-cases~1{case_id}~1appeal' }

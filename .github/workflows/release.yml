@@ -1,0 +1,377 @@
+name: Release candidate images
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer without a leading v
+        required: true
+        type: string
+      source_ref:
+        description: Exact 40-character commit SHA to release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    permissions:
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/security-policy.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+    secrets: inherit
+
+  quality:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      source_ref: ${{ inputs.source_ref || github.sha }}
+
+  prepare:
+    needs: [security, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      source_commit: ${{ steps.release.outputs.source_commit }}
+      registry_prefix: ${{ steps.release.outputs.registry_prefix }}
+      matrix: ${{ steps.release.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.security.outputs.scanned_commit }}
+      - id: release
+        name: Bind version, source, and image matrix
+        env:
+          SCANNED_COMMIT: ${{ needs.security.outputs.scanned_commit }}
+          VALIDATED_COMMIT: ${{ needs.quality.outputs.validated_commit }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$SCANNED_COMMIT" = "$VALIDATED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$SCANNED_COMMIT"
+          if [[ "$GITHUB_EVENT_NAME" = "push" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            test "$GITHUB_REF_NAME" = "v$version"
+          else
+            version="$REQUESTED_VERSION"
+          fi
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
+          repository="${GITHUB_REPOSITORY,,}"
+          {
+            echo "version=$version"
+            echo "source_commit=$SCANNED_COMMIT"
+            echo "registry_prefix=ghcr.io/$repository"
+            echo "matrix=$(jq -c '{include: .components}' deploy/images/build-matrix.json)"
+          } >> "$GITHUB_OUTPUT"
+
+  build-image:
+    needs: [security, prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      IMAGE: ${{ needs.prepare.outputs.registry_prefix }}/${{ matrix.name }}
+      DIGEST: ""
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+      - name: Recheck source identity
+        env:
+          EXPECTED_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT" && test -z "$(git status --porcelain)"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - id: build
+        name: Build and push immutable source image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          pull: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.prepare.outputs.version }}
+            ${{ env.IMAGE }}:sha-${{ needs.prepare.outputs.source_commit }}
+          build-args: |
+            PACKAGE=${{ matrix.package }}
+            BINARY=${{ matrix.binary }}
+            SOURCE_COMMIT=${{ needs.prepare.outputs.source_commit }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+            VERSION=${{ needs.prepare.outputs.version }}
+          provenance: mode=max
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+      - name: Prepare image evidence directory
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          COMPONENT: ${{ matrix.name }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          mkdir -p "release/evidence/images/$COMPONENT"
+          jq -n \
+            --arg component "$COMPONENT" --arg image "$IMAGE" --arg digest "$IMAGE_DIGEST" \
+            --arg version "$VERSION" --arg commit "$SOURCE_COMMIT" \
+            '{schema_version:"1.0",component:$component,image:$image,digest:$digest,version:$version,git_commit:$commit}' \
+            > "release/evidence/images/$COMPONENT/image.json"
+      - name: Generate image SPDX SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: release/evidence/images/${{ matrix.name }}/image.spdx.json
+          syft-version: v1.51.1
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Scan image and SBOM
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          COMPONENT: ${{ matrix.name }}
+        run: |
+          docker run --rm \
+            -e TRIVY_USERNAME -e TRIVY_PASSWORD \
+            -v "$PWD/release/evidence/images/$COMPONENT:/evidence" \
+            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            image --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
+            --format json --output /evidence/trivy-image.json "$IMAGE@$IMAGE_DIGEST"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Sign and verify image identity
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          COMPONENT: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          cosign sign --yes "$IMAGE@$IMAGE_DIGEST"
+          cosign verify "$IMAGE@$IMAGE_DIGEST" \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --output json > "release/evidence/images/$COMPONENT/cosign-verification.json"
+      - id: provenance
+        name: Attest SLSA provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - id: sbom-attestation
+        name: Attest image SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: release/evidence/images/${{ matrix.name }}/image.spdx.json
+          push-to-registry: true
+      - name: Preserve attestation bundles and checksums
+        env:
+          COMPONENT: ${{ matrix.name }}
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom-attestation.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cp "$PROVENANCE_BUNDLE" "release/evidence/images/$COMPONENT/provenance.sigstore.json"
+          cp "$SBOM_BUNDLE" "release/evidence/images/$COMPONENT/sbom.sigstore.json"
+          cd "release/evidence/images/$COMPONENT"
+          sha256sum image.json image.spdx.json trivy-image.json cosign-verification.json \
+            provenance.sigstore.json sbom.sigstore.json > SHA256SUMS
+      - name: Upload signed image evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-evidence-${{ matrix.name }}-${{ needs.prepare.outputs.source_commit }}
+          path: release/evidence/images/${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 90
+
+  image-smoke:
+    needs: [prepare, build-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+      - name: Download immutable image evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "image-evidence-*-${{ needs.prepare.outputs.source_commit }}"
+          path: release/downloads
+          merge-multiple: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull exact API and web digests
+        env:
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          api_json="release/downloads/image-evidence-api-${SOURCE_COMMIT}/image.json"
+          web_json="release/downloads/image-evidence-web-${SOURCE_COMMIT}/image.json"
+          api_ref="$(jq -er '.image + "@" + .digest' "$api_json")"
+          web_ref="$(jq -er '.image + "@" + .digest' "$web_json")"
+          api_digest="$(jq -er '.digest' "$api_json")"
+          web_digest="$(jq -er '.digest' "$web_json")"
+          docker pull "$api_ref"
+          docker pull "$web_ref"
+          test "$(docker image inspect "$api_ref" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$SOURCE_COMMIT"
+          test "$(docker image inspect "$web_ref" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$SOURCE_COMMIT"
+          {
+            echo "API_REF=$api_ref"
+            echo "WEB_REF=$web_ref"
+            echo "API_DIGEST=$api_digest"
+            echo "WEB_DIGEST=$web_digest"
+          } >> "$GITHUB_ENV"
+      - name: Probe packaged API and web images
+        shell: pwsh
+        run: ./scripts/Test-ContainerImages.ps1 -ApiImage $env:API_REF -WebImage $env:WEB_REF
+      - name: Record same-digest runtime evidence
+        env:
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+        run: |
+          mkdir -p release/evidence/tests
+          jq -n \
+            --arg commit "$SOURCE_COMMIT" \
+            --arg api_digest "$API_DIGEST" \
+            --arg web_digest "$WEB_DIGEST" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{schema_version:"1.0",source_commit:$commit,status:"passed",api_digest:$api_digest,web_digest:$web_digest,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt}' \
+            > release/evidence/tests/image-runtime.json
+      - name: Upload image runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-runtime-evidence-${{ needs.prepare.outputs.source_commit }}
+          path: release/evidence/tests
+          if-no-files-found: error
+          retention-days: 90
+
+  candidate-evidence:
+    needs: [security, quality, prepare, build-image, image-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+      - name: Recheck candidate source identity
+        env:
+          EXPECTED_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          SECURITY_COMMIT: ${{ needs.security.outputs.scanned_commit }}
+          QUALITY_COMMIT: ${{ needs.quality.outputs.validated_commit }}
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_COMMIT" = "$SECURITY_COMMIT"
+          test "$EXPECTED_COMMIT" = "$QUALITY_COMMIT"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          test -z "$(git status --porcelain)"
+      - name: Download same-run evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "*-evidence-*${{ needs.prepare.outputs.source_commit }}"
+          path: release/downloads
+          merge-multiple: false
+      - name: Prepare bounded release candidate
+        run: |
+          node scripts/release-candidate-evidence.mjs \
+            --phase prepare \
+            --downloads release/downloads \
+            --output release/candidate \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --commit "${{ needs.prepare.outputs.source_commit }}" \
+            --registry-prefix "${{ needs.prepare.outputs.registry_prefix }}"
+      - name: Render and validate digest-bound deployment
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/src" \
+            alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 \
+            template assetlibrary /src/deploy/helm/assetlibrary \
+            -f /src/deploy/helm/values-ci.yaml \
+            -f /src/deploy/helm/values-observability-ci.yaml \
+            -f /src/release/candidate/deployment/values.yaml \
+            > release/candidate/deployment/manifest.yaml
+          docker run --rm -v "$PWD:/src" \
+            alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 \
+            template assetlibrary /src/deploy/helm/assetlibrary \
+            -f /src/deploy/helm/values-ci.yaml \
+            -f /src/deploy/helm/values-observability-ci.yaml \
+            -f /src/deploy/helm/values-progressive-ci.yaml \
+            -f /src/release/candidate/deployment/values.yaml \
+            > release/candidate/deployment/progressive-manifest.yaml
+          for manifest in manifest.yaml progressive-manifest.yaml; do
+            docker run --rm -i \
+              ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c \
+              -strict -ignore-missing-schemas -summary \
+              < "release/candidate/deployment/$manifest"
+          done
+      - name: Finalize and verify candidate evidence
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
+          REGISTRY_PREFIX: ${{ needs.prepare.outputs.registry_prefix }}
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm --dir apps/web install --frozen-lockfile --ignore-scripts
+          created_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          identity="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          node scripts/release-candidate-evidence.mjs \
+            --phase finalize \
+            --output release/candidate \
+            --version "$VERSION" \
+            --commit "$SOURCE_COMMIT" \
+            --repository "$GITHUB_REPOSITORY" \
+            --registry-prefix "$REGISTRY_PREFIX" \
+            --created-at "$created_at" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --identity "$identity"
+          node scripts/validate-json-schema.mjs \
+            --schema schemas/release-candidate-evidence.schema.json \
+            --document release/candidate/release-candidate.json
+          node scripts/release-candidate-evidence.mjs \
+            --phase verify \
+            --output release/candidate
+      - name: Upload immutable release candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate-${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.source_commit }}
+          path: release/candidate
+          if-no-files-found: error
+          retention-days: 90

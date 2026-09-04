@@ -1,0 +1,83 @@
+OperatorReviewPackage:
+  type: object
+  additionalProperties: false
+  required: [id, slug, name, kind, summary, publisher]
+  properties:
+    id: { type: string, format: uuid }
+    slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    kind: { type: string, enum: [art, capability, app_update] }
+    summary: { type: string, maxLength: 1000 }
+    publisher: { $ref: '../openapi.yaml#/components/schemas/PublisherSummary' }
+
+OperatorReviewQueueItem:
+  type: object
+  additionalProperties: false
+  required: [submission, package, release_version, submitted_at, updated_at]
+  properties:
+    submission: { $ref: '../openapi.yaml#/components/schemas/SubmissionView' }
+    package: { $ref: '#/OperatorReviewPackage' }
+    release_version:
+      type: string
+      minLength: 1
+      maxLength: 100
+      pattern: '^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$'
+    submitted_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+OperatorReviewQueuePage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/OperatorReviewQueueItem' }
+    next_cursor: { type: [string, 'null'], maxLength: 256 }
+
+OperatorArtifactEvidence:
+  type: object
+  additionalProperties: false
+  required: [digest, size_bytes, media_type, policy_version]
+  properties:
+    digest: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+    size_bytes: { type: integer, minimum: 1, maximum: 10737418240 }
+    media_type: { type: string, minLength: 1, maxLength: 200 }
+    policy_version: { type: string, minLength: 1, maxLength: 100 }
+
+OperatorReviewRecord:
+  type: object
+  additionalProperties: false
+  required: [id, revision, decision, reason, findings, decided_at]
+  properties:
+    id: { type: string, format: uuid }
+    revision: { type: integer, minimum: 1, maximum: 10000 }
+    decision: { type: string, enum: [approved, rejected, needs_changes] }
+    reason: { type: string, maxLength: 4000 }
+    findings:
+      type: array
+      maxItems: 100
+      items: { $ref: '../openapi.yaml#/components/schemas/ReviewFinding' }
+    decided_at: { type: string, format: date-time }
+
+OperatorSubmissionDetail:
+  type: object
+  additionalProperties: false
+  required: [schema_version, item, compatibility, permissions, evidence, reviews, can_review]
+  properties:
+    schema_version: { const: '1.0' }
+    item: { $ref: '#/OperatorReviewQueueItem' }
+    compatibility: { $ref: './public-catalog.yaml#/PublicCompatibility' }
+    permissions:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 160 }
+    evidence: { $ref: '#/OperatorArtifactEvidence' }
+    reviews:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/OperatorReviewRecord' }
+    can_review: { type: boolean }

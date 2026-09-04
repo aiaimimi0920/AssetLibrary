@@ -1,0 +1,9 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Publisher Upload API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/me/releases/{release_id}/workspace: { $ref: '../openapi.yaml#/paths/~1v1~1me~1releases~1{release_id}~1workspace' }
+  /v1/me/releases/{release_id}/upload-sessions: { $ref: '../openapi.yaml#/paths/~1v1~1me~1releases~1{release_id}~1upload-sessions' }
+  /v1/me/upload-sessions/{session_id}/parts/{part_number}: { $ref: '../openapi.yaml#/paths/~1v1~1me~1upload-sessions~1{session_id}~1parts~1{part_number}' }
+  /v1/me/upload-sessions/{session_id}/complete: { $ref: '../openapi.yaml#/paths/~1v1~1me~1upload-sessions~1{session_id}~1complete' }

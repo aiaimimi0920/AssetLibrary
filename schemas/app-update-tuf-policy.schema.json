@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetlibrary.neuro.local/schemas/app-update-tuf-policy.schema.json",
+  "title": "AssetLibrary application-update TUF policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "implementation", "roles", "expiry_hours", "repositories", "admission"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crate", "version", "tuf_specification", "delegated_roles", "consistent_snapshot", "expiration_enforcement", "limits"],
+      "properties": {
+        "crate": { "const": "tough" },
+        "version": { "const": "0.24.0" },
+        "tuf_specification": { "const": "1.0.0" },
+        "delegated_roles": { "const": false },
+        "consistent_snapshot": { "const": true },
+        "expiration_enforcement": { "const": "safe" },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root_bytes", "targets_bytes", "snapshot_bytes", "timestamp_bytes", "root_updates", "control_bytes", "artifact_bytes"],
+          "properties": {
+            "root_bytes": { "const": 262144 },
+            "targets_bytes": { "const": 4194304 },
+            "snapshot_bytes": { "const": 262144 },
+            "timestamp_bytes": { "const": 262144 },
+            "root_updates": { "const": 32 },
+            "control_bytes": { "const": 65536 },
+            "artifact_bytes": { "const": 2147483648 }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "targets", "snapshot", "timestamp"],
+      "properties": {
+        "root": { "$ref": "#/$defs/offlineRole" },
+        "targets": { "$ref": "#/$defs/offlineRole" },
+        "snapshot": { "$ref": "#/$defs/onlineRole" },
+        "timestamp": { "$ref": "#/$defs/onlineRole" }
+      }
+    },
+    "expiry_hours": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "targets", "snapshot", "timestamp"],
+      "properties": {
+        "root": { "const": 8760 },
+        "targets": { "const": 2160 },
+        "snapshot": { "const": 168 },
+        "timestamp": { "const": 24 }
+      }
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "product", "channel", "root_key_set"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(loom|hook)-(stable|beta|nightly)$" },
+          "product": { "enum": ["loom", "hook"] },
+          "channel": { "enum": ["stable", "beta", "nightly"] },
+          "root_key_set": { "type": "string", "pattern": "^(loom|hook)-(stable|beta|nightly)-root$" }
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_updates_enabled", "production_repository_initialized", "root_ceremony_verified", "client_activation_verified"],
+      "properties": {
+        "app_updates_enabled": { "const": false },
+        "production_repository_initialized": { "const": false },
+        "root_ceremony_verified": { "const": false },
+        "client_activation_verified": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "offlineRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "keys", "algorithm", "custody"],
+      "properties": {
+        "threshold": { "const": 2 },
+        "keys": { "const": 3 },
+        "algorithm": { "const": "ed25519" },
+        "custody": { "const": "offline-independent" }
+      }
+    },
+    "onlineRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "keys", "algorithm", "custody"],
+      "properties": {
+        "threshold": { "const": 1 },
+        "keys": { "const": 1 },
+        "algorithm": { "const": "ecdsa-sha2-nistp256" },
+        "custody": { "const": "online-hsm" }
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "assetlibrary.name" . }}-indexer
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: indexer
+spec:
+  replicas: {{ .Values.indexer.replicas }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: indexer
+  template:
+    metadata:
+      labels:
+        {{- include "assetlibrary.labels" . | nindent 8 }}
+        app.kubernetes.io/component: indexer
+    spec:
+      serviceAccountName: {{ include "assetlibrary.name" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 90
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: indexer
+      containers:
+        - name: indexer
+          image: {{ required "indexer.image must be a digest-pinned image" .Values.indexer.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          env:
+            - { name: ASSETLIBRARY_ENVIRONMENT, value: {{ .Values.config.environment | quote }} }
+            - { name: ASSETLIBRARY_INDEXER_CONSUMER, value: {{ .Values.indexer.consumerName | quote }} }
+            - { name: ASSETLIBRARY_SEARCH_INDEX_PREFIX, value: {{ .Values.indexer.indexPrefix | quote }} }
+            - { name: ASSETLIBRARY_SEARCH_ALIAS, value: {{ .Values.config.searchAlias | quote }} }
+            - { name: ASSETLIBRARY_METRICS_BIND, value: {{ printf "0.0.0.0:%v" .Values.observability.metricsPort | quote }} }
+          {{- with .Values.observability.otlpEndpoint }}
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ . | quote }} }
+          {{- end }}
+          envFrom:
+            - secretRef: { name: {{ .Values.config.indexerSecretName | quote }} }
+          resources:
+            {{- toYaml .Values.indexer.resources | nindent 12 }}
+          ports:
+            - { name: metrics, containerPort: {{ .Values.observability.metricsPort }} }
+          volumeMounts:
+            - { name: temp, mountPath: /tmp }
+      volumes:
+        - name: temp
+          emptyDir: { sizeLimit: 128Mi }

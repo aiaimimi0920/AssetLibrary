@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "items": [
+    {
+      "id": "018f47d2-4a75-7fa1-a12b-9a1f19d46ea0",
+      "slug": "neuro-starter-art",
+      "name": "Neuro Starter Art",
+      "kind": "art",
+      "publisher": {
+        "id": "018f47d2-4a75-7fa1-a12b-9a1f19d46ea1",
+        "slug": "neuro-fixture-publisher",
+        "display_name": "Neuro Fixture Publisher"
+      },
+      "status": "published",
+      "summary": "Cross-language catalog contract fixture."
+    }
+  ],
+  "next_cursor": null
+}

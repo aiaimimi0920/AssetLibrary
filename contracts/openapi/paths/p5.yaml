@@ -1,0 +1,135 @@
+Search:
+  get:
+    summary: Search the rebuildable public package projection
+    operationId: searchPackages
+    parameters:
+      - name: q
+        in: query
+        schema: { type: string, maxLength: 200 }
+      - name: kind
+        in: query
+        schema: { type: string, enum: [art, capability, app_update] }
+      - name: tag
+        in: query
+        schema: { type: string, minLength: 1, maxLength: 100 }
+      - name: cursor
+        in: query
+        schema: { type: string, maxLength: 1024 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+    responses:
+      '200':
+        description: Public package matches from the OpenSearch projection.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/PackagePage' }
+      '400': { description: Search input or cursor is invalid. }
+      '503': { description: Search projection is unavailable or invalid. }
+
+PublicDownload:
+  get:
+    summary: Resolve an immutable public Art download
+    operationId: getPublicDownload
+    parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Public edge URL for a verified, non-blocked Art artifact.
+        content:
+          application/json:
+            schema: { $ref: '../components/p5.yaml#/PublicDownload' }
+      '404': { description: Artifact is unavailable or is not public Art. }
+      '503': { description: Persistence dependency unavailable. }
+
+RestrictedDownload:
+  post:
+    summary: Issue a short-lived restricted edge download ticket
+    operationId: createDownloadSession
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: artifact_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: { type: string, minLength: 8, maxLength: 200 }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/p5.yaml#/CreateDownloadSessionRequest' }
+    responses:
+      '201':
+        description: Ticket returned separately from its URL; send it in Authorization at the edge.
+        headers:
+          Cache-Control:
+            schema: { type: string, const: no-store }
+        content:
+          application/json:
+            schema: { $ref: '../components/p5.yaml#/DownloadSession' }
+      '401': { description: Credential missing or invalid. }
+      '404': { description: Artifact unavailable or principal lacks private-package access. }
+      '409': { description: Idempotency conflict or existing session no longer replayable. }
+      '503': { description: Persistence or ticket signer unavailable. }
+
+Library:
+  get:
+    summary: List the current principal's library projection
+    operationId: listLibrary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: cursor
+        in: query
+        schema: { type: string, maxLength: 256 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+    responses:
+      '200':
+        description: Principal-scoped favorites and installed package projection.
+        content:
+          application/json:
+            schema: { $ref: '../components/p5.yaml#/LibraryPage' }
+      '400': { description: Cursor or limit is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '503': { description: Persistence dependency unavailable. }
+
+LibraryEntry:
+  put:
+    summary: Idempotently update one library entry
+    operationId: updateLibraryEntry
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: package_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: { type: string, minLength: 8, maxLength: 200 }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/p5.yaml#/UpdateLibraryEntryRequest' }
+    responses:
+      '200':
+        description: Updated library projection.
+        content:
+          application/json:
+            schema: { $ref: '../components/p5.yaml#/LibraryEntry' }
+      '400': { description: Install projection does not contain a valid release/artifact pair. }
+      '401': { description: Credential missing or invalid. }
+      '404': { description: Package is unavailable to this principal. }
+      '409': { description: Idempotency key was reused with different content. }
+      '503': { description: Persistence dependency unavailable. }

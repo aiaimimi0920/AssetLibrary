@@ -1,0 +1,165 @@
+nameOverride: ""
+imagePullSecrets: []
+
+api:
+  image: ""
+  replicas: 2
+  port: 8080
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { cpu: "2", memory: 1Gi }
+
+web:
+  image: ""
+  replicas: 2
+  port: 3000
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: "1", memory: 768Mi }
+
+scanner:
+  image: ""
+  replicas: 1
+  runtimeClassName: ""
+  pidsLimit: 64
+  scanTimeoutSeconds: 120
+  consumerName: assetlibrary-scanner-v1
+  tempSizeLimit: 3Gi
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits: { cpu: "4", memory: 4Gi }
+  clamav:
+    image: ""
+    runAsUser: 1000
+    runAsGroup: 1000
+    tempSizeLimit: 12Gi
+    databaseSizeLimit: 2Gi
+    resources:
+      requests: { cpu: "1", memory: 1536Mi }
+      limits: { cpu: "2", memory: 3Gi }
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 20
+    pollingInterval: 5
+    cooldownPeriod: 120
+    lagThreshold: 2
+
+outbox:
+  image: ""
+  replicas: 2
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+indexer:
+  image: ""
+  replicas: 2
+  consumerName: assetlibrary-indexer-v1
+  indexPrefix: assetlibrary-packages-v1
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { cpu: "1", memory: 768Mi }
+
+cleanup:
+  image: ""
+  runtimeClassName: ""
+  pidsLimit: 32
+  schedule: "*/15 * * * *"
+  batchSize: 100
+  claimTimeoutSeconds: 900
+  quarantineRetentionSeconds: 2592000
+  orphanMultipartGraceSeconds: 7200
+  orphanMultipartScanLimit: 5000
+  orphanMultipartBatchSize: 100
+  activeDeadlineSeconds: 1200
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+config:
+  environment: ""
+  publicApiUrl: ""
+  publicWebUrl: ""
+  accountSessionUrl: ""
+  accountSessionCookie: neuro_session
+  uploadOrigins: []
+  databaseSecretName: ""
+  serviceSecretName: ""
+  scannerSecretName: ""
+  outboxSecretName: ""
+  indexerSecretName: ""
+  cleanupSecretName: ""
+  appUpdatesEnabled: false
+  publicDownloadBaseUrl: ""
+  restrictedDownloadBaseUrl: ""
+  downloadTicketIssuer: ""
+  downloadTicketAudience: ""
+  downloadTicketTtlSeconds: 300
+  searchAlias: assetlibrary-packages
+  natsMonitoringEndpoint: ""
+  natsMonitoringUseHttps: true
+  natsAccount: "$G"
+  natsStream: ASSETLIBRARY_EVENTS
+
+observability:
+  metricsPort: 9090
+  otlpEndpoint: ""
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    labels: {}
+  alertmanager:
+    enabled: false
+    webhookSecretName: ""
+    webhookSecretKey: url
+  grafanaDashboard:
+    enabled: false
+    labels: { grafana_dashboard: "1" }
+  prometheusIngress:
+    namespaceLabels: { kubernetes.io/metadata.name: monitoring }
+    podLabels: { app.kubernetes.io/name: prometheus }
+
+progressiveDelivery:
+  enabled: false
+  controller:
+    version: v1.9.1
+    image: quay.io/argoproj/argo-rollouts@sha256:15c0d41f2c69a382d4399bcb28ed4f03ee9f58b56cfc9e6cd55bcbf0f311c06d
+  trafficRouter:
+    provider: nginx
+    ingressClassName: nginx
+    apiHost: ""
+    webHost: ""
+    apiTlsSecretName: ""
+    webTlsSecretName: ""
+  analysis:
+    prometheusAddress: ""
+    interval: 1m
+    count: 10
+    apiMinimumRequestsPerSecond: 1
+    webMinimumRequestsPerSecond: 1
+    apiMaximum5xxRatio: 0.001
+    webMaximum5xxRatio: 0.001
+    apiMaximumP95Seconds: 0.5
+    webMaximumP95Seconds: 1.0
+
+network:
+  ingress:
+    namespaceLabels: { kubernetes.io/metadata.name: ingress-system }
+    podLabels: { app.kubernetes.io/name: ingress-nginx }
+  dependencies:
+    api: []
+    web: []
+    scanner: []
+    outbox: []
+    indexer: []
+    cleanup: []
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 65

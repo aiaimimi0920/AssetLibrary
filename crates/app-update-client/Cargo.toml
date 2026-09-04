@@ -1,0 +1,19 @@
+[package]
+name = "assetlibrary-app-update-client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hex = "0.4"
+jiff = "0.2"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
+tough = { version = "=0.24.0", features = ["http"] }
+url = "2"
+
+[dev-dependencies]
+aws-lc-rs = "1"
+tempfile = "3"

@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuro.example/schemas/p8-capacity-evidence.schema.json",
+  "title": "AssetLibrary P8 cloud capacity evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_origin",
+    "environment",
+    "git_commit",
+    "topology",
+    "runs",
+    "cost",
+    "review"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "evidence_origin": { "const": "cloud" },
+    "environment": { "enum": ["staging", "production"] },
+    "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topology_id",
+        "provider",
+        "account_ref_sha256",
+        "deployment_digest",
+        "regions",
+        "generator_domains",
+        "evidence",
+        "failure_independent_generator_locations"
+      ],
+      "properties": {
+        "topology_id": { "$ref": "#/$defs/boundedIdentifier" },
+        "provider": { "$ref": "#/$defs/boundedIdentifier" },
+        "account_ref_sha256": { "$ref": "#/$defs/sha256" },
+        "deployment_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "regions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/boundedIdentifier" }
+        },
+        "generator_domains": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["location", "failure_domain", "region"],
+            "properties": {
+              "location": { "$ref": "#/$defs/boundedIdentifier" },
+              "failure_domain": { "$ref": "#/$defs/boundedIdentifier" },
+              "region": { "$ref": "#/$defs/boundedIdentifier" }
+            }
+          }
+        },
+        "evidence": { "$ref": "#/$defs/evidenceFile" },
+        "failure_independent_generator_locations": { "const": true }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/run" },
+      "allOf": [
+        {
+          "contains": { "type": "object", "properties": { "profile": { "const": "baseline" } }, "required": ["profile"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "profile": { "const": "soak" } }, "required": ["profile"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "profile": { "const": "burst" } }, "required": ["profile"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "type": "object", "properties": { "profile": { "const": "download" } }, "required": ["profile"] },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "cost": { "$ref": "#/$defs/cost" },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "reviewed_at", "change_record", "decision"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/boundedIdentifier" },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "change_record": { "$ref": "#/$defs/boundedIdentifier" },
+        "decision": { "const": "evidence_complete_for_external_attestation" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "boundedIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+    },
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_length", "redacted"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 268435456
+        },
+        "redacted": { "const": true }
+      }
+    },
+    "signalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_length", "redacted", "window_start", "window_end"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 268435456
+        },
+        "redacted": { "const": true },
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location",
+        "failure_domain",
+        "cpu_max_percent",
+        "dropped_iterations",
+        "ephemeral_ports_exhausted",
+        "clock_offset_ms",
+        "evidence"
+      ],
+      "properties": {
+        "location": { "$ref": "#/$defs/boundedIdentifier" },
+        "failure_domain": { "$ref": "#/$defs/boundedIdentifier" },
+        "cpu_max_percent": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 70
+        },
+        "dropped_iterations": { "const": 0 },
+        "ephemeral_ports_exhausted": { "const": false },
+        "clock_offset_ms": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "evidence": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_resource_utilization_percent",
+        "remaining_headroom_percent",
+        "autoscaling_response_seconds",
+        "control_plane_5xx_rate",
+        "event_e2e_p99_seconds",
+        "search_freshness_p99_seconds",
+        "cascading_failure",
+        "control_plane_artifact_bytes"
+      ],
+      "properties": {
+        "max_resource_utilization_percent": { "type": "number", "minimum": 0, "maximum": 60 },
+        "remaining_headroom_percent": { "type": "number", "minimum": 40, "maximum": 100 },
+        "autoscaling_response_seconds": { "type": "number", "minimum": 0, "exclusiveMaximum": 120 },
+        "control_plane_5xx_rate": { "type": "number", "minimum": 0, "exclusiveMaximum": 0.001 },
+        "event_e2e_p99_seconds": { "type": "number", "minimum": 0, "exclusiveMaximum": 30 },
+        "search_freshness_p99_seconds": { "type": "number", "minimum": 0, "exclusiveMaximum": 60 },
+        "cascading_failure": { "const": false },
+        "control_plane_artifact_bytes": { "const": 0 },
+        "browse_p95_ms": { "type": "number", "minimum": 0, "exclusiveMaximum": 300 },
+        "search_p95_ms": { "type": "number", "minimum": 0, "exclusiveMaximum": 500 },
+        "concurrent_download_vus": { "type": "integer", "minimum": 10000 },
+        "cdn_cache_hit_api_independent": { "const": true }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "target_origin",
+        "started_at",
+        "finished_at",
+        "load_manifest",
+        "k6_summary",
+        "generators",
+        "signals",
+        "capacity"
+      ],
+      "properties": {
+        "profile": { "enum": ["baseline", "soak", "burst", "download"] },
+        "target_origin": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "load_manifest": { "$ref": "#/$defs/evidenceFile" },
+        "k6_summary": { "$ref": "#/$defs/evidenceFile" },
+        "generators": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/generator" }
+        },
+        "signals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prometheus",
+            "opentelemetry",
+            "cloudflare",
+            "postgresql",
+            "nats",
+            "opensearch"
+          ],
+          "properties": {
+            "prometheus": { "$ref": "#/$defs/signalEvidence" },
+            "opentelemetry": { "$ref": "#/$defs/signalEvidence" },
+            "cloudflare": { "$ref": "#/$defs/signalEvidence" },
+            "postgresql": { "$ref": "#/$defs/signalEvidence" },
+            "nats": { "$ref": "#/$defs/signalEvidence" },
+            "opensearch": { "$ref": "#/$defs/signalEvidence" }
+          }
+        },
+        "capacity": { "$ref": "#/$defs/capacity" }
+      },
+      "allOf": [
+        {
+          "if": { "type": "object", "properties": { "profile": { "const": "download" } } },
+          "then": {
+            "properties": {
+              "capacity": {
+                "type": "object",
+                "properties": {
+                  "concurrent_download_vus": {},
+                  "cdn_cache_hit_api_independent": {},
+                  "browse_p95_ms": {},
+                  "search_p95_ms": {}
+                },
+                "required": ["concurrent_download_vus", "cdn_cache_hit_api_independent"],
+                "not": {
+                  "anyOf": [
+                    { "type": "object", "properties": { "browse_p95_ms": {} }, "required": ["browse_p95_ms"] },
+                    { "type": "object", "properties": { "search_p95_ms": {} }, "required": ["search_p95_ms"] }
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "capacity": {
+                "type": "object",
+                "properties": {
+                  "browse_p95_ms": {},
+                  "search_p95_ms": {},
+                  "concurrent_download_vus": {},
+                  "cdn_cache_hit_api_independent": {}
+                },
+                "required": ["browse_p95_ms", "search_p95_ms"],
+                "not": {
+                  "anyOf": [
+                    { "type": "object", "properties": { "concurrent_download_vus": {} }, "required": ["concurrent_download_vus"] },
+                    { "type": "object", "properties": { "cdn_cache_hit_api_independent": {} }, "required": ["cdn_cache_hit_api_independent"] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "cost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_start",
+        "window_end",
+        "categories",
+        "provider_export",
+        "formula_version",
+        "currency",
+        "tax_treatment",
+        "reviewer",
+        "alert_deliveries"
+      ],
+      "properties": {
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" },
+        "categories": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "storage",
+              "requests",
+              "egress",
+              "database",
+              "cluster",
+              "search",
+              "analytics",
+              "observability"
+            ]
+          }
+        },
+        "provider_export": { "$ref": "#/$defs/evidenceFile" },
+        "formula_version": { "$ref": "#/$defs/boundedIdentifier" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "tax_treatment": { "$ref": "#/$defs/boundedIdentifier" },
+        "reviewer": { "$ref": "#/$defs/boundedIdentifier" },
+        "alert_deliveries": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["threshold_percent", "severity", "route", "delivered", "evidence"],
+            "properties": {
+              "threshold_percent": { "enum": [50, 80, 100] },
+              "severity": { "enum": ["informational", "warning", "critical"] },
+              "route": { "const": "independent_billing_channel" },
+              "delivered": { "const": true },
+              "evidence": { "$ref": "#/$defs/evidenceFile" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,265 @@
+asyncapi: 3.0.0
+info:
+  title: AssetLibrary Events
+  version: 0.3.0
+  description: Durable events emitted only after PostgreSQL transactional-outbox commit.
+channels:
+  verificationRequested:
+    address: assetlibrary.artifact.verification_requested.v1
+    messages:
+      verificationRequested: { $ref: '#/components/messages/VerificationRequested' }
+  artifactVerified:
+    address: assetlibrary.artifact.verified.v1
+    messages:
+      artifactVerified: { $ref: '#/components/messages/ArtifactVerified' }
+  artifactQuarantined:
+    address: assetlibrary.artifact.quarantined.v1
+    messages:
+      artifactQuarantined: { $ref: '#/components/messages/ArtifactQuarantined' }
+  verificationDeadLetter:
+    address: assetlibrary.artifact.verification_dead_letter.v1
+    messages:
+      verificationDeadLetter: { $ref: '#/components/messages/VerificationDeadLetter' }
+  releasePublished:
+    address: assetlibrary.release.published.v1
+    messages:
+      releasePublished: { $ref: '#/components/messages/ReleasePublished' }
+  packageChanged:
+    address: assetlibrary.package.v1
+    messages:
+      packageChanged: { $ref: '#/components/messages/PackageChanged' }
+  releaseChanged:
+    address: assetlibrary.release.v1
+    messages:
+      releaseChanged: { $ref: '#/components/messages/ReleaseChanged' }
+  publisherSigningKeyChanged:
+    address: assetlibrary.publisher.signing_key.v1
+    messages:
+      publisherSigningKeyChanged: { $ref: '#/components/messages/PublisherSigningKeyChanged' }
+  catalogInvalidated:
+    address: assetlibrary.catalog.invalidated.v1
+    messages:
+      catalogInvalidated: { $ref: '#/components/messages/CatalogInvalidated' }
+  policyChanged:
+    address: assetlibrary.policy.changed.v1
+    messages:
+      policyChanged: { $ref: '#/components/messages/PolicyChanged' }
+  downloadAuthorized:
+    address: assetlibrary.download.authorized.v1
+    messages:
+      downloadAuthorized: { $ref: '#/components/messages/DownloadAuthorized' }
+  edgeDownloadServed:
+    address: assetlibrary.edge.download_served.v1
+    messages:
+      edgeDownloadServed: { $ref: '#/components/messages/EdgeDownloadServed' }
+  installReceiptVerified:
+    address: assetlibrary.install_receipt.verified.v1
+    messages:
+      installReceiptVerified: { $ref: '#/components/messages/InstallReceiptVerified' }
+components:
+  messages:
+    VerificationRequested:
+      payload: { $ref: '#/components/schemas/VerificationRequestedPayload' }
+    ArtifactVerified:
+      payload: { $ref: '#/components/schemas/ArtifactResultPayload' }
+    ArtifactQuarantined:
+      payload: { $ref: '#/components/schemas/ArtifactResultPayload' }
+    VerificationDeadLetter:
+      payload: { $ref: '#/components/schemas/VerificationDeadLetterPayload' }
+    ReleasePublished:
+      payload: { $ref: '#/components/schemas/ReleasePublishedPayload' }
+    PackageChanged:
+      payload: { $ref: '#/components/schemas/PackageChangedPayload' }
+    ReleaseChanged:
+      payload: { $ref: '#/components/schemas/ReleaseChangedPayload' }
+    PublisherSigningKeyChanged:
+      payload: { $ref: '#/components/schemas/PublisherSigningKeyChangedPayload' }
+    CatalogInvalidated:
+      payload: { $ref: '#/components/schemas/CatalogInvalidatedPayload' }
+    PolicyChanged:
+      payload: { $ref: '#/components/schemas/PolicyChangedPayload' }
+    DownloadAuthorized:
+      payload: { $ref: '#/components/schemas/DownloadAuthorizedPayload' }
+    EdgeDownloadServed:
+      payload: { $ref: '#/components/schemas/EdgeDownloadServedPayload' }
+    InstallReceiptVerified:
+      payload: { $ref: '#/components/schemas/InstallReceiptVerifiedPayload' }
+  schemas:
+    EventActor:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, issuer, subject]
+          properties:
+            type: { const: principal }
+            issuer: { type: string, minLength: 1, maxLength: 200 }
+            subject: { type: string, minLength: 1, maxLength: 200 }
+        - type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type: { const: system }
+            id: { type: string, minLength: 1, maxLength: 100 }
+    EventEnvelope:
+      type: object
+      required: [event_id, occurred_at, schema_version, actor, package_id, release_id, artifact_id]
+      properties:
+        event_id: { type: string, format: uuid }
+        occurred_at: { type: string, format: date-time }
+        schema_version: { const: '1.0' }
+        actor: { $ref: '#/components/schemas/EventActor' }
+        package_id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        artifact_id: { type: string, format: uuid }
+    VerificationRequestedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/EventEnvelope' }
+        - type: object
+          required: [object_key, digest]
+          properties:
+            object_key: { type: string, minLength: 1, maxLength: 1024 }
+            digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+    ArtifactResultPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/EventEnvelope' }
+        - type: object
+          required: [source_event_id, failure_code]
+          properties:
+            source_event_id: { type: string, format: uuid }
+            failure_code: { type: [string, 'null'], minLength: 1, maxLength: 100 }
+    VerificationDeadLetterPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/EventEnvelope' }
+        - type: object
+          required: [source_event_id, object_key, digest, failure_code, delivery_count]
+          properties:
+            source_event_id: { type: string, format: uuid }
+            object_key: { type: string, minLength: 1, maxLength: 1024 }
+            digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+            failure_code: { type: string, minLength: 1, maxLength: 100 }
+            delivery_count: { type: integer, minimum: 1 }
+    ControlEvent:
+      type: object
+      required: [event_id, occurred_at, schema_version, actor]
+      properties:
+        event_id: { type: string, format: uuid }
+        occurred_at: { type: string, format: date-time }
+        schema_version: { const: '1.0' }
+        actor: { $ref: '#/components/schemas/EventActor' }
+    ReleasePublishedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [release_id, package_id, artifact_id]
+          properties:
+            release_id: { type: string, format: uuid }
+            package_id: { type: string, format: uuid }
+            artifact_id: { type: string, format: uuid }
+    PackageChangedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [publisher_id, package_id, slug, kind, action]
+          properties:
+            publisher_id: { type: string, format: uuid }
+            package_id: { type: string, format: uuid }
+            slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+            kind: { type: string, enum: [art, capability, app_update] }
+            action: { type: string, enum: [created, updated] }
+    ReleaseChangedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [package_id, release_id, version, action]
+          properties:
+            package_id: { type: string, format: uuid }
+            release_id: { type: string, format: uuid }
+            version: { type: string, minLength: 1, maxLength: 100 }
+            action: { type: string, enum: [created, updated] }
+    PublisherSigningKeyChangedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [publisher_id, key_id, algorithm, fingerprint, action]
+          properties:
+            publisher_id: { type: string, format: uuid }
+            key_id: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,79}$' }
+            algorithm: { const: ed25519 }
+            fingerprint: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+            action: { type: string, enum: [registered, revoked] }
+            reason: { type: string, minLength: 1, maxLength: 500 }
+    CatalogInvalidatedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [package_id, reason]
+          properties:
+            package_id: { type: string, format: uuid }
+            reason: { type: string, enum: [release_published, moderation_action, block_lifted] }
+    PolicyChangedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [case_id]
+          properties:
+            case_id: { type: string, format: uuid }
+            action_id: { type: string, format: uuid }
+            action: { type: string, enum: [suspend, yank, revoke, block] }
+            target_type: { type: string, enum: [publisher, package, release, artifact, signing_key] }
+            target_ref: { type: string, minLength: 1, maxLength: 200 }
+            resolution: { type: string, enum: [upheld, block_lifted] }
+    DownloadAuthorizedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [session_id, package_id, release_id, artifact_id, digest, client_type]
+          properties:
+            session_id: { type: string, format: uuid }
+            package_id: { type: string, format: uuid }
+            release_id: { type: string, format: uuid }
+            artifact_id: { type: string, format: uuid }
+            digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+            client_type: { type: string, enum: [web, loom, hook, cli] }
+    InstallReceiptVerifiedPayload:
+      unevaluatedProperties: false
+      allOf:
+        - { $ref: '#/components/schemas/ControlEvent' }
+        - type: object
+          required: [receipt_id, package_id, release_id, artifact_id, digest]
+          properties:
+            receipt_id: { type: string, format: uuid }
+            package_id: { type: string, format: uuid }
+            release_id: { type: string, format: uuid }
+            artifact_id: { type: string, format: uuid }
+            digest: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+    EdgeDownloadServedPayload:
+      type: object
+      additionalProperties: false
+      required: [schema_version, event_id, occurred_at, publisher_id, package_id, release_id, artifact_id, digest, visibility, session_id, client_type, range_start, bytes_served]
+      properties:
+        schema_version: { const: '1.0' }
+        event_id: { type: string, format: uuid }
+        occurred_at: { type: string, format: date-time }
+        publisher_id: { type: string, format: uuid }
+        package_id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        artifact_id: { type: string, format: uuid }
+        digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+        visibility: { type: string, enum: [public, restricted] }
+        session_id: { type: [string, 'null'], format: uuid }
+        client_type: { type: [string, 'null'], enum: [web, loom, hook, cli, null] }
+        range_start: { type: integer, minimum: 0 }
+        bytes_served: { type: integer, minimum: 1 }
+        correlation_id: { type: string, format: uuid }
+        trace_id: { type: string, pattern: '^[a-f0-9]{32}$' }
+        cache_hit: { type: boolean }

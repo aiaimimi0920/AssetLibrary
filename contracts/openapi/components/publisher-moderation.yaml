@@ -1,0 +1,95 @@
+PublisherModerationPackage:
+  type: object
+  additionalProperties: false
+  required: [id, publisher_id, slug, name, kind]
+  properties:
+    id: { type: string, format: uuid }
+    publisher_id: { type: string, format: uuid }
+    slug: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    name: { type: string, minLength: 1, maxLength: 160 }
+    kind: { type: string, enum: [art, capability, app_update] }
+
+PublisherModerationRelease:
+  type: object
+  additionalProperties: false
+  required: [id, version]
+  properties:
+    id: { type: string, format: uuid }
+    version: { type: string, minLength: 1, maxLength: 100, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$' }
+
+PublisherModerationAction:
+  type: object
+  additionalProperties: false
+  required: [id, action, target_type, target_ref, status, reason_preview, applied_at]
+  properties:
+    id: { type: string, format: uuid }
+    action: { type: string, enum: [suspend, yank, revoke, block] }
+    target_type: { type: string, enum: [publisher, package, release, artifact, signing_key] }
+    target_ref: { type: string, minLength: 1, maxLength: 200 }
+    status: { type: string, const: applied }
+    reason_preview: { type: string, minLength: 1, maxLength: 240 }
+    applied_at: { type: string, format: date-time }
+
+PublisherModerationCaseItem:
+  type: object
+  additionalProperties: false
+  required: [id, status, package, release, action, created_at, updated_at]
+  properties:
+    id: { type: string, format: uuid }
+    status: { type: string, enum: [actioned, appealed, resolved] }
+    package: { $ref: '#/PublisherModerationPackage' }
+    release:
+      oneOf:
+        - { $ref: '#/PublisherModerationRelease' }
+        - { type: 'null' }
+    action: { $ref: '#/PublisherModerationAction' }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+PublisherModerationCasePage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { type: string, const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/PublisherModerationCaseItem' }
+    next_cursor:
+      oneOf:
+        - { type: string, minLength: 1, maxLength: 256 }
+        - { type: 'null' }
+
+PublisherModerationAppeal:
+  type: object
+  additionalProperties: false
+  required: [reason, resolution, resolution_reason, resolved_at]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 4000 }
+    resolution:
+      oneOf:
+        - { type: string, enum: [upheld, block_lifted] }
+        - { type: 'null' }
+    resolution_reason:
+      oneOf:
+        - { type: string, minLength: 1, maxLength: 4000 }
+        - { type: 'null' }
+    resolved_at:
+      oneOf:
+        - { type: string, format: date-time }
+        - { type: 'null' }
+
+PublisherModerationCaseDetail:
+  type: object
+  additionalProperties: false
+  required: [schema_version, item, action_reason, appeal, can_appeal]
+  properties:
+    schema_version: { type: string, const: '1.0' }
+    item: { $ref: '#/PublisherModerationCaseItem' }
+    action_reason: { type: string, minLength: 1, maxLength: 4000 }
+    appeal:
+      oneOf:
+        - { $ref: '#/PublisherModerationAppeal' }
+        - { type: 'null' }
+    can_appeal: { type: boolean }

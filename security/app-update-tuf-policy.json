@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "implementation": {
+    "crate": "tough",
+    "version": "0.24.0",
+    "tuf_specification": "1.0.0",
+    "delegated_roles": false,
+    "consistent_snapshot": true,
+    "expiration_enforcement": "safe",
+    "limits": {
+      "root_bytes": 262144,
+      "targets_bytes": 4194304,
+      "snapshot_bytes": 262144,
+      "timestamp_bytes": 262144,
+      "root_updates": 32,
+      "control_bytes": 65536,
+      "artifact_bytes": 2147483648
+    }
+  },
+  "roles": {
+    "root": { "threshold": 2, "keys": 3, "algorithm": "ed25519", "custody": "offline-independent" },
+    "targets": { "threshold": 2, "keys": 3, "algorithm": "ed25519", "custody": "offline-independent" },
+    "snapshot": { "threshold": 1, "keys": 1, "algorithm": "ecdsa-sha2-nistp256", "custody": "online-hsm" },
+    "timestamp": { "threshold": 1, "keys": 1, "algorithm": "ecdsa-sha2-nistp256", "custody": "online-hsm" }
+  },
+  "expiry_hours": {
+    "root": 8760,
+    "targets": 2160,
+    "snapshot": 168,
+    "timestamp": 24
+  },
+  "repositories": [
+    { "id": "loom-stable", "product": "loom", "channel": "stable", "root_key_set": "loom-stable-root" },
+    { "id": "loom-beta", "product": "loom", "channel": "beta", "root_key_set": "loom-beta-root" },
+    { "id": "loom-nightly", "product": "loom", "channel": "nightly", "root_key_set": "loom-nightly-root" },
+    { "id": "hook-stable", "product": "hook", "channel": "stable", "root_key_set": "hook-stable-root" },
+    { "id": "hook-beta", "product": "hook", "channel": "beta", "root_key_set": "hook-beta-root" },
+    { "id": "hook-nightly", "product": "hook", "channel": "nightly", "root_key_set": "hook-nightly-root" }
+  ],
+  "admission": {
+    "app_updates_enabled": false,
+    "production_repository_initialized": false,
+    "root_ceremony_verified": false,
+    "client_activation_verified": false
+  }
+}

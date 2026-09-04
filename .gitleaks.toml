@@ -1,0 +1,12 @@
+title = "AssetLibrary secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Helm analysis thresholds are JSON Schema property names, not credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^deploy/helm/assetlibrary/values\.schema\.json$''']
+regexTarget = "line"
+regexes = ['''"required": \["prometheusAddress", "interval", "count", "apiMinimumRequestsPerSecond", "webMinimumRequestsPerSecond", "apiMaximum5xxRatio", "webMaximum5xxRatio", "apiMaximumP95Seconds", "webMaximumP95Seconds"\],''']

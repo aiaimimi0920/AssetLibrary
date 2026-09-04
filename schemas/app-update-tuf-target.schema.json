@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetlibrary.neuro.local/schemas/app-update-tuf-target.schema.json",
+  "title": "Neuro application-update TUF target custom metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["neuro_app_update"],
+  "properties": {
+    "neuro_app_update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "product",
+        "channel",
+        "platform",
+        "version",
+        "release_sequence",
+        "updater_protocol"
+      ],
+      "properties": {
+        "schema_version": { "const": "1.0" },
+        "product": { "enum": ["loom", "hook"] },
+        "channel": { "enum": ["stable", "beta", "nightly"] },
+        "platform": {
+          "enum": ["windows-x86_64", "linux-x86_64", "macos-aarch64", "macos-x86_64"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+        },
+        "release_sequence": { "type": "integer", "minimum": 1 },
+        "updater_protocol": { "const": 1 }
+      }
+    }
+  }
+}

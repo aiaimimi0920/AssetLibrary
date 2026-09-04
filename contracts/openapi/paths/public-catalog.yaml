@@ -1,0 +1,43 @@
+Publisher:
+  get:
+    summary: Get a publisher represented in the installable public catalog
+    operationId: getPublisher
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+    responses:
+      '200':
+        description: Public publisher identity.
+        content:
+          application/json:
+            schema: { $ref: '../components/public-catalog.yaml#/PublisherProfile' }
+      '400': { description: Publisher slug is invalid. }
+      '404': { description: Publisher has no currently installable public package. }
+      '503': { description: Catalog persistence is unavailable. }
+
+PackageReleases:
+  get:
+    summary: List installable published releases for a public package
+    operationId: listPackageReleases
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+      - name: cursor
+        in: query
+        schema: { type: string, maxLength: 256 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    responses:
+      '200':
+        description: Newest-first release page containing only verified artifact projections.
+        content:
+          application/json:
+            schema: { $ref: '../components/public-catalog.yaml#/PublishedReleasePage' }
+      '400': { description: "Slug, cursor, or limit is invalid." }
+      '404': { description: Public package was not found. }
+      '503': { description: Persistence or release projection is unavailable. }

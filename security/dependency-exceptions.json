@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "exceptions": [
+    {
+      "advisory": "RUSTSEC-2023-0071",
+      "created_on": "2026-09-03",
+      "expires_on": "2026-12-02",
+      "reason": "Disabled optional rsa backend is absent from every compiled target.",
+      "owner": "assetlibrary-api-owner",
+      "reviewer": "assetlibrary-security-reviewer",
+      "evidence": "security/exceptions/RUSTSEC-2023-0071.md"
+    }
+  ]
+}

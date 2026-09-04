@@ -1,0 +1,22 @@
+{
+  "id": "starter-art",
+  "name": "Starter Art",
+  "description": "A bounded Art package.",
+  "enabled": true,
+  "execution": {
+    "type": "framework_art",
+    "framework": "neuro/runtime"
+  },
+  "inputs": [],
+  "outputs": [],
+  "params": [],
+  "metadata": {
+    "packageSecurity": {
+      "version": "1.0.0",
+      "publisher": { "id": "publisher.example", "keyId": "release-1" },
+      "signature": { "algorithm": "ed25519", "keyId": "release-1", "file": "signature.json" }
+    },
+    "art": { "qualifiedId": "publisher.example/starter-art" },
+    "dependencies": { "framework": "neuro/runtime", "frameworkVersion": "^1.0" }
+  }
+}

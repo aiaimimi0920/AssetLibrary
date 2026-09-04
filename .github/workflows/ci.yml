@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Full commit SHA to validate; defaults to the triggering SHA
+        required: false
+        type: string
+        default: ""
+    outputs:
+      validated_commit:
+        description: Exact commit accepted by every quality gate
+        value: ${{ jobs.quality.outputs.commit }}
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      commit: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - id: source
+        name: Bind validation to one commit
+        run: |
+          expected="${{ inputs.source_ref || github.sha }}"
+          test "${#expected}" -eq 40
+          test "$(git rev-parse HEAD)" = "$expected"
+          echo "commit=$expected" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20.20.2
+      - name: Install pinned toolchains
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal
+          rustup default 1.95.0
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+      - name: Rust quality gates
+        run: |
+          cargo fmt --all -- --check
+          cargo test --workspace --locked
+      - name: Web quality gates
+        working-directory: apps/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm contract:openapi
+          pnpm typecheck
+          pnpm lint
+          pnpm build
+      - name: Generated API client gates
+        working-directory: packages/api-client
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm generate:check
+          pnpm typecheck
+      - name: Install browser runtime
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser accessibility and visual gates
+        working-directory: apps/web
+        run: pnpm test:browser
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: assetlibrary-browser-evidence
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results/browser
+          if-no-files-found: ignore
+      - name: Edge quality gates
+        working-directory: services/edge
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm test
+          pnpm exec wrangler deploy --dry-run --outdir dist
+      - name: Repository policy gates
+        shell: pwsh
+        run: |
+          ./scripts/Test-SourceSize.ps1
+          ./scripts/check-forbidden-implementations.ps1
+          ./scripts/Test-CiPolicy.ps1
+          ./scripts/Test-ContainerBuildPolicy.ps1 -DockerfileCheck
+          ./scripts/Test-InfrastructurePolicy.ps1
+          ./scripts/Test-LocalCompose.ps1
+          ./scripts/Test-P8LoadHarness.ps1
+          ./scripts/Test-P8CapacityEvidence.ps1 -ValidateOnly
+          ./scripts/Test-P8CapacityEvidenceContract.ps1
+          ./scripts/Test-LocalBackupRestore.ps1 -ValidateOnly
+          ./scripts/Test-LocalJetStreamBackupRestore.ps1 -ValidateOnly
+          ./scripts/Test-LocalOpenSearchBackupRestore.ps1 -ValidateOnly
+          ./scripts/Test-LocalObjectBackupRestore.ps1 -ValidateOnly
+          ./scripts/Test-LocalClickHouseBackupRestore.ps1 -ValidateOnly
+          ./scripts/Test-LocalDependencyFailure.ps1 -ValidateOnly
+          ./scripts/Test-CostBudgetPolicy.ps1
+          ./scripts/Test-AppUpdateTufPolicy.ps1
+      - name: Load scenario syntax gates
+        run: |
+          node scripts/validate-json-schema.mjs --schema schemas/release-candidate-evidence.schema.json
+          node scripts/test-release-candidate-evidence.mjs
+          node scripts/validate-json-schema.mjs --schema schemas/production-promotion-evidence.schema.json
+          node scripts/test-production-promotion-evidence.mjs
+          node scripts/validate-json-schema.mjs --schema schemas/app-update-tuf-policy.schema.json --document security/app-update-tuf-policy.json
+          node scripts/validate-json-schema.mjs --schema schemas/app-update-tuf-target.schema.json
+          node scripts/validate-json-schema.mjs --schema schemas/app-update-control.schema.json
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+          docker run --rm -v "$PWD/performance/k6:/scripts:ro" grafana/k6@sha256:b992f241070f3f3a7d78096fa6020db1edcda49297ee8ed9eb0ab847ef3dcb32 inspect -e ASSETLIBRARY_API_BASE_URL=http://127.0.0.1:8080 /scripts/control-plane.js
+          docker run --rm -v "$PWD/performance/k6:/scripts:ro" grafana/k6@sha256:b992f241070f3f3a7d78096fa6020db1edcda49297ee8ed9eb0ab847ef3dcb32 inspect -e DOWNLOAD_URL=https://downloads.example/public/sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fixture.zip -e DOWNLOAD_VUS=10 /scripts/download.js
+      - name: Helm and Kubernetes schema gates
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 lint /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml
+          docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
+          docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 lint /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml
+          docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
+      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
+        with:
+          tofu_version_file: .opentofu-version
+      - name: OpenTofu static gates
+        run: |
+          tofu fmt -check -recursive deploy/tofu
+          for environment in staging production; do
+            tofu -chdir="deploy/tofu/environments/$environment" init -backend=false -input=false -lockfile=readonly
+            tofu -chdir="deploy/tofu/environments/$environment" validate -no-color
+          done
+      - name: Clean worktree gate
+        run: |
+          git diff --check
+          git diff --exit-code
+      - name: Record same-commit quality evidence
+        run: |
+          mkdir -p release/evidence/tests
+          jq -n \
+            --arg commit "${{ steps.source.outputs.commit }}" \
+            --arg run_id "$GITHUB_RUN_ID" \
+            --argjson run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{schema_version:"1.0",source_commit:$commit,status:"passed",workflow_run_id:$run_id,workflow_run_attempt:$run_attempt}' \
+            > release/evidence/tests/ci.json
+      - name: Upload quality evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-evidence-${{ steps.source.outputs.commit }}
+          path: release/evidence/tests
+          if-no-files-found: error
+          retention-days: 90

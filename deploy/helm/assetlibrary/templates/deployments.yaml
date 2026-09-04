@@ -1,0 +1,132 @@
+{{- $root := . -}}
+{{- $progressive := .Values.progressiveDelivery -}}
+{{- range $name, $workload := dict "api" .Values.api "web" .Values.web }}
+---
+apiVersion: {{ if $progressive.enabled }}argoproj.io/v1alpha1{{ else }}apps/v1{{ end }}
+kind: {{ if $progressive.enabled }}Rollout{{ else }}Deployment{{ end }}
+metadata:
+  name: {{ include "assetlibrary.name" $root }}-{{ $name }}
+  labels:
+    {{- include "assetlibrary.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  {{- if $progressive.enabled }}
+  annotations:
+    assetlibrary.neuro/required-rollouts-version: {{ $progressive.controller.version | quote }}
+    assetlibrary.neuro/required-rollouts-image: {{ $progressive.controller.image | quote }}
+  {{- end }}
+spec:
+  replicas: {{ $workload.replicas }}
+  minReadySeconds: 30
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 600
+  {{- if $progressive.enabled }}
+  progressDeadlineAbort: true
+  strategy:
+    canary:
+      stableService: {{ include "assetlibrary.name" $root }}-{{ $name }}
+      canaryService: {{ include "assetlibrary.name" $root }}-{{ $name }}-canary
+      maxUnavailable: 0
+      maxSurge: 25%
+      scaleDownDelaySeconds: 300
+      abortScaleDownDelaySeconds: 30
+      trafficRouting:
+        nginx:
+          stableIngress: {{ include "assetlibrary.name" $root }}-{{ $name }}
+      steps:
+        {{- range $weight := list 5 25 100 }}
+        - setWeight: {{ $weight }}
+        - analysis:
+            templates:
+              - templateName: {{ include "assetlibrary.name" $root }}-{{ $name }}-canary
+            args:
+              - { name: traffic-weight, value: {{ $weight | quote }} }
+        {{- end }}
+  {{- else }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      app.kubernetes.io/component: {{ $name }}
+  template:
+    metadata:
+      labels:
+        {{- include "assetlibrary.labels" $root | nindent 8 }}
+        app.kubernetes.io/component: {{ $name }}
+    spec:
+      serviceAccountName: {{ include "assetlibrary.name" $root }}
+      automountServiceAccountToken: false
+      {{- with $root.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $root.Release.Name }}
+              app.kubernetes.io/component: {{ $name }}
+      containers:
+        - name: {{ $name }}
+          image: {{ required (printf "%s.image must be a digest-pinned image" $name) $workload.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ $workload.port }}
+          {{- if eq $name "api" }}
+            - name: metrics
+              containerPort: {{ $root.Values.observability.metricsPort }}
+          {{- end }}
+          env:
+            - { name: ASSETLIBRARY_ENVIRONMENT, value: {{ $root.Values.config.environment | quote }} }
+          {{- with $root.Values.observability.otlpEndpoint }}
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ . | quote }} }
+          {{- end }}
+          {{- if eq $name "api" }}
+            - { name: ASSETLIBRARY_METRICS_BIND, value: {{ printf "0.0.0.0:%v" $root.Values.observability.metricsPort | quote }} }
+            - { name: ASSETLIBRARY_APP_UPDATES_ENABLED, value: {{ $root.Values.config.appUpdatesEnabled | quote }} }
+            - { name: ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL, value: {{ $root.Values.config.publicDownloadBaseUrl | quote }} }
+            - { name: ASSETLIBRARY_RESTRICTED_DOWNLOAD_BASE_URL, value: {{ $root.Values.config.restrictedDownloadBaseUrl | quote }} }
+            - { name: ASSETLIBRARY_DOWNLOAD_TICKET_ISSUER, value: {{ $root.Values.config.downloadTicketIssuer | quote }} }
+            - { name: ASSETLIBRARY_DOWNLOAD_TICKET_AUDIENCE, value: {{ $root.Values.config.downloadTicketAudience | quote }} }
+            - { name: ASSETLIBRARY_DOWNLOAD_TICKET_TTL_SECONDS, value: {{ $root.Values.config.downloadTicketTtlSeconds | quote }} }
+            - { name: ASSETLIBRARY_SEARCH_ALIAS, value: {{ $root.Values.config.searchAlias | quote }} }
+          envFrom:
+            - secretRef: { name: {{ $root.Values.config.databaseSecretName | quote }} }
+            - secretRef: { name: {{ $root.Values.config.serviceSecretName | quote }} }
+          {{- else }}
+            - { name: ASSETLIBRARY_API_URL, value: {{ $root.Values.config.publicApiUrl | quote }} }
+            - { name: ASSETLIBRARY_PUBLIC_URL, value: {{ $root.Values.config.publicWebUrl | quote }} }
+            - { name: ASSETLIBRARY_ACCOUNT_SESSION_URL, value: {{ $root.Values.config.accountSessionUrl | quote }} }
+            - { name: ASSETLIBRARY_ACCOUNT_SESSION_COOKIE, value: {{ $root.Values.config.accountSessionCookie | quote }} }
+            - { name: ASSETLIBRARY_UPLOAD_ORIGINS, value: {{ join "," $root.Values.config.uploadOrigins | quote }} }
+          {{- end }}
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml $workload.resources | nindent 12 }}
+          volumeMounts:
+            - { name: temp, mountPath: /tmp }
+      volumes:
+        - name: temp
+          emptyDir: { sizeLimit: 128Mi }
+{{- end }}

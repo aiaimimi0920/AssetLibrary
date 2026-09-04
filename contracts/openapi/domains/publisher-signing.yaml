@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Publisher Signing API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/me/publishers/{publisher_id}/signing-keys: { $ref: '../openapi.yaml#/paths/~1v1~1me~1publishers~1{publisher_id}~1signing-keys' }
+  /v1/me/publishers/{publisher_id}/signing-keys/{key_id}/revoke: { $ref: '../openapi.yaml#/paths/~1v1~1me~1publishers~1{publisher_id}~1signing-keys~1{key_id}~1revoke' }

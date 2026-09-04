@@ -1,0 +1,690 @@
+openapi: 3.1.0
+info:
+  title: AssetLibrary Control Plane API
+  version: 0.2.0
+  description: Public catalog and workflow contract. Account identity is external.
+  license:
+    name: All rights reserved
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: /
+security: []
+paths:
+  /healthz:
+    get:
+      summary: Report process liveness
+      operationId: health
+      responses:
+        '200':
+          description: Process is alive.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        4XX: { description: Client request error. }
+  /readyz:
+    get:
+      summary: Report dependency readiness
+      operationId: readiness
+      responses:
+        '200':
+          description: Required dependencies are usable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503': { description: Dependency readiness failed. }
+        4XX: { description: Client request error. }
+  /v1/public/packages:
+    get:
+      summary: List published packages
+      operationId: listPackages
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema: { type: string, enum: [art, capability, app_update] }
+        - name: publisher
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$' }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+      responses:
+        '200':
+          description: Published package summaries.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackagePage' }
+        4XX: { description: Client request error. }
+  /v1/public/search:
+    $ref: './paths/p5.yaml#/Search'
+  /v1/public/packages/{slug}:
+    get:
+      summary: Get a published package by slug
+      operationId: getPackage
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 120 }
+      responses:
+        '200':
+          description: Published package detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Package' }
+        '404': { description: Package not found. }
+  /v1/public/packages/{slug}/releases:
+    $ref: './paths/public-catalog.yaml#/PackageReleases'
+  /v1/public/publishers/{slug}:
+    $ref: './paths/public-catalog.yaml#/Publisher'
+  /v1/public/artifacts/{artifact_id}/download:
+    $ref: './paths/p5.yaml#/PublicDownload'
+  /v1/me/artifacts/{artifact_id}/download-sessions:
+    $ref: './paths/p5.yaml#/RestrictedDownload'
+  /v1/me/download-sessions/{session_id}/install-challenge:
+    $ref: './paths/p7.yaml#/InstallChallenge'
+  /v1/me/install-receipts/{receipt_id}/verify:
+    $ref: './paths/p7.yaml#/InstallReceiptVerify'
+  /v1/me/library:
+    $ref: './paths/p5.yaml#/Library'
+  /v1/me/library/{package_id}:
+    $ref: './paths/p5.yaml#/LibraryEntry'
+  /v1/me/publishers:
+    $ref: './paths/publisher-console.yaml#/Memberships'
+  /v1/me/publishers/{publisher_id}/packages:
+    $ref: './paths/publisher-console.yaml#/PublisherPackages'
+  /v1/me/publishers/{publisher_id}/signing-keys:
+    $ref: './paths/publisher-console.yaml#/SigningKeys'
+  /v1/me/publishers/{publisher_id}/signing-keys/{key_id}/revoke:
+    $ref: './paths/publisher-console.yaml#/SigningKeyRevoke'
+  /v1/me/packages/{package_id}/releases:
+    $ref: './paths/publisher-console.yaml#/PackageReleases'
+  /v1/me/packages/{package_id}:
+    $ref: './paths/publisher-console.yaml#/Package'
+  /v1/me/releases/{release_id}:
+    $ref: './paths/publisher-console.yaml#/Release'
+  /v1/me/releases/{release_id}/workspace:
+    $ref: './paths/publisher-console.yaml#/ReleaseWorkspace'
+  /v1/me/moderation-cases:
+    $ref: './paths/publisher-moderation.yaml#/ModerationCases'
+  /v1/me/moderation-cases/{case_id}:
+    $ref: './paths/publisher-moderation.yaml#/ModerationCase'
+  /v1/me:
+    get:
+      summary: Resolve the current external principal
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Opaque external principal reference.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PrincipalRef' }
+        '401': { description: Credential missing or invalid. }
+        '503': { description: Account Service unavailable. }
+  /v1/me/releases/{release_id}/upload-sessions:
+    post:
+      summary: Create an object-storage multipart upload session
+      operationId: createUploadSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: release_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateUploadSessionRequest' }
+      responses:
+        '200':
+          description: Existing or newly created upload session.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSession' }
+        '400': { description: Invalid upload metadata. }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Publisher membership does not authorize the release. }
+        '409': { description: Idempotency key was reused with different content. }
+        '503': { description: Persistence dependency unavailable. }
+  /v1/me/upload-sessions/{session_id}:
+    get:
+      summary: Recover one authorized multipart upload session
+      operationId: getUploadSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Safe session metadata plus object-store-authoritative uploaded parts.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: 'private, no-store' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResumableUploadSession' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Session expired or current membership no longer authorizes it. }
+        '503': { description: Object store or persistence dependency unavailable. }
+  /v1/me/upload-sessions/{session_id}/parts/{part_number}:
+    post:
+      summary: Sign one direct multipart upload request
+      operationId: presignUploadPart
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: part_number
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 10000 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PresignUploadPartRequest' }
+      responses:
+        '200':
+          description: Short-lived direct object-store PUT request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PresignedUploadPart' }
+        '400': { description: "Part number, size, or checksum is invalid." }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Upload session does not belong to this principal. }
+        '409': { description: Upload session no longer accepts parts. }
+        '503': { description: Object store or persistence dependency unavailable. }
+  /v1/me/upload-sessions/{session_id}/complete:
+    post:
+      summary: Complete a multipart upload and enqueue verification
+      operationId: completeUploadSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompleteUploadSessionRequest' }
+      responses:
+        '200':
+          description: Uploaded artifact awaiting asynchronous verification.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UploadSession' }
+        '400': { description: "Part list is incomplete, unordered, or invalid." }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Upload session does not belong to this principal. }
+        '503': { description: Object store or persistence dependency unavailable. }
+  /v1/me/releases/{release_id}/submissions:
+    post:
+      summary: Submit or resubmit a verified release for review
+      operationId: submitRelease
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ReleaseId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSubmissionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResponse' }
+        '400': { description: Invalid submission. }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Publisher membership does not authorize the release. }
+        '409': { description: "Release, artifact, policy, or idempotency state conflicts." }
+        '501': { description: App Update publication is feature-disabled. }
+  /v1/me/submissions/{submission_id}/withdraw:
+    post:
+      summary: Withdraw a submission without deleting review history
+      operationId: withdrawSubmission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SubmissionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WithdrawSubmissionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResponse' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Publisher membership is required. }
+        '409': { description: Submission cannot be withdrawn from its current state. }
+  /v1/internal/review-queue:
+    $ref: './paths/operator-review.yaml#/ReviewQueue'
+  /v1/internal/submissions/{submission_id}:
+    $ref: './paths/operator-review.yaml#/Submission'
+  /v1/internal/moderation-cases:
+    $ref: './paths/operator-moderation.yaml#/ModerationQueue'
+  /v1/internal/moderation-cases/{case_id}:
+    $ref: './paths/operator-moderation.yaml#/ModerationCase'
+  /v1/internal/submissions/{submission_id}/reviews:
+    post:
+      summary: Record a revision-bound manual review decision
+      operationId: decideSubmissionReview
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SubmissionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecideReviewRequest' }
+      responses:
+        '200':
+          description: Stored review decision and resulting submission state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewDecisionView' }
+        '400': { description: Review evidence is malformed or exceeds bounds. }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Reviewer role is absent or reviewer belongs to the publisher. }
+        '409': { description: Submission revision is no longer reviewable. }
+  /v1/internal/submissions/{submission_id}/publish:
+    post:
+      summary: Publish an approved immutable release
+      description: >-
+        Idempotent replays are returned only after the current Operator role,
+        release and artifact lifecycle, approval revision, signing key, and
+        blocklist policy are revalidated. Revocation and policy changes fail
+        closed instead of exposing a stored result.
+      operationId: publishSubmission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/SubmissionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { $ref: '#/components/responses/SubmissionResponse' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Operator role is required. }
+        '409': { description: "Verification, approvals, signature key, or blocklist gate failed." }
+        '501': { description: App Update publication is feature-disabled. }
+  /v1/me/packages/{package_id}/reports:
+    post:
+      summary: Report a package or release for moderation
+      operationId: reportPackage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/PackageId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReportPackageRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ModerationCaseResponse' }
+        '400': { description: Report is malformed or exceeds bounds. }
+        '401': { description: Credential missing or invalid. }
+        '404': { description: Package or release was not found. }
+  /v1/internal/moderation-cases/{case_id}/actions:
+    post:
+      summary: Propose a moderation action requiring a second approver
+      operationId: proposeModerationAction
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/CaseId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProposeModerationActionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ModerationActionResponse' }
+        '400': { description: Action and target do not form a valid policy operation. }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Moderator or operator role is required. }
+        '409': { description: Case or target is not actionable. }
+  /v1/internal/moderation-actions/{action_id}/approve:
+    post:
+      summary: Apply a proposed action as an independent second approver
+      operationId: approveModerationAction
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/ActionId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { $ref: '#/components/responses/ModerationActionResponse' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Role is absent or proposer attempted self-approval. }
+        '409': { description: Target is already blocked or action is no longer applicable. }
+  /v1/me/moderation-cases/{case_id}/appeal:
+    post:
+      summary: Appeal an applied moderation case as its publisher
+      operationId: appealModerationCase
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/CaseId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReasonRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ModerationCaseResponse' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Active publisher membership is required. }
+        '409': { description: Case has no applied action to appeal. }
+  /v1/internal/moderation-cases/{case_id}/resolve:
+    post:
+      summary: Resolve an appeal and optionally lift its blocklist facts
+      operationId: resolveModerationCase
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/CaseId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResolveModerationRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ModerationCaseResponse' }
+        '401': { description: Credential missing or invalid. }
+        '403': { description: Moderator or operator role is required. }
+        '409': { description: Case is not awaiting appeal resolution. }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 200 }
+    ReleaseId: { name: release_id, in: path, required: true, schema: { type: string, format: uuid } }
+    SubmissionId: { name: submission_id, in: path, required: true, schema: { type: string, format: uuid } }
+    PackageId: { name: package_id, in: path, required: true, schema: { type: string, format: uuid } }
+    CaseId: { name: case_id, in: path, required: true, schema: { type: string, format: uuid } }
+    ActionId: { name: action_id, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    SubmissionResponse:
+      description: Current submission state with revision-bound approval counts.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SubmissionView' }
+    ModerationCaseResponse:
+      description: Current moderation case state.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ModerationCaseView' }
+    ModerationActionResponse:
+      description: Proposed or applied two-person moderation action.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ModerationActionView' }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok, not_ready] }
+    Package:
+      type: object
+      required: [id, slug, name, kind, publisher, status]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [art, capability, app_update] }
+        publisher: { $ref: '#/components/schemas/PublisherSummary' }
+        status: { type: string, enum: [published, suspended, archived] }
+        summary: { type: string }
+    PackagePage:
+      type: object
+      required: [schema_version, items, next_cursor]
+      properties:
+        schema_version: { type: string, const: '1.0' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Package' }
+        next_cursor: { type: [string, 'null'] }
+    PrincipalRef:
+      type: object
+      required: [issuer, subject]
+      properties:
+        issuer: { type: string, minLength: 1 }
+        subject: { type: string, minLength: 1 }
+    PublisherSummary:
+      type: object
+      additionalProperties: false
+      required: [id, slug, display_name]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string, minLength: 1, maxLength: 120 }
+        display_name: { type: string, minLength: 1, maxLength: 160 }
+    ArtifactDigest:
+      type: object
+      required: [algorithm, value]
+      additionalProperties: false
+      properties:
+        algorithm: { type: string, const: sha256 }
+        value: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+    CreateUploadSessionRequest:
+      type: object
+      required: [file_name, media_type, size_bytes, part_size_bytes, part_count, expected_digest]
+      additionalProperties: false
+      properties:
+        file_name: { type: string, maxLength: 240, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,235}\\.zip$' }
+        media_type: { type: string, enum: [application/zip, application/x-zip-compressed, application/octet-stream] }
+        size_bytes: { type: integer, minimum: 1, maximum: 2147483648 }
+        part_size_bytes: { type: integer, minimum: 5242880, maximum: 2147483648 }
+        part_count: { type: integer, minimum: 1, maximum: 10000 }
+        expected_digest: { $ref: '#/components/schemas/ArtifactDigest' }
+    UploadSession:
+      type: object
+      required: [id, release_id, artifact_id, object_key, part_size_bytes, max_parts, expires_at_epoch_seconds, status, expected_digest]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        artifact_id: { type: string, format: uuid }
+        object_key: { type: string, pattern: '^quarantine/' }
+        part_size_bytes: { type: integer, minimum: 5242880 }
+        max_parts: { type: integer, minimum: 1, maximum: 10000 }
+        expires_at_epoch_seconds: { type: integer, minimum: 1 }
+        status: { type: string, enum: [pending_upload, uploaded, scanning, verified, quarantined, deleted] }
+        expected_digest: { $ref: '#/components/schemas/ArtifactDigest' }
+    UploadedPart:
+      type: object
+      additionalProperties: false
+      required: [part_number, etag, checksum_sha256_base64, size_bytes]
+      properties:
+        part_number: { type: integer, minimum: 1, maximum: 10000 }
+        etag: { type: string, minLength: 1, maxLength: 200 }
+        checksum_sha256_base64: { type: string, pattern: '^[A-Za-z0-9+/]{43}=$' }
+        size_bytes: { type: integer, minimum: 1, maximum: 2147483648 }
+    ResumableUploadSession:
+      type: object
+      additionalProperties: false
+      required: [id, release_id, artifact_id, part_size_bytes, max_parts, size_bytes, expires_at_epoch_seconds, status, expected_digest, uploaded_parts]
+      properties:
+        id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        artifact_id: { type: string, format: uuid }
+        part_size_bytes: { type: integer, minimum: 5242880, maximum: 2147483648 }
+        max_parts: { type: integer, minimum: 1, maximum: 10000 }
+        size_bytes: { type: integer, minimum: 1, maximum: 2147483648 }
+        expires_at_epoch_seconds: { type: integer, minimum: 1 }
+        status: { type: string, enum: [pending_upload, uploaded] }
+        expected_digest: { $ref: '#/components/schemas/ArtifactDigest' }
+        uploaded_parts:
+          type: array
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/UploadedPart' }
+    PresignUploadPartRequest:
+      type: object
+      required: [size_bytes, checksum_sha256_base64]
+      additionalProperties: false
+      properties:
+        size_bytes: { type: integer, minimum: 1, maximum: 2147483648 }
+        checksum_sha256_base64: { type: string, minLength: 44, maxLength: 44 }
+    PresignedUploadPart:
+      type: object
+      required: [part_number, method, url, headers, expires_in_seconds]
+      additionalProperties: false
+      properties:
+        part_number: { type: integer, minimum: 1, maximum: 10000 }
+        method: { type: string, const: PUT }
+        url: { type: string, format: uri }
+        headers:
+          type: object
+          additionalProperties: { type: string }
+        expires_in_seconds: { type: integer, minimum: 1, maximum: 900 }
+    CompleteUploadPart:
+      type: object
+      required: [part_number, etag, checksum_sha256_base64]
+      additionalProperties: false
+      properties:
+        part_number: { type: integer, minimum: 1, maximum: 10000 }
+        etag: { type: string, minLength: 1, maxLength: 200 }
+        checksum_sha256_base64: { type: string, minLength: 44, maxLength: 44 }
+    CompleteUploadSessionRequest:
+      type: object
+      required: [parts]
+      additionalProperties: false
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items: { $ref: '#/components/schemas/CompleteUploadPart' }
+    CreateSubmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [artifact_id]
+      properties:
+        artifact_id: { type: string, format: uuid }
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+    WithdrawSubmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    SubmissionView:
+      type: object
+      additionalProperties: false
+      required: [id, release_id, artifact_id, revision, status, required_approvals, approval_count, scanner_version, rule_version]
+      properties:
+        id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        artifact_id: { type: string, format: uuid }
+        revision: { type: integer, minimum: 1, maximum: 10000 }
+        status: { type: string, enum: [in_review, changes_requested, approved, rejected, withdrawn] }
+        required_approvals: { type: integer, enum: [1, 2] }
+        approval_count: { type: integer, minimum: 0, maximum: 2 }
+        scanner_version: { type: string, minLength: 1, maxLength: 100 }
+        rule_version: { type: string, minLength: 1, maxLength: 100 }
+    ReviewFinding:
+      type: object
+      additionalProperties: false
+      required: [code, severity, message]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 100 }
+        severity: { type: string, enum: [info, warning, error] }
+        message: { type: string, minLength: 1, maxLength: 2000 }
+    DecideReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, reason, findings]
+      properties:
+        decision: { type: string, enum: [approved, rejected, needs_changes] }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+        findings:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ReviewFinding' }
+    ReviewDecisionView:
+      type: object
+      additionalProperties: false
+      required: [review_id, submission]
+      properties:
+        review_id: { type: string, format: uuid }
+        submission: { $ref: '#/components/schemas/SubmissionView' }
+    ReportPackageRequest:
+      type: object
+      additionalProperties: false
+      required: [release_id, reason, evidence_urls]
+      properties:
+        release_id: { type: [string, 'null'], format: uuid }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+        evidence_urls:
+          type: array
+          maxItems: 20
+          items: { type: string, format: uri, pattern: '^https://', maxLength: 2000 }
+    ProposeModerationActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action, target_type, target_ref, reason]
+      properties:
+        action: { type: string, enum: [suspend, yank, revoke, block] }
+        target_type: { type: string, enum: [publisher, package, release, artifact, signing_key] }
+        target_ref: { type: string, minLength: 1, maxLength: 200 }
+        reason: { type: string, minLength: 1, maxLength: 4000 }
+    ModerationCaseView:
+      type: object
+      additionalProperties: false
+      required: [id, package_id, release_id, status]
+      properties:
+        id: { type: string, format: uuid }
+        package_id: { type: string, format: uuid }
+        release_id: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [open, actioned, appealed, resolved] }
+    ModerationActionView:
+      type: object
+      additionalProperties: false
+      required: [id, case_id, action, target_type, target_ref, status]
+      properties:
+        id: { type: string, format: uuid }
+        case_id: { type: string, format: uuid }
+        action: { type: string, enum: [suspend, yank, revoke, block] }
+        target_type: { type: string, enum: [publisher, package, release, artifact, signing_key] }
+        target_ref: { type: string, minLength: 1, maxLength: 200 }
+        status: { type: string, enum: [proposed, applied] }
+    ResolveModerationRequest:
+      type: object
+      additionalProperties: false
+      required: [resolution, reason]
+      properties:
+        resolution: { type: string, enum: [upheld, block_lifted] }
+        reason: { type: string, minLength: 1, maxLength: 4000 }

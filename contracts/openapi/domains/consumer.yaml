@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Consumer API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/me: { $ref: '../openapi.yaml#/paths/~1v1~1me' }
+  /v1/me/artifacts/{artifact_id}/download-sessions: { $ref: '../openapi.yaml#/paths/~1v1~1me~1artifacts~1{artifact_id}~1download-sessions' }
+  /v1/me/download-sessions/{session_id}/install-challenge: { $ref: '../openapi.yaml#/paths/~1v1~1me~1download-sessions~1{session_id}~1install-challenge' }
+  /v1/me/install-receipts/{receipt_id}/verify: { $ref: '../openapi.yaml#/paths/~1v1~1me~1install-receipts~1{receipt_id}~1verify' }
+  /v1/me/library: { $ref: '../openapi.yaml#/paths/~1v1~1me~1library' }
+  /v1/me/library/{package_id}: { $ref: '../openapi.yaml#/paths/~1v1~1me~1library~1{package_id}' }
+  /v1/me/packages/{package_id}/reports: { $ref: '../openapi.yaml#/paths/~1v1~1me~1packages~1{package_id}~1reports' }

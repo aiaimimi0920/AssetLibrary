@@ -1,0 +1,55 @@
+ModerationQueue:
+  get:
+    summary: List a stable snapshot of unresolved moderation cases
+    operationId: listOperatorModerationCases
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '#/PageCursor' }
+      - { $ref: '#/PageLimit' }
+    responses:
+      '200':
+        description: Bounded case summaries without reporter or operator principals.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/operator-moderation.yaml#/OperatorModerationQueuePage' }
+      '400': { description: Cursor or limit is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active moderator or operator role is required. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+ModerationCase:
+  get:
+    summary: Get sanitized report, action, and appeal facts for one moderation case
+    operationId: getOperatorModerationCase
+    security: [{ bearerAuth: [] }]
+    parameters:
+      - { $ref: '../openapi.yaml#/components/parameters/CaseId' }
+    responses:
+      '200':
+        description: Moderation workspace without account principals, object keys, or raw scan evidence.
+        headers: { Cache-Control: { $ref: '#/PrivateCacheControl' } }
+        content:
+          application/json:
+            schema: { $ref: '../components/operator-moderation.yaml#/OperatorModerationCaseDetail' }
+      '400': { description: Case identifier is invalid. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Active moderator or operator role is required. }
+      '404': { description: Moderation case was not found. }
+      '503': { description: Account Service or persistence dependency unavailable. }
+
+PageCursor:
+  name: cursor
+  in: query
+  required: false
+  schema: { type: string, maxLength: 256 }
+
+PageLimit:
+  name: limit
+  in: query
+  required: false
+  schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+
+PrivateCacheControl:
+  description: Authenticated moderation data must not be stored by shared or private caches.
+  schema: { type: string, const: 'private, no-store' }

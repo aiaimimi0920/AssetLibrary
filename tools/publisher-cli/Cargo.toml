@@ -1,0 +1,32 @@
+[package]
+name = "assetlibrary-publisher"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+assetlibrary-contracts = { path = "../../crates/contracts" }
+assetlibrary-supply-chain = { path = "../../crates/supply-chain" }
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+ed25519-dalek = { version = "2.2.0", features = ["pem", "pkcs8"] }
+futures-util = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3", features = ["parsing"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "sync", "time"] }
+url = "2"
+uuid = { version = "1", features = ["serde", "v4"] }
+walkdir = "2"
+zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+assert_cmd = "2"
+axum = "0.8"
+pkcs8 = { version = "0.10", features = ["pem"] }
+predicates = "3"

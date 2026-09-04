@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "base_images": {
+    "rust_builder": "rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1",
+    "rust_runtime": "gcr.io/distroless/cc-debian12@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f",
+    "node_builder_runtime": "node@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0",
+    "clamav_runtime": "docker.io/clamav/clamav@sha256:be3cb41d9833ce9ffb98f3d3e1483c35c0d87060c2bda3624d75fd28bbf0b3bd"
+  },
+  "components": [
+    {
+      "name": "api",
+      "dockerfile": "deploy/images/rust-service.Dockerfile",
+      "package": "assetlibrary-api",
+      "binary": "assetlibrary-api"
+    },
+    {
+      "name": "web",
+      "dockerfile": "deploy/images/web.Dockerfile",
+      "package": null,
+      "binary": null
+    },
+    {
+      "name": "scanner",
+      "dockerfile": "deploy/images/rust-service.Dockerfile",
+      "package": "assetlibrary-scanner-worker",
+      "binary": "assetlibrary-scanner-worker"
+    },
+    {
+      "name": "outbox",
+      "dockerfile": "deploy/images/rust-service.Dockerfile",
+      "package": "assetlibrary-outbox-worker",
+      "binary": "assetlibrary-outbox-worker"
+    },
+    {
+      "name": "indexer",
+      "dockerfile": "deploy/images/rust-service.Dockerfile",
+      "package": "assetlibrary-indexer-worker",
+      "binary": "assetlibrary-indexer-worker"
+    },
+    {
+      "name": "cleanup",
+      "dockerfile": "deploy/images/rust-service.Dockerfile",
+      "package": "assetlibrary-cleanup-worker",
+      "binary": "assetlibrary-cleanup-worker"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuro.example/schemas/p8-load-run-manifest.schema.json",
+  "title": "AssetLibrary standalone k6 run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile",
+    "started_at",
+    "finished_at",
+    "git_commit",
+    "k6_version",
+    "exit_code",
+    "summary_present",
+    "summary_sha256",
+    "upload_enabled",
+    "remote_target_confirmed",
+    "capacity_evidence_state",
+    "cost_evidence_state",
+    "p8_gate_eligible"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.1" },
+    "profile": { "enum": ["smoke", "baseline", "double", "soak", "burst", "download"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "git_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "k6_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^k6 v[0-9]+\\.[0-9]+\\.[0-9]+(?:[ -].*)?$"
+    },
+    "exit_code": { "const": 0 },
+    "summary_present": { "const": true },
+    "summary_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "upload_enabled": { "type": "boolean" },
+    "remote_target_confirmed": { "const": true },
+    "capacity_evidence_state": { "const": "k6_summary_only" },
+    "cost_evidence_state": { "const": "not_collected" },
+    "p8_gate_eligible": { "const": false }
+  }
+}

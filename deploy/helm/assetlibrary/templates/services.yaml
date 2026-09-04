@@ -1,0 +1,49 @@
+{{- $root := . -}}
+{{- range $name, $workload := dict "api" .Values.api "web" .Values.web }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "assetlibrary.name" $root }}-{{ $name }}
+  labels:
+    {{- include "assetlibrary.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+    {{- if $root.Values.progressiveDelivery.enabled }}
+    assetlibrary.neuro/track: stable
+    {{- end }}
+    {{- if eq $name "api" }}
+    assetlibrary.neuro/metrics: enabled
+    {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    {{- if eq $name "api" }}
+    - { name: metrics, port: {{ $root.Values.observability.metricsPort }}, targetPort: metrics }
+    {{- end }}
+{{- if $root.Values.progressiveDelivery.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "assetlibrary.name" $root }}-{{ $name }}-canary
+  labels:
+    {{- include "assetlibrary.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+    assetlibrary.neuro/track: canary
+    {{- if eq $name "api" }}
+    assetlibrary.neuro/metrics: enabled
+    {{- end }}
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    {{- if eq $name "api" }}
+    - { name: metrics, port: {{ $root.Values.observability.metricsPort }}, targetPort: metrics }
+    {{- end }}
+{{- end }}
+{{- end }}

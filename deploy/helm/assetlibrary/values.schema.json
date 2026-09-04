@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["api", "web", "scanner", "outbox", "indexer", "cleanup", "config", "observability", "progressiveDelivery", "network", "autoscaling"],
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "imagePullSecrets": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": { "name": { "$ref": "#/$defs/name" } },
+        "additionalProperties": false
+      }
+    },
+    "api": { "$ref": "#/$defs/webWorkload" },
+    "web": { "$ref": "#/$defs/webWorkload" },
+    "outbox": { "$ref": "#/$defs/worker" },
+    "indexer": {
+      "allOf": [{ "$ref": "#/$defs/worker" }],
+      "required": ["consumerName", "indexPrefix"],
+      "properties": {
+        "consumerName": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$" },
+        "indexPrefix": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$" }
+      }
+    },
+    "scanner": {
+      "allOf": [{ "$ref": "#/$defs/worker" }],
+      "required": ["runtimeClassName", "pidsLimit", "scanTimeoutSeconds", "consumerName", "tempSizeLimit", "clamav", "autoscaling"],
+      "properties": {
+        "runtimeClassName": { "$ref": "#/$defs/name" },
+        "pidsLimit": { "type": "integer", "minimum": 16, "maximum": 256 },
+        "scanTimeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 900 },
+        "consumerName": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$" },
+        "tempSizeLimit": { "$ref": "#/$defs/quantity" },
+        "clamav": {
+          "type": "object",
+          "required": ["image", "runAsUser", "runAsGroup", "tempSizeLimit", "databaseSizeLimit", "resources"],
+          "properties": {
+            "image": { "$ref": "#/$defs/image" },
+            "runAsUser": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "runAsGroup": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "tempSizeLimit": { "$ref": "#/$defs/quantity" },
+            "databaseSizeLimit": { "$ref": "#/$defs/quantity" },
+            "resources": { "$ref": "#/$defs/resources" }
+          },
+          "additionalProperties": false
+        },
+        "autoscaling": {
+          "type": "object",
+          "required": ["enabled", "minReplicas", "maxReplicas", "pollingInterval", "cooldownPeriod", "lagThreshold"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "minReplicas": { "type": "integer", "minimum": 1 },
+            "maxReplicas": { "type": "integer", "minimum": 2 },
+            "pollingInterval": { "type": "integer", "minimum": 1, "maximum": 300 },
+            "cooldownPeriod": { "type": "integer", "minimum": 0, "maximum": 3600 },
+            "lagThreshold": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "cleanup": {
+      "allOf": [{ "$ref": "#/$defs/imageWorkload" }],
+      "required": ["runtimeClassName", "pidsLimit", "schedule", "batchSize", "claimTimeoutSeconds", "quarantineRetentionSeconds", "orphanMultipartGraceSeconds", "orphanMultipartScanLimit", "orphanMultipartBatchSize", "activeDeadlineSeconds"],
+      "properties": {
+        "runtimeClassName": { "$ref": "#/$defs/name" },
+        "pidsLimit": { "type": "integer", "minimum": 8, "maximum": 128 },
+        "schedule": { "type": "string", "minLength": 9, "maxLength": 100 },
+        "batchSize": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "claimTimeoutSeconds": { "type": "integer", "minimum": 60, "maximum": 3600 },
+        "quarantineRetentionSeconds": { "type": "integer", "minimum": 86400, "maximum": 31536000 },
+        "orphanMultipartGraceSeconds": { "type": "integer", "minimum": 3600, "maximum": 604800 },
+        "orphanMultipartScanLimit": { "type": "integer", "minimum": 100, "maximum": 10000 },
+        "orphanMultipartBatchSize": { "type": "integer", "minimum": 1, "maximum": 500 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 60, "maximum": 3600 }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": ["environment", "publicApiUrl", "publicWebUrl", "accountSessionUrl", "accountSessionCookie", "uploadOrigins", "databaseSecretName", "serviceSecretName", "scannerSecretName", "outboxSecretName", "indexerSecretName", "cleanupSecretName", "appUpdatesEnabled", "publicDownloadBaseUrl", "restrictedDownloadBaseUrl", "downloadTicketIssuer", "downloadTicketAudience", "downloadTicketTtlSeconds", "searchAlias", "natsMonitoringEndpoint", "natsMonitoringUseHttps", "natsAccount", "natsStream"],
+      "properties": {
+        "environment": { "enum": ["staging", "production"] },
+        "publicApiUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "publicWebUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "accountSessionUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "accountSessionCookie": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$" },
+        "uploadOrigins": {
+          "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?$"
+          }
+        },
+        "databaseSecretName": { "$ref": "#/$defs/name" },
+        "serviceSecretName": { "$ref": "#/$defs/name" },
+        "scannerSecretName": { "$ref": "#/$defs/name" },
+        "outboxSecretName": { "$ref": "#/$defs/name" },
+        "indexerSecretName": { "$ref": "#/$defs/name" },
+        "cleanupSecretName": { "$ref": "#/$defs/name" },
+        "appUpdatesEnabled": { "const": false },
+        "publicDownloadBaseUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "restrictedDownloadBaseUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "downloadTicketIssuer": { "type": "string", "pattern": "^[!-~]{1,200}$" },
+        "downloadTicketAudience": { "type": "string", "pattern": "^[!-~]{1,200}$" },
+        "downloadTicketTtlSeconds": { "type": "integer", "minimum": 30, "maximum": 900 },
+        "searchAlias": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,100}$" },
+        "natsMonitoringEndpoint": { "type": "string", "pattern": "^[A-Za-z0-9.-]+:[0-9]{2,5}$" },
+        "natsMonitoringUseHttps": { "const": true },
+        "natsAccount": { "type": "string", "pattern": "^[A-Za-z0-9_$.-]{1,128}$" },
+        "natsStream": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" }
+      },
+      "additionalProperties": false
+    },
+    "observability": {
+      "type": "object",
+      "required": ["metricsPort", "otlpEndpoint", "serviceMonitor", "prometheusRule", "alertmanager", "grafanaDashboard", "prometheusIngress"],
+      "properties": {
+        "metricsPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "otlpEndpoint": { "type": "string", "maxLength": 2048, "pattern": "^(?:|https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?)$" },
+        "serviceMonitor": { "$ref": "#/$defs/monitoringResource" },
+        "prometheusRule": { "$ref": "#/$defs/toggleWithLabels" },
+        "alertmanager": {
+          "type": "object",
+          "required": ["enabled", "webhookSecretName", "webhookSecretKey"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "webhookSecretName": { "type": "string", "maxLength": 253 },
+            "webhookSecretKey": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,253}$" }
+          },
+          "additionalProperties": false
+        },
+        "grafanaDashboard": { "$ref": "#/$defs/toggleWithLabels" },
+        "prometheusIngress": {
+          "type": "object",
+          "required": ["namespaceLabels", "podLabels"],
+          "properties": {
+            "namespaceLabels": { "$ref": "#/$defs/labelSelector" },
+            "podLabels": { "$ref": "#/$defs/labelSelector" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "progressiveDelivery": {
+      "type": "object",
+      "required": ["enabled", "controller", "trafficRouter", "analysis"],
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "controller": {
+          "type": "object",
+          "required": ["version", "image"],
+          "properties": {
+            "version": { "const": "v1.9.1" },
+            "image": { "const": "quay.io/argoproj/argo-rollouts@sha256:15c0d41f2c69a382d4399bcb28ed4f03ee9f58b56cfc9e6cd55bcbf0f311c06d" }
+          },
+          "additionalProperties": false
+        },
+        "trafficRouter": {
+          "type": "object",
+          "required": ["provider", "ingressClassName", "apiHost", "webHost", "apiTlsSecretName", "webTlsSecretName"],
+          "properties": {
+            "provider": { "const": "nginx" },
+            "ingressClassName": { "$ref": "#/$defs/name" },
+            "apiHost": { "$ref": "#/$defs/optionalHostname" },
+            "webHost": { "$ref": "#/$defs/optionalHostname" },
+            "apiTlsSecretName": { "$ref": "#/$defs/optionalName" },
+            "webTlsSecretName": { "$ref": "#/$defs/optionalName" }
+          },
+          "additionalProperties": false
+        },
+        "analysis": {
+          "type": "object",
+          "required": ["prometheusAddress", "interval", "count", "apiMinimumRequestsPerSecond", "webMinimumRequestsPerSecond", "apiMaximum5xxRatio", "webMaximum5xxRatio", "apiMaximumP95Seconds", "webMaximumP95Seconds"],
+          "properties": {
+            "prometheusAddress": { "type": "string", "maxLength": 2048, "pattern": "^(?:|https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?)$" },
+            "interval": { "type": "string", "pattern": "^[1-9][0-9]*(s|m)$" },
+            "count": { "type": "integer", "minimum": 5, "maximum": 60 },
+            "apiMinimumRequestsPerSecond": { "type": "number", "minimum": 0.01, "maximum": 1000 },
+            "webMinimumRequestsPerSecond": { "type": "number", "minimum": 0.01, "maximum": 1000 },
+            "apiMaximum5xxRatio": { "const": 0.001 },
+            "webMaximum5xxRatio": { "const": 0.001 },
+            "apiMaximumP95Seconds": { "const": 0.5 },
+            "webMaximumP95Seconds": { "const": 1.0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "network": {
+      "type": "object",
+      "required": ["ingress", "dependencies"],
+      "properties": {
+        "ingress": {
+          "type": "object",
+          "required": ["namespaceLabels", "podLabels"],
+          "properties": {
+            "namespaceLabels": { "$ref": "#/$defs/labelSelector" },
+            "podLabels": { "$ref": "#/$defs/labelSelector" }
+          },
+          "additionalProperties": false
+        },
+        "dependencies": {
+          "type": "object",
+          "required": ["api", "web", "scanner", "outbox", "indexer", "cleanup"],
+          "properties": {
+            "api": { "$ref": "#/$defs/dependencyList" },
+            "web": { "$ref": "#/$defs/dependencyList" },
+            "scanner": { "$ref": "#/$defs/dependencyList" },
+            "outbox": { "$ref": "#/$defs/dependencyList" },
+            "indexer": { "$ref": "#/$defs/dependencyList" },
+            "cleanup": { "$ref": "#/$defs/dependencyList" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "autoscaling": {
+      "type": "object",
+      "required": ["enabled", "minReplicas", "maxReplicas", "targetCPUUtilizationPercentage"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "minReplicas": { "type": "integer", "minimum": 2, "maximum": 100 },
+        "maxReplicas": { "type": "integer", "minimum": 2, "maximum": 500 },
+        "targetCPUUtilizationPercentage": { "type": "integer", "minimum": 10, "maximum": 95 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?$", "minLength": 1, "maxLength": 253 },
+    "optionalName": { "type": "string", "pattern": "^(?:|[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?)$", "maxLength": 253 },
+    "optionalHostname": { "type": "string", "pattern": "^(?:|[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?)$", "maxLength": 253 },
+    "image": { "type": "string", "pattern": "^[^@]+@sha256:[a-f0-9]{64}$" },
+    "quantity": { "type": "string", "pattern": "^[1-9][0-9]*(Ki|Mi|Gi|Ti)$" },
+    "cpuQuantity": { "type": "string", "pattern": "^(?:[1-9][0-9]*m|[1-9][0-9]*)$" },
+    "resourcePair": {
+      "type": "object",
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "$ref": "#/$defs/cpuQuantity" },
+        "memory": { "$ref": "#/$defs/quantity" }
+      },
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/$defs/resourcePair" },
+        "limits": { "$ref": "#/$defs/resourcePair" }
+      },
+      "additionalProperties": false
+    },
+    "labelSelector": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 8,
+      "propertyNames": { "pattern": "^[A-Za-z0-9./_-]{1,253}$" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 63 }
+    },
+    "dependencyList": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": ["cidr", "ports"],
+        "properties": {
+          "cidr": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F:.]+/[0-9]{1,3}$",
+            "not": {
+              "anyOf": [
+                { "enum": ["0.0.0.0/0", "::/0"] },
+                { "pattern": "^(?:0|127|169\\.254)\\." },
+                { "pattern": "^[fF][eE][89aAbB]" }
+              ]
+            }
+          },
+          "ports": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "toggleWithLabels": {
+      "type": "object",
+      "required": ["enabled", "labels"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "labels": { "$ref": "#/$defs/labels" }
+      },
+      "additionalProperties": false
+    },
+    "monitoringResource": {
+      "type": "object",
+      "required": ["enabled", "labels", "interval"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "labels": { "$ref": "#/$defs/labels" },
+        "interval": { "type": "string", "pattern": "^[1-9][0-9]*(s|m)$" }
+      },
+      "additionalProperties": false
+    },
+    "labels": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[A-Za-z0-9./_-]{1,253}$" },
+      "additionalProperties": { "type": "string", "maxLength": 253 }
+    },
+    "imageWorkload": {
+      "type": "object",
+      "required": ["image", "resources"],
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "resources": { "$ref": "#/$defs/resources" }
+      }
+    },
+    "worker": {
+      "allOf": [{ "$ref": "#/$defs/imageWorkload" }],
+      "required": ["replicas"],
+      "properties": { "replicas": { "type": "integer", "minimum": 1, "maximum": 500 } }
+    },
+    "webWorkload": {
+      "allOf": [{ "$ref": "#/$defs/worker" }],
+      "required": ["port"],
+      "properties": { "port": { "type": "integer", "minimum": 1024, "maximum": 65535 } }
+    }
+  },
+  "additionalProperties": false
+}

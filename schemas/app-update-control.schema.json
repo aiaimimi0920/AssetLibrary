@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetlibrary.neuro.local/schemas/app-update-control.schema.json",
+  "title": "Neuro application-update signed control target",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "product",
+    "channel",
+    "platform",
+    "policy_epoch",
+    "installation_enabled",
+    "minimum_release_sequence",
+    "revoked_sha256",
+    "reason"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "product": { "enum": ["loom", "hook"] },
+    "channel": { "enum": ["stable", "beta", "nightly"] },
+    "platform": {
+      "enum": ["windows-x86_64", "linux-x86_64", "macos-aarch64", "macos-x86_64"]
+    },
+    "policy_epoch": { "type": "integer", "minimum": 1 },
+    "installation_enabled": { "type": "boolean" },
+    "minimum_release_sequence": { "type": "integer", "minimum": 1 },
+    "revoked_sha256": {
+      "type": "array",
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 500 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "installation_enabled": { "const": false } } },
+      "then": { "properties": { "reason": { "type": "string" } } }
+    }
+  ]
+}

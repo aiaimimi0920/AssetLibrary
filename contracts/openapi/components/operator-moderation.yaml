@@ -1,0 +1,102 @@
+OperatorModerationRelease:
+  type: object
+  additionalProperties: false
+  required: [id, version]
+  properties:
+    id: { type: string, format: uuid }
+    version: { type: string, minLength: 1, maxLength: 100, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$' }
+
+OperatorModerationCaseItem:
+  type: object
+  additionalProperties: false
+  required: [id, status, package, release, reason_preview, action_status, created_at, updated_at]
+  properties:
+    id: { type: string, format: uuid }
+    status: { type: string, enum: [open, actioned, appealed, resolved] }
+    package: { $ref: './operator-review.yaml#/OperatorReviewPackage' }
+    release:
+      oneOf:
+        - { $ref: '#/OperatorModerationRelease' }
+        - { type: 'null' }
+    reason_preview: { type: string, minLength: 1, maxLength: 240 }
+    action_status:
+      oneOf:
+        - { type: string, enum: [proposed, applied] }
+        - { type: 'null' }
+    created_at: { type: string, format: date-time }
+    updated_at: { type: string, format: date-time }
+
+OperatorModerationQueuePage:
+  type: object
+  additionalProperties: false
+  required: [schema_version, items, next_cursor]
+  properties:
+    schema_version: { type: string, const: '1.0' }
+    items:
+      type: array
+      maxItems: 100
+      items: { $ref: '#/OperatorModerationCaseItem' }
+    next_cursor:
+      oneOf:
+        - { type: string, minLength: 1, maxLength: 256 }
+        - { type: 'null' }
+
+OperatorModerationActionRecord:
+  type: object
+  additionalProperties: false
+  required: [id, action, target_type, target_ref, status, reason, created_at, applied_at, can_approve]
+  properties:
+    id: { type: string, format: uuid }
+    action: { type: string, enum: [suspend, yank, revoke, block] }
+    target_type: { type: string, enum: [publisher, package, release, artifact, signing_key] }
+    target_ref: { type: string, minLength: 1, maxLength: 200 }
+    status: { type: string, enum: [proposed, applied] }
+    reason: { type: string, minLength: 1, maxLength: 4000 }
+    created_at: { type: string, format: date-time }
+    applied_at:
+      oneOf:
+        - { type: string, format: date-time }
+        - { type: 'null' }
+    can_approve: { type: boolean }
+
+OperatorModerationAppeal:
+  type: object
+  additionalProperties: false
+  required: [reason, resolution, resolution_reason, resolved_at]
+  properties:
+    reason: { type: string, minLength: 1, maxLength: 4000 }
+    resolution:
+      oneOf:
+        - { type: string, enum: [upheld, block_lifted] }
+        - { type: 'null' }
+    resolution_reason:
+      oneOf:
+        - { type: string, minLength: 1, maxLength: 4000 }
+        - { type: 'null' }
+    resolved_at:
+      oneOf:
+        - { type: string, format: date-time }
+        - { type: 'null' }
+
+OperatorModerationCaseDetail:
+  type: object
+  additionalProperties: false
+  required: [schema_version, item, report_reason, evidence_urls, actions, appeal, can_propose, can_resolve]
+  properties:
+    schema_version: { type: string, const: '1.0' }
+    item: { $ref: '#/OperatorModerationCaseItem' }
+    report_reason: { type: string, minLength: 1, maxLength: 4000 }
+    evidence_urls:
+      type: array
+      maxItems: 20
+      items: { type: string, format: uri, pattern: '^https://', maxLength: 2000 }
+    actions:
+      type: array
+      maxItems: 1
+      items: { $ref: '#/OperatorModerationActionRecord' }
+    appeal:
+      oneOf:
+        - { $ref: '#/OperatorModerationAppeal' }
+        - { type: 'null' }
+    can_propose: { type: boolean }
+    can_resolve: { type: boolean }

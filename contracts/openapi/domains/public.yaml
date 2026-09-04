@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Public API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /healthz: { $ref: '../openapi.yaml#/paths/~1healthz' }
+  /readyz: { $ref: '../openapi.yaml#/paths/~1readyz' }
+  /v1/public/packages: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages' }
+  /v1/public/search: { $ref: '../openapi.yaml#/paths/~1v1~1public~1search' }
+  /v1/public/packages/{slug}: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages~1{slug}' }
+  /v1/public/packages/{slug}/releases: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages~1{slug}~1releases' }
+  /v1/public/publishers/{slug}: { $ref: '../openapi.yaml#/paths/~1v1~1public~1publishers~1{slug}' }
+  /v1/public/artifacts/{artifact_id}/download: { $ref: '../openapi.yaml#/paths/~1v1~1public~1artifacts~1{artifact_id}~1download' }

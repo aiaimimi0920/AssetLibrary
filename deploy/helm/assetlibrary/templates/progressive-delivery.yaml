@@ -1,0 +1,146 @@
+{{- if .Values.progressiveDelivery.enabled }}
+{{- if not .Values.observability.serviceMonitor.enabled }}{{ fail "progressive delivery requires observability.serviceMonitor.enabled" }}{{ end -}}
+{{- if not .Values.observability.prometheusRule.enabled }}{{ fail "progressive delivery requires observability.prometheusRule.enabled" }}{{ end -}}
+{{- $name := include "assetlibrary.name" . -}}
+{{- $router := .Values.progressiveDelivery.trafficRouter -}}
+{{- $analysis := .Values.progressiveDelivery.analysis -}}
+{{- range $component := list "api" "web" }}
+{{- $host := required (printf "progressiveDelivery.trafficRouter.%sHost is required" $component) (index $router (printf "%sHost" $component)) -}}
+{{- $tlsSecret := required (printf "progressiveDelivery.trafficRouter.%sTlsSecretName is required" $component) (index $router (printf "%sTlsSecretName" $component)) -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "assetlibrary.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ $router.ingressClassName }}
+  tls:
+    - hosts: [{{ $host | quote }}]
+      secretName: {{ $tlsSecret }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $name }}-{{ $component }}
+                port: { number: 80 }
+{{ end }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ $name }}-api-canary
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  args:
+    - name: traffic-weight
+  metrics:
+    - name: api-canary-request-rate
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] >= {{ $analysis.apiMinimumRequestsPerSecond }}
+      provider:
+        prometheus:
+          address: {{ required "progressiveDelivery.analysis.prometheusAddress is required" $analysis.prometheusAddress | quote }}
+          # `service` is the API's telemetry label; `rollout_track` comes from ServiceMonitor target relabeling.
+          query: |
+            sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api",rollout_track="canary"}[5m]))
+    - name: api-canary-5xx-ratio
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] < {{ $analysis.apiMaximum5xxRatio }}
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api",rollout_track="canary",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api",rollout_track="canary"}[5m])), 0.000001)
+    - name: api-canary-p95
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] < {{ $analysis.apiMaximumP95Seconds }}
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            histogram_quantile(0.95, sum by (le) (rate(assetlibrary_http_request_duration_seconds_bucket{service="assetlibrary-api",rollout_track="canary"}[5m])))
+    - name: global-slo-alerts
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] == 0
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            sum(ALERTS{alertstate="firing",alertname=~"AssetLibrary(ApiFastBurn|CatalogLatency|SearchLatency|DatabasePoolSaturation|EventLag|WorkerRetries|DependencyErrors)"}) or on() vector(0)
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ $name }}-web-canary
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  args:
+    - name: traffic-weight
+  metrics:
+    - name: web-canary-request-rate
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] >= {{ $analysis.webMinimumRequestsPerSecond }}
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          # Argo names the generated Ingress <rollout>-<stable-ingress>-canary.
+          query: |
+            sum(rate(nginx_ingress_controller_requests{namespace="{{ .Release.Namespace }}",ingress="{{ $name }}-web-{{ $name }}-web-canary"}[5m]))
+    - name: web-canary-5xx-ratio
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] < {{ $analysis.webMaximum5xxRatio }}
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            sum(rate(nginx_ingress_controller_requests{namespace="{{ .Release.Namespace }}",ingress="{{ $name }}-web-{{ $name }}-web-canary",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(nginx_ingress_controller_requests{namespace="{{ .Release.Namespace }}",ingress="{{ $name }}-web-{{ $name }}-web-canary"}[5m])), 0.000001)
+    - name: web-canary-p95
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] < {{ $analysis.webMaximumP95Seconds }}
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{namespace="{{ .Release.Namespace }}",ingress="{{ $name }}-web-{{ $name }}-web-canary"}[5m])))
+    - name: global-slo-alerts
+      interval: {{ $analysis.interval }}
+      count: {{ $analysis.count }}
+      failureLimit: 0
+      successCondition: len(result) == 1 && result[0] == 0
+      provider:
+        prometheus:
+          address: {{ $analysis.prometheusAddress | quote }}
+          query: |
+            sum(ALERTS{alertstate="firing",alertname=~"AssetLibrary(ApiFastBurn|CatalogLatency|SearchLatency|DatabasePoolSaturation|EventLag|WorkerRetries|DependencyErrors)"}) or on() vector(0)
+{{- end }}

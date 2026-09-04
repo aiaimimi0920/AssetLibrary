@@ -1,0 +1,121 @@
+HostApiSupport:
+  type: object
+  additionalProperties: false
+  required: [version, features]
+  properties:
+    version: { type: string, pattern: '^[0-9]+\.[0-9]+$' }
+    features:
+      type: array
+      maxItems: 128
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 256 }
+
+InstalledFramework:
+  type: object
+  additionalProperties: false
+  required: [id, version, ready]
+  properties:
+    id: { type: string, pattern: '^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$' }
+    version: { type: string, minLength: 1, maxLength: 128 }
+    ready: { type: boolean }
+
+InstallHostProfile:
+  type: object
+  additionalProperties: false
+  required: [loom_version, hook_version, platform, loom_capability_api, hook_extension_api, surface_api, surface_nodes, frameworks]
+  properties:
+    loom_version: { type: string, minLength: 1, maxLength: 128 }
+    hook_version: { type: string, minLength: 1, maxLength: 128 }
+    platform: { type: string, pattern: '^[a-z]+-[a-z0-9_]+$' }
+    loom_capability_api: { $ref: '#/HostApiSupport' }
+    hook_extension_api: { $ref: '#/HostApiSupport' }
+    surface_api: { $ref: '#/HostApiSupport' }
+    surface_nodes:
+      type: array
+      maxItems: 256
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 256 }
+    frameworks:
+      type: array
+      maxItems: 64
+      items: { $ref: '#/InstalledFramework' }
+
+CreateInstallChallengeRequest:
+  type: object
+  additionalProperties: false
+  required: [receipt_id, client_instance_id, receipt_public_key_base64, host]
+  properties:
+    receipt_id: { type: string, format: uuid }
+    client_instance_id: { type: string, format: uuid }
+    receipt_public_key_base64:
+      type: string
+      pattern: '^[A-Za-z0-9+/]{43}=$'
+      description: Ephemeral Ed25519 public key; the corresponding private key stays on the client.
+    host: { $ref: '#/InstallHostProfile' }
+
+InstallPackage:
+  type: object
+  additionalProperties: false
+  required: [package_id, publisher_id, publisher_slug, package_slug, kind, version, permissions]
+  properties:
+    package_id: { type: string, format: uuid }
+    publisher_id: { type: string, format: uuid }
+    publisher_slug: { type: string, pattern: '^[a-z0-9][a-z0-9.-]{0,127}$' }
+    package_slug: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{0,127}$' }
+    kind: { type: string, enum: [art, capability] }
+    version: { type: string, minLength: 1, maxLength: 128 }
+    permissions:
+      type: array
+      maxItems: 64
+      uniqueItems: true
+      items: { type: string, minLength: 1, maxLength: 256 }
+
+TrustedPublisherKey:
+  type: object
+  additionalProperties: false
+  required: [key_id, algorithm, public_key_base64, fingerprint]
+  properties:
+    key_id: { type: string, minLength: 1, maxLength: 80 }
+    algorithm: { const: ed25519 }
+    public_key_base64: { type: string, pattern: '^[A-Za-z0-9+/]{43}=$' }
+    fingerprint: { type: string, pattern: '^sha256:[a-f0-9]{64}$' }
+
+InstallChallenge:
+  type: object
+  additionalProperties: false
+  required: [schema_version, receipt_id, download_session_id, client_instance_id, package, artifact, archive_sha256, trusted_signing_key, host_profile_sha256, nonce, issued_at, expires_at]
+  properties:
+    schema_version: { const: '1.0' }
+    receipt_id: { type: string, format: uuid }
+    download_session_id: { type: string, format: uuid }
+    client_instance_id: { type: string, format: uuid }
+    package: { $ref: '#/InstallPackage' }
+    artifact: { $ref: './p5.yaml#/DownloadArtifact' }
+    archive_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+    trusted_signing_key: { $ref: '#/TrustedPublisherKey' }
+    host_profile_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
+    nonce: { type: string, format: uuid }
+    issued_at: { type: string, format: date-time }
+    expires_at: { type: string, format: date-time }
+
+VerifyInstallReceiptRequest:
+  type: object
+  additionalProperties: false
+  required: [installed_at_epoch_seconds, signature_base64]
+  properties:
+    installed_at_epoch_seconds: { type: integer, format: int64, minimum: 1 }
+    signature_base64: { type: string, pattern: '^[A-Za-z0-9+/]{86}==$' }
+
+InstallReceipt:
+  type: object
+  additionalProperties: false
+  required: [schema_version, receipt_id, release_id, artifact_id, digest, status, installed_at, verified_at]
+  properties:
+    schema_version: { const: '1.0' }
+    receipt_id: { type: string, format: uuid }
+    release_id: { type: string, format: uuid }
+    artifact_id: { type: string, format: uuid }
+    digest: { type: string, pattern: '^[a-f0-9]{64}$' }
+    status: { const: verified }
+    installed_at: { type: string, format: date-time }
+    verified_at: { type: string, format: date-time }

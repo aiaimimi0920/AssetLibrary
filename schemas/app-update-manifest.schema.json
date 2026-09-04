@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetlibrary.neuro.local/schemas/app-update-manifest.schema.json",
+  "title": "Application update manifest",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    { "$ref": "manifest-base.schema.json" },
+    {
+      "type": "object",
+      "required": ["app_update"],
+      "properties": {
+        "package": {
+          "type": "object",
+          "properties": { "kind": { "const": "app_update" } }
+        },
+        "app_update": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product", "channel", "platform", "release_sequence", "tuf_target_path"],
+          "properties": {
+            "product": { "enum": ["loom", "hook"] },
+            "channel": { "enum": ["stable", "beta", "nightly"] },
+            "platform": { "enum": ["windows-x86_64", "linux-x86_64", "macos-aarch64", "macos-x86_64"] },
+            "release_sequence": { "type": "integer", "minimum": 1 },
+            "tuf_target_path": {
+              "type": "string",
+              "pattern": "^release\\.(windows-x86_64|linux-x86_64|macos-aarch64|macos-x86_64)\\.[1-9][0-9]*\\.[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "items": [
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "appealed",
+      "package": {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "slug": "neuro-capability",
+        "name": "Neuro Capability",
+        "kind": "capability",
+        "summary": "A bounded moderation case summary.",
+        "publisher": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "slug": "neuro-labs",
+          "display_name": "Neuro Labs"
+        }
+      },
+      "release": {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "version": "1.2.0"
+      },
+      "reason_preview": "Published capability requests an undeclared permission.",
+      "action_status": "applied",
+      "created_at": "2026-09-03T09:00:00Z",
+      "updated_at": "2026-09-03T10:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}

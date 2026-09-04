@@ -1,0 +1,76 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "assetlibrary.name" . }}-default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+{{- $root := . }}
+{{- $ports := dict "api" .Values.api.port "web" .Values.web.port }}
+{{- range $component, $dependencies := .Values.network.dependencies }}
+{{- $publicIngress := or (eq $component "api") (eq $component "web") }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "assetlibrary.name" $root }}-{{ $component }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  policyTypes: [Ingress, Egress]
+  {{- if or $publicIngress $root.Values.observability.serviceMonitor.enabled }}
+  ingress:
+    {{- if $publicIngress }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml $root.Values.network.ingress.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $root.Values.network.ingress.podLabels | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: {{ index $ports $component }} }
+    {{- end }}
+    {{- if $root.Values.observability.serviceMonitor.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml $root.Values.observability.prometheusIngress.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $root.Values.observability.prometheusIngress.podLabels | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: {{ $root.Values.observability.metricsPort }} }
+    {{- end }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    {{- if eq $component "web" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $root.Release.Name }}
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: {{ $root.Values.api.port }} }
+    {{- end }}
+    {{- range $dependencies }}
+    - to:
+        - ipBlock: { cidr: {{ .cidr | quote }} }
+      ports:
+        {{- range .ports }}
+        - { protocol: TCP, port: {{ . }} }
+        {{- end }}
+    {{- end }}
+{{- end }}

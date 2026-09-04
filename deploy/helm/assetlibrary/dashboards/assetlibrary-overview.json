@@ -1,0 +1,211 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(assetlibrary_http_requests_total{service=\"assetlibrary-api\"}[5m]))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "API request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "max": 1, "min": 0, "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "sum(rate(assetlibrary_http_requests_total{service=\"assetlibrary-api\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(assetlibrary_http_requests_total{service=\"assetlibrary-api\"}[5m])), 0.000001)",
+          "legendFormat": "5xx ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "API 5xx error ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le,route) (rate(assetlibrary_http_request_duration_seconds_bucket{service=\"assetlibrary-api\"}[5m])))",
+          "legendFormat": "p95 {{route}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le,route) (rate(assetlibrary_http_request_duration_seconds_bucket{service=\"assetlibrary-api\"}[5m])))",
+          "legendFormat": "p99 {{route}}",
+          "refId": "B"
+        }
+      ],
+      "title": "API latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "assetlibrary_db_pool_connections",
+          "legendFormat": "{{service}} {{state}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Database pools",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le,service,subject) (rate(assetlibrary_event_lag_seconds_bucket[5m])))",
+          "legendFormat": "{{service}} {{subject}}",
+          "refId": "A"
+        }
+      ],
+      "title": "JetStream event lag p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "max by (service,subject) (assetlibrary_jetstream_consumer_pending)",
+          "legendFormat": "{{service}} {{subject}}",
+          "refId": "A"
+        }
+      ],
+      "title": "JetStream pending messages",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "sum by (service,operation,outcome) (rate(assetlibrary_worker_operations_total[5m]))",
+          "legendFormat": "{{service}} {{operation}} {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Worker outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 8,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le,service,operation) (rate(assetlibrary_worker_operation_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{service}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Worker operation duration p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum by (service,operation) (rate(assetlibrary_processed_bytes_total[5m]))",
+          "legendFormat": "{{service}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Processed bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum by (service) (assetlibrary_http_in_flight)",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "API in-flight requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le,service,dependency,operation) (rate(assetlibrary_dependency_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{service}} {{dependency}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Dependency latency p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum by (service,cache,outcome) (rate(assetlibrary_cache_operations_total[5m]))",
+          "legendFormat": "{{service}} {{cache}} {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache outcomes",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["assetlibrary", "neuro"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "label": "Prometheus",
+        "name": "datasource",
+        "query": "prometheus",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "Neuro AssetLibrary Overview",
+  "uid": "neuro-assetlibrary-overview",
+  "version": 1
+}

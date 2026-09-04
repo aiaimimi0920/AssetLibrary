@@ -1,0 +1,9 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Operator Review API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/internal/review-queue: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1review-queue' }
+  /v1/internal/submissions/{submission_id}: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1submissions~1{submission_id}' }
+  /v1/internal/submissions/{submission_id}/reviews: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1submissions~1{submission_id}~1reviews' }
+  /v1/internal/submissions/{submission_id}/publish: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1submissions~1{submission_id}~1publish' }

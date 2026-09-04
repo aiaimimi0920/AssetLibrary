@@ -1,0 +1,15 @@
+[package]
+name = "assetlibrary-outbox-worker"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+assetlibrary-telemetry = { path = "../../crates/telemetry" }
+async-nats = "0.50"
+bytes = "1"
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio-rustls", "uuid", "json"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["serde"] }

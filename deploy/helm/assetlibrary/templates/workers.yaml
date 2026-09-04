@@ -1,0 +1,200 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "assetlibrary.name" . }}-outbox
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: outbox
+spec:
+  replicas: {{ .Values.outbox.replicas }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: outbox
+  template:
+    metadata:
+      labels:
+        {{- include "assetlibrary.labels" . | nindent 8 }}
+        app.kubernetes.io/component: outbox
+    spec:
+      serviceAccountName: {{ include "assetlibrary.name" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: outbox
+      containers:
+        - name: outbox
+          image: {{ required "outbox.image must be a digest-pinned image" .Values.outbox.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          envFrom:
+            - secretRef: { name: {{ .Values.config.outboxSecretName | quote }} }
+          env:
+            - { name: ASSETLIBRARY_METRICS_BIND, value: {{ printf "0.0.0.0:%v" .Values.observability.metricsPort | quote }} }
+          {{- with .Values.observability.otlpEndpoint }}
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ . | quote }} }
+          {{- end }}
+          ports:
+            - { name: metrics, containerPort: {{ .Values.observability.metricsPort }} }
+          resources:
+            {{- toYaml .Values.outbox.resources | nindent 12 }}
+          volumeMounts:
+            - { name: temp, mountPath: /tmp }
+      volumes:
+        - name: temp
+          emptyDir: { sizeLimit: 128Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "assetlibrary.name" . }}-scanner
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scanner
+spec:
+  replicas: {{ .Values.scanner.replicas }}
+  strategy:
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: scanner
+  template:
+    metadata:
+      labels:
+        {{- include "assetlibrary.labels" . | nindent 8 }}
+        app.kubernetes.io/component: scanner
+      annotations:
+        assetlibrary.neuro/required-pids-limit: {{ .Values.scanner.pidsLimit | quote }}
+    spec:
+      runtimeClassName: {{ required "scanner.runtimeClassName must enforce sandbox and PID limits" .Values.scanner.runtimeClassName }}
+      serviceAccountName: {{ include "assetlibrary.name" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 210
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: {{ .Values.scanner.clamav.runAsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: scanner
+      initContainers:
+        - name: clamav-database
+          image: {{ required "scanner.clamav.image must be a digest-pinned image" .Values.scanner.clamav.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args: ["cp -R /var/lib/clamav/. /definitions/"]
+          securityContext:
+            runAsUser: {{ .Values.scanner.clamav.runAsUser }}
+            runAsGroup: {{ .Values.scanner.clamav.runAsGroup }}
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+          volumeMounts:
+            - { name: clamav-database, mountPath: /definitions }
+      containers:
+        - name: scanner
+          image: {{ required "scanner.image must be a digest-pinned image" .Values.scanner.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          env:
+            - { name: ASSETLIBRARY_ENVIRONMENT, value: {{ .Values.config.environment | quote }} }
+            - { name: ASSETLIBRARY_CLAMAV_ADDRESS, value: "127.0.0.1:3310" }
+            - { name: ASSETLIBRARY_SCANNER_TEMP_ROOT, value: "/work" }
+            - { name: ASSETLIBRARY_SCAN_TIMEOUT_SECONDS, value: {{ .Values.scanner.scanTimeoutSeconds | quote }} }
+            - { name: ASSETLIBRARY_SCANNER_CONSUMER, value: {{ .Values.scanner.consumerName | quote }} }
+            - { name: ASSETLIBRARY_METRICS_BIND, value: {{ printf "0.0.0.0:%v" .Values.observability.metricsPort | quote }} }
+          {{- with .Values.observability.otlpEndpoint }}
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ . | quote }} }
+          {{- end }}
+          envFrom:
+            - secretRef: { name: {{ .Values.config.scannerSecretName | quote }} }
+          resources:
+            {{- toYaml .Values.scanner.resources | nindent 12 }}
+          ports:
+            - { name: metrics, containerPort: {{ .Values.observability.metricsPort }} }
+          volumeMounts:
+            - { name: scanner-temp, mountPath: /work }
+        - name: clamav
+          image: {{ required "scanner.clamav.image must be a digest-pinned image" .Values.scanner.clamav.image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/init-unprivileged"]
+          securityContext:
+            runAsUser: {{ .Values.scanner.clamav.runAsUser }}
+            runAsGroup: {{ .Values.scanner.clamav.runAsGroup }}
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            readOnlyRootFilesystem: true
+          env:
+            - { name: CLAMAV_NO_FRESHCLAMD, value: "true" }
+            - { name: CLAMD_STARTUP_TIMEOUT, value: "600" }
+          ports:
+            - { name: clamd, containerPort: 3310, protocol: TCP }
+          startupProbe:
+            tcpSocket: { port: clamd }
+            periodSeconds: 10
+            failureThreshold: 60
+          livenessProbe:
+            tcpSocket: { port: clamd }
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.scanner.clamav.resources | nindent 12 }}
+          volumeMounts:
+            - { name: clamav-config, mountPath: /etc/clamav/clamd.conf, subPath: clamd.conf, readOnly: true }
+            - { name: clamav-temp, mountPath: /tmp }
+            - { name: clamav-run, mountPath: /run/clamav }
+            - { name: clamav-log, mountPath: /var/log/clamav }
+            - { name: clamav-database, mountPath: /var/lib/clamav }
+      volumes:
+        - name: scanner-temp
+          emptyDir: { sizeLimit: {{ .Values.scanner.tempSizeLimit }} }
+        - name: clamav-temp
+          emptyDir: { sizeLimit: {{ .Values.scanner.clamav.tempSizeLimit }} }
+        - name: clamav-run
+          emptyDir: { sizeLimit: 16Mi }
+        - name: clamav-log
+          emptyDir: { sizeLimit: 128Mi }
+        - name: clamav-database
+          emptyDir: { sizeLimit: {{ .Values.scanner.clamav.databaseSizeLimit }} }
+        - name: clamav-config
+          configMap: { name: {{ include "assetlibrary.name" . }}-clamav }

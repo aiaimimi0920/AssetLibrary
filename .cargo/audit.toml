@@ -1,0 +1,5 @@
+[advisories]
+# jsonwebtoken 11 lists rsa as an optional rust_crypto backend, so Cargo.lock
+# retains it even though this repository enables only aws_lc_rs. See the dated
+# exception evidence; the CI policy limits exceptions to 90 days.
+ignore = ["RUSTSEC-2023-0071"]

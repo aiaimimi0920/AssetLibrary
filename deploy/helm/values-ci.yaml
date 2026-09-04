@@ -1,0 +1,55 @@
+api:
+  image: ghcr.io/neuro/assetlibrary-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+web:
+  image: ghcr.io/neuro/assetlibrary-web@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+scanner:
+  image: ghcr.io/neuro/assetlibrary-scanner@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  runtimeClassName: assetlibrary-sandbox
+  clamav:
+    image: docker.io/clamav/clamav@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+outbox:
+  image: ghcr.io/neuro/assetlibrary-outbox@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+indexer:
+  image: ghcr.io/neuro/assetlibrary-indexer@sha256:9999999999999999999999999999999999999999999999999999999999999999
+cleanup:
+  image: ghcr.io/neuro/assetlibrary-cleanup@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  runtimeClassName: assetlibrary-sandbox
+config:
+  environment: staging
+  publicApiUrl: https://assetlibrary-staging.neuro.example
+  publicWebUrl: https://store-staging.neuro.example
+  accountSessionUrl: https://accounts-staging.neuro.example/v1/session
+  accountSessionCookie: neuro_session
+  uploadOrigins: [https://uploads-staging.neuro.example]
+  databaseSecretName: assetlibrary-database
+  serviceSecretName: assetlibrary-services
+  scannerSecretName: assetlibrary-scanner
+  outboxSecretName: assetlibrary-outbox
+  indexerSecretName: assetlibrary-indexer
+  cleanupSecretName: assetlibrary-cleanup
+  publicDownloadBaseUrl: https://downloads-staging.neuro.example
+  restrictedDownloadBaseUrl: https://downloads-staging.neuro.example
+  downloadTicketIssuer: assetlibrary-staging
+  downloadTicketAudience: assetlibrary-edge-staging
+  downloadTicketTtlSeconds: 300
+  natsMonitoringEndpoint: nats.assetlibrary.svc.cluster.local:8222
+network:
+  dependencies:
+    api:
+      - cidr: 10.20.0.0/16
+        ports: [443, 4222, 5432]
+    web:
+      - cidr: 10.20.0.0/16
+        ports: [443]
+    scanner:
+      - cidr: 10.20.0.0/16
+        ports: [4222, 5432, 9000]
+    outbox:
+      - cidr: 10.20.0.0/16
+        ports: [4222, 5432]
+    indexer:
+      - cidr: 10.20.0.0/16
+        ports: [443, 4222, 5432, 6379, 9200]
+    cleanup:
+      - cidr: 10.20.0.0/16
+        ports: [5432, 9000]

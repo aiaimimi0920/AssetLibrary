@@ -1,0 +1,29 @@
+name = "neuro-assetlibrary-edge"
+main = "src/index.ts"
+compatibility_date = "2025-08-01"
+
+[observability]
+enabled = true
+head_sampling_rate = 0.1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.05
+
+[vars]
+TICKET_ISSUER = "replace-per-environment"
+TICKET_AUDIENCE = "replace-per-environment"
+
+[[r2_buckets]]
+binding = "PUBLISHED_BUCKET"
+bucket_name = "replace-per-environment"
+
+[[kv_namespaces]]
+binding = "POLICY"
+id = "00000000000000000000000000000000"
+
+[[queues.producers]]
+binding = "DOWNLOAD_EVENTS"
+queue = "replace-per-environment"
+
+# TICKET_SECRET is an unpadded base64url secret configured with `wrangler secret put`.

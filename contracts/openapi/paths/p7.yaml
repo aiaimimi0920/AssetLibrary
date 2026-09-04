@@ -1,0 +1,70 @@
+InstallChallenge:
+  post:
+    summary: Bind an install receipt challenge to an authorized download session
+    operationId: createInstallChallenge
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: { type: string, minLength: 8, maxLength: 200 }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/p7.yaml#/CreateInstallChallengeRequest' }
+    responses:
+      '201':
+        description: One-time challenge, exact artifact identity, and currently trusted publisher key.
+        headers:
+          Cache-Control:
+            schema: { type: string, const: 'private, no-store' }
+        content:
+          application/json:
+            schema: { $ref: '../components/p7.yaml#/InstallChallenge' }
+      '400': { description: Invalid client key or host profile. }
+      '401': { description: Credential missing or invalid. }
+      '404': { description: Download session unavailable to this principal. }
+      '409': { description: 'Host is incompatible, session is invalid, or idempotency conflicts.' }
+      '503': { description: Account or persistence dependency unavailable. }
+
+InstallReceiptVerify:
+  post:
+    summary: Verify and consume one cryptographically bound install receipt
+    operationId: verifyInstallReceipt
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: receipt_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema: { type: string, minLength: 8, maxLength: 200 }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/p7.yaml#/VerifyInstallReceiptRequest' }
+    responses:
+      '200':
+        description: Verified receipt and atomically updated principal library projection.
+        headers:
+          Cache-Control:
+            schema: { type: string, const: 'private, no-store' }
+        content:
+          application/json:
+            schema: { $ref: '../components/p7.yaml#/InstallReceipt' }
+      '400': { description: Invalid signature encoding or timestamp. }
+      '401': { description: Credential missing or invalid. }
+      '403': { description: Receipt signature verification failed. }
+      '404': { description: Receipt or currently installable artifact unavailable to this principal. }
+      '409': { description: 'Challenge expired, receipt replayed, or idempotency conflicts.' }
+      '503': { description: Account or persistence dependency unavailable. }

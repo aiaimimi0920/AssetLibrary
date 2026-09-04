@@ -1,0 +1,155 @@
+name: Reusable security policy
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Full commit SHA to scan; defaults to the triggering SHA
+        required: false
+        type: string
+        default: ""
+    outputs:
+      scanned_commit:
+        description: Exact commit scanned by the shared security policy
+        value: ${{ jobs.dependencies.outputs.commit }}
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: moderate
+
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      commit: ${{ steps.commit.outputs.commit }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          fetch-depth: 0
+      - id: commit
+        name: Bind evidence to the triggering commit
+        run: |
+          expected="${{ inputs.source_ref || github.sha }}"
+          test "$expected" = "$(git rev-parse HEAD)"
+          test "${#expected}" -eq 40
+          echo "commit=$expected" >> "$GITHUB_OUTPUT"
+      - name: Generate source SPDX SBOM
+        run: |
+          mkdir -p release/evidence
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/release/evidence:/evidence" \
+            anchore/syft@sha256:95fe0835e5bebc6f8b1f8acef68d47d63d594ef4c0f25c097ff853b23cbac74c \
+            dir:/src -o spdx-json=/evidence/source.spdx.json \
+            --exclude './.git/**' --exclude '**/node_modules/**' --exclude '**/target/**' \
+            --exclude '**/.next/**' --exclude '**/dist/**' --exclude '**/test-results/**' \
+            --exclude './release/evidence/**'
+          test -s release/evidence/source.spdx.json
+      - name: Scan supported lockfiles with OSV
+        run: |
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/release/evidence:/evidence" \
+            ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
+            scan source --recursive --format json --output-file /evidence/osv.json /src
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 20.20.2
+      - name: Audit pnpm dependency graphs
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          set +e
+          timeout --signal=TERM --kill-after=30s 300s \
+            pnpm --dir apps/web audit --audit-level moderate --json \
+            > release/evidence/pnpm-audit-web.json
+          web_status=$?
+          timeout --signal=TERM --kill-after=30s 300s \
+            pnpm --dir packages/api-client audit --audit-level moderate --json \
+            > release/evidence/pnpm-audit-client.json
+          client_status=$?
+          timeout --signal=TERM --kill-after=30s 300s \
+            pnpm --dir services/edge audit --audit-level moderate --json \
+            > release/evidence/pnpm-audit-edge.json
+          edge_status=$?
+          set -e
+          test "$web_status" -eq 0
+          test "$client_status" -eq 0
+          test "$edge_status" -eq 0
+      - name: Upload dependency and SBOM evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-dependency-evidence-${{ inputs.source_ref || github.sha }}
+          path: release/evidence
+          if-no-files-found: error
+          retention-days: 30
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  iac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Scan deployment configuration
+        run: |
+          mkdir -p release/evidence
+          docker run --rm \
+            -v "$PWD:/src:ro" \
+            -v "$PWD/release/evidence:/evidence" \
+            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
+            --format json --output /evidence/trivy-iac.json /src/deploy
+      - name: Upload IaC evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-iac-evidence-${{ inputs.source_ref || github.sha }}
+          path: release/evidence
+          if-no-files-found: error
+          retention-days: 30
+
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, rust]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - uses: github/codeql-action/init@5ba2889ada762081db2c4f32a729827dce632c7b # v3
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/autobuild@5ba2889ada762081db2c4f32a729827dce632c7b # v3
+      - uses: github/codeql-action/analyze@5ba2889ada762081db2c4f32a729827dce632c7b # v3

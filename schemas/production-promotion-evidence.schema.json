@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neuro.example/schemas/production-promotion-evidence.schema.json",
+  "title": "AssetLibrary production promotion evidence pending external attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "record_state", "evidence_origin", "environment", "record_id",
+    "source_commit", "version", "candidate", "p8", "provider_deployment",
+    "database_change", "canary_windows", "rollback", "post_promotion", "review",
+    "provider_authenticity_verified", "production_release_eligible", "unmet_external_gates"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "record_state": { "const": "external_attestation_required" },
+    "evidence_origin": { "const": "provider_exports_and_observations" },
+    "environment": { "const": "production" },
+    "record_id": { "$ref": "#/$defs/identifier" },
+    "source_commit": { "$ref": "#/$defs/gitCommit" },
+    "version": { "$ref": "#/$defs/semver" },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "checksums", "source_commit", "version", "images"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/evidenceFile" },
+        "checksums": { "$ref": "#/$defs/evidenceFile" },
+        "source_commit": { "$ref": "#/$defs/gitCommit" },
+        "version": { "$ref": "#/$defs/semver" },
+        "images": { "$ref": "#/$defs/images" }
+      }
+    },
+    "p8": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "verification_report", "git_commit", "provider", "account_ref_sha256", "deployment_digest", "contract_valid", "provider_authenticity_verified", "p8_gate_eligible"],
+      "properties": {
+        "manifest": { "$ref": "#/$defs/evidenceFile" },
+        "verification_report": { "$ref": "#/$defs/evidenceFile" },
+        "git_commit": { "$ref": "#/$defs/gitCommit" },
+        "provider": { "$ref": "#/$defs/identifier" },
+        "account_ref_sha256": { "$ref": "#/$defs/sha256" },
+        "deployment_digest": { "$ref": "#/$defs/digest" },
+        "contract_valid": { "const": true },
+        "provider_authenticity_verified": { "const": false },
+        "p8_gate_eligible": { "const": false }
+      }
+    },
+    "provider_deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "account_ref_sha256", "cluster_ref_sha256", "workload_identity", "deployment_id", "revision", "deployment_digest", "rendered_manifest", "images", "controller"],
+      "properties": {
+        "provider": { "$ref": "#/$defs/identifier" },
+        "account_ref_sha256": { "$ref": "#/$defs/sha256" },
+        "cluster_ref_sha256": { "$ref": "#/$defs/sha256" },
+        "workload_identity": { "$ref": "#/$defs/identifier" },
+        "deployment_id": { "$ref": "#/$defs/identifier" },
+        "revision": { "$ref": "#/$defs/identifier" },
+        "deployment_digest": { "$ref": "#/$defs/digest" },
+        "rendered_manifest": { "$ref": "#/$defs/evidenceFile" },
+        "images": { "$ref": "#/$defs/images" },
+        "controller": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "image", "runtime_identity", "authenticated"],
+          "properties": {
+            "version": { "const": "v1.9.1" },
+            "image": { "const": "quay.io/argoproj/argo-rollouts@sha256:15c0d41f2c69a382d4399bcb28ed4f03ee9f58b56cfc9e6cd55bcbf0f311c06d" },
+            "runtime_identity": { "$ref": "#/$defs/evidenceFile" },
+            "authenticated": { "const": false }
+          }
+        }
+      }
+    },
+    "database_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backup_checkpoint", "migration_set_sha256", "decision", "automatic_destructive_rollback", "evidence"],
+      "properties": {
+        "backup_checkpoint": { "$ref": "#/$defs/identifier" },
+        "migration_set_sha256": { "$ref": "#/$defs/sha256" },
+        "decision": { "enum": ["no_change", "forward_only", "reversible"] },
+        "automatic_destructive_rollback": { "const": false },
+        "evidence": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "canary_windows": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/canaryWindow" },
+      "allOf": [
+        { "contains": { "type": "object", "properties": { "traffic_percent": { "const": 5 } }, "required": ["traffic_percent"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "traffic_percent": { "const": 25 } }, "required": ["traffic_percent"] }, "minContains": 1, "maxContains": 1 },
+        { "contains": { "type": "object", "properties": { "traffic_percent": { "const": 100 } }, "required": ["traffic_percent"] }, "minContains": 1, "maxContains": 1 }
+      ]
+    },
+    "rollback": { "$ref": "#/$defs/rollback" },
+    "post_promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checked_at", "status", "api", "edge_download", "event", "search", "audit"],
+      "properties": {
+        "checked_at": { "type": "string", "format": "date-time" },
+        "status": { "const": "passed" },
+        "api": { "$ref": "#/$defs/evidenceFile" },
+        "edge_download": { "$ref": "#/$defs/evidenceFile" },
+        "event": { "$ref": "#/$defs/evidenceFile" },
+        "search": { "$ref": "#/$defs/evidenceFile" },
+        "audit": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "reviewed_at", "change_record", "decision"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/identifier" },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "change_record": { "$ref": "#/$defs/identifier" },
+        "decision": { "const": "pending_external_attestation" }
+      }
+    },
+    "provider_authenticity_verified": { "const": false },
+    "production_release_eligible": { "const": false },
+    "unmet_external_gates": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "enum": ["p8_provider_authenticity", "deployment_provider_authenticity", "controller_runtime_authenticity", "promotion_approval_authenticity"] }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@+-]*$" },
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "semver": { "type": "string", "minLength": 5, "maxLength": 128, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$" },
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_length", "redacted"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 300, "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "byte_length": { "type": "integer", "minimum": 1, "maximum": 536870912 },
+        "redacted": { "const": true }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "image", "digest"],
+      "properties": {
+        "component": { "enum": ["api", "web", "scanner", "outbox", "indexer", "cleanup"] },
+        "image": { "type": "string", "pattern": "^ghcr\\.io/[a-z0-9._/-]+$", "maxLength": 300 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "images": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/image" },
+      "allOf": [
+        { "$ref": "#/$defs/containsApi" }, { "$ref": "#/$defs/containsWeb" },
+        { "$ref": "#/$defs/containsScanner" }, { "$ref": "#/$defs/containsOutbox" },
+        { "$ref": "#/$defs/containsIndexer" }, { "$ref": "#/$defs/containsCleanup" }
+      ]
+    },
+    "canaryWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["traffic_percent", "window_start", "window_end", "deployment_digest", "analysis_run_id", "controller_revision", "observed_requests", "maximum_5xx_ratio", "api_p95_seconds", "web_p95_seconds", "error_budget_burn_rate", "firing_slo_alerts", "metrics", "provider_traffic"],
+      "properties": {
+        "traffic_percent": { "enum": [5, 25, 100] },
+        "window_start": { "type": "string", "format": "date-time" },
+        "window_end": { "type": "string", "format": "date-time" },
+        "deployment_digest": { "$ref": "#/$defs/digest" },
+        "analysis_run_id": { "$ref": "#/$defs/identifier" },
+        "controller_revision": { "$ref": "#/$defs/identifier" },
+        "observed_requests": { "type": "integer", "minimum": 600 },
+        "maximum_5xx_ratio": { "type": "number", "minimum": 0, "exclusiveMaximum": 0.001 },
+        "api_p95_seconds": { "type": "number", "minimum": 0, "exclusiveMaximum": 0.5 },
+        "web_p95_seconds": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "error_budget_burn_rate": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
+        "firing_slo_alerts": { "const": 0 },
+        "metrics": { "$ref": "#/$defs/evidenceFile" },
+        "provider_traffic": { "$ref": "#/$defs/evidenceFile" }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "threshold_evaluation", "trigger_state", "evaluation", "action", "app_rollback_only", "database_rollback_automatic"],
+      "properties": {
+        "policy": { "$ref": "#/$defs/evidenceFile" },
+        "threshold_evaluation": { "$ref": "#/$defs/evidenceFile" },
+        "trigger_state": { "enum": ["no_slo_breach", "slo_breach"] },
+        "evaluation": { "enum": ["no_rollback_required", "rollback_executed"] },
+        "action": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["action_id", "executed_at", "result", "from_images", "to_images", "provider_audit"],
+              "properties": {
+                "action_id": { "$ref": "#/$defs/identifier" },
+                "executed_at": { "type": "string", "format": "date-time" },
+                "result": { "const": "succeeded" },
+                "from_images": { "$ref": "#/$defs/images" },
+                "to_images": { "$ref": "#/$defs/images" },
+                "provider_audit": { "$ref": "#/$defs/evidenceFile" }
+              }
+            }
+          ]
+        },
+        "app_rollback_only": { "const": true },
+        "database_rollback_automatic": { "const": false }
+      },
+      "allOf": [
+        { "if": { "properties": { "trigger_state": { "const": "no_slo_breach" } } }, "then": { "properties": { "evaluation": { "const": "no_rollback_required" }, "action": { "type": "null" } } } },
+        { "if": { "properties": { "trigger_state": { "const": "slo_breach" } } }, "then": { "properties": { "evaluation": { "const": "rollback_executed" }, "action": { "type": "object" } } } }
+      ]
+    },
+    "containsApi": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "api" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsWeb": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "web" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsScanner": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "scanner" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsOutbox": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "outbox" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsIndexer": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "indexer" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 },
+    "containsCleanup": { "type": "array", "contains": { "type": "object", "properties": { "component": { "const": "cleanup" } }, "required": ["component"] }, "minContains": 1, "maxContains": 1 }
+  }
+}

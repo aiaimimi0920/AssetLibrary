@@ -1,0 +1,172 @@
+{{- $root := . -}}
+{{- range $component := list "outbox" "scanner" "indexer" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "assetlibrary.name" $root }}-{{ $component }}-metrics
+  labels:
+    {{- include "assetlibrary.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+    assetlibrary.neuro/metrics: enabled
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: {{ $component }}
+  ports:
+    - { name: metrics, port: {{ $root.Values.observability.metricsPort }}, targetPort: metrics }
+{{- end }}
+{{- if .Values.observability.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "assetlibrary.name" . }}
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    {{- with .Values.observability.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      assetlibrary.neuro/metrics: enabled
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+      path: /metrics
+      scheme: http
+      # Preserve the stable application-level `service` label emitted by telemetry.
+      honorLabels: true
+      relabelings:
+        - action: replace
+          sourceLabels: [__meta_kubernetes_service_label_assetlibrary_neuro_track]
+          targetLabel: rollout_track
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "assetlibrary.name" . }}-cleanup
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    {{- with .Values.observability.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: cleanup
+  podMetricsEndpoints:
+    - port: metrics
+      interval: {{ .Values.observability.serviceMonitor.interval }}
+      path: /metrics
+      scheme: http
+{{- end }}
+{{- if .Values.observability.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "assetlibrary.name" . }}
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    {{- with .Values.observability.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: assetlibrary.slo
+      interval: 30s
+      rules:
+        - record: assetlibrary:http_5xx_ratio:rate5m
+          expr: sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api",status=~"5.."}[5m])) / clamp_min(sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api"}[5m])), 0.000001)
+        - record: assetlibrary:http_5xx_ratio:rate1h
+          expr: sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api",status=~"5.."}[1h])) / clamp_min(sum(rate(assetlibrary_http_requests_total{service="assetlibrary-api"}[1h])), 0.000001)
+        - alert: AssetLibraryApiFastBurn
+          expr: assetlibrary:http_5xx_ratio:rate5m > (14.4 * 0.001) and assetlibrary:http_5xx_ratio:rate1h > (14.4 * 0.001)
+          for: 5m
+          labels: { severity: critical, service: assetlibrary-api }
+          annotations:
+            summary: AssetLibrary API is rapidly exhausting its 99.9% availability budget
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#api-error-budget-burn
+        - alert: AssetLibraryCatalogLatency
+          expr: histogram_quantile(0.95, sum by (le) (rate(assetlibrary_http_request_duration_seconds_bucket{service="assetlibrary-api",route=~"/v1/public/packages.*"}[10m]))) > 0.3
+          for: 10m
+          labels: { severity: warning, service: assetlibrary-api }
+          annotations:
+            summary: Public catalog p95 latency exceeds 300 ms
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#catalog-or-search-latency
+        - alert: AssetLibrarySearchLatency
+          expr: histogram_quantile(0.95, sum by (le) (rate(assetlibrary_http_request_duration_seconds_bucket{service="assetlibrary-api",route="/v1/public/search"}[10m]))) > 0.5
+          for: 10m
+          labels: { severity: warning, service: assetlibrary-api }
+          annotations:
+            summary: Search p95 latency exceeds 500 ms
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#catalog-or-search-latency
+        - alert: AssetLibraryDatabasePoolSaturation
+          expr: max by (service) (assetlibrary_db_pool_connections{state="open"}) / clamp_min(max by (service) (assetlibrary_db_pool_connections{state="maximum"}), 1) > 0.8
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: AssetLibrary database pool is above 80% saturation
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#database-pool-saturation
+        - alert: AssetLibraryEventLag
+          expr: histogram_quantile(0.95, sum by (le,service,subject) (rate(assetlibrary_event_lag_seconds_bucket[10m]))) > 30
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: AssetLibrary event processing p95 lag exceeds 30 seconds
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#event-lag
+        - alert: AssetLibraryWorkerRetries
+          expr: sum by (service,operation) (rate(assetlibrary_worker_operations_total{outcome=~"retrying|failed|database_error"}[10m])) > 0.1
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: AssetLibrary worker failures or retries are sustained
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#worker-retries
+        - alert: AssetLibraryDependencyErrors
+          expr: sum by (service,dependency,operation) (rate(assetlibrary_dependency_requests_total{outcome=~"error|transport_error|http_error|invalid_response|oversized_response"}[10m])) > 0.1
+          for: 10m
+          labels: { severity: warning }
+          annotations:
+            summary: AssetLibrary outbound dependency errors are sustained
+            runbook_url: docs/operations/OBSERVABILITY_RUNBOOK.md#dependency-errors
+{{- end }}
+{{- if .Values.observability.alertmanager.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: {{ include "assetlibrary.name" . }}
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+spec:
+  route:
+    receiver: assetlibrary-operations
+    groupBy: [alertname, service]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+  receivers:
+    - name: assetlibrary-operations
+      webhookConfigs:
+        - urlSecret:
+            name: {{ required "observability.alertmanager.webhookSecretName is required" .Values.observability.alertmanager.webhookSecretName }}
+            key: {{ .Values.observability.alertmanager.webhookSecretKey }}
+          sendResolved: true
+{{- end }}
+{{- if .Values.observability.grafanaDashboard.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "assetlibrary.name" . }}-grafana-dashboard
+  labels:
+    {{- include "assetlibrary.labels" . | nindent 4 }}
+    {{- toYaml .Values.observability.grafanaDashboard.labels | nindent 4 }}
+data:
+  assetlibrary-overview.json: |-
+{{ .Files.Get "dashboards/assetlibrary-overview.json" | indent 4 }}
+{{- end }}

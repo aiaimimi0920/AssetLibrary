@@ -1,0 +1,42 @@
+target/
+.env
+.env.*
+!.env.example
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Local credentials and private key material.
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Local object-store and database data.
+deploy/local/data/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+backend.hcl
+
+# Generated release evidence; release/README.md remains tracked policy.
+release/evidence/
+release/downloads/
+release/candidate/
+
+# Collected promotion evidence is external/secret-redacted runtime output.
+promotion/evidence/
+promotion/verification-report.json

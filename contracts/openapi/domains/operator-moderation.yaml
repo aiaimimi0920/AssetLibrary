@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info: { title: AssetLibrary Operator Moderation API, version: 0.2.0 }
+servers: [{ url: / }]
+security: []
+paths:
+  /v1/internal/moderation-cases: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1moderation-cases' }
+  /v1/internal/moderation-cases/{case_id}: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1moderation-cases~1{case_id}' }
+  /v1/internal/moderation-cases/{case_id}/actions: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1moderation-cases~1{case_id}~1actions' }
+  /v1/internal/moderation-actions/{action_id}/approve: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1moderation-actions~1{action_id}~1approve' }
+  /v1/internal/moderation-cases/{case_id}/resolve: { $ref: '../openapi.yaml#/paths/~1v1~1internal~1moderation-cases~1{case_id}~1resolve' }

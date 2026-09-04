@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assetlibrary.neuro.local/schemas/package.schema.json",
+  "title": "PublishedPackage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "slug", "name", "kind", "publisher", "status"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,119}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "kind": { "enum": ["art", "capability", "app_update"] },
+    "publisher": { "$ref": "principal-ref.schema.json" },
+    "status": { "enum": ["published", "suspended", "archived"] },
+    "summary": { "type": "string", "maxLength": 1000 }
+  }
+}

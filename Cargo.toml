@@ -1,0 +1,16 @@
+[workspace]
+members = [
+  "crates/contracts",
+  "crates/app-update-client",
+  "crates/loom-client",
+  "crates/object-store",
+  "crates/supply-chain",
+  "crates/telemetry",
+  "services/api",
+  "tools/publisher-cli",
+  "workers/outbox",
+  "workers/scanner",
+  "workers/cleanup",
+  "workers/indexer",
+]
+resolver = "2"
