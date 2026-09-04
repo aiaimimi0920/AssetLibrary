@@ -42,7 +42,7 @@ if (-not (Test-Validation 'http://127.0.0.1:8080' -EvidenceRoot '..')) {
 
 $boundaryParent = Join-Path $root 'test-results'
 $linkPath = Join-Path $boundaryParent "p8-evidence-link-$PID"
-$externalPath = Join-Path $env:TEMP "assetlibrary-p8-evidence-$PID"
+$externalPath = Join-Path ([IO.Path]::GetTempPath()) "assetlibrary-p8-evidence-$PID"
 New-Item -ItemType Directory -Path $boundaryParent, $externalPath -Force | Out-Null
 try {
     $linkType = if ($env:OS -eq 'Windows_NT') { 'Junction' } else { 'SymbolicLink' }
