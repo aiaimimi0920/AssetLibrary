@@ -1,0 +1,65 @@
+extensions:
+  basicauth/grafana_cloud:
+    client_auth:
+      username: ${env:GRAFANA_CLOUD_OTLP_INSTANCE_ID}
+      password: ${env:GRAFANA_CLOUD_OTLP_TOKEN}
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: assetlibrary-local
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["${env:ASSETLIBRARY_PROMETHEUS_TARGET}"]
+
+processors:
+  batch:
+    send_batch_size: 1024
+    timeout: 5s
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  resource:
+    attributes:
+      - key: deployment.environment.name
+        action: upsert
+        value: local
+
+exporters:
+  otlphttp/grafana_cloud:
+    endpoint: ${env:GRAFANA_CLOUD_OTLP_ENDPOINT}
+    auth:
+      authenticator: basicauth/grafana_cloud
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_elapsed_time: 30s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 2048
+
+service:
+  extensions: [basicauth/grafana_cloud, health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/grafana_cloud]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/grafana_cloud]
+  telemetry:
+    logs:
+      level: info

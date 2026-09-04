@@ -45,6 +45,36 @@ IDs, error messages, or search strings as labels.
 5. Keep metrics port `9090` cluster-internal. The NetworkPolicy admits it only
    from the configured Prometheus namespace and Pod selector.
 
+## Local Grafana Cloud smoke
+
+A public compute node is not required for this smoke. The local Collector makes
+outbound HTTPS requests to Grafana Cloud; ports `4317`, `4318`, and `13133` are
+bound to loopback and must not be exposed through a router or tunnel.
+
+Collect these three values from the stack's **OpenTelemetry** card. A generic
+Grafana API/service-account token is not a substitute for the write-scoped OTLP
+credentials:
+
+- `GRAFANA_CLOUD_OTLP_ENDPOINT`: stack-specific OTLP gateway URL;
+- `GRAFANA_CLOUD_OTLP_INSTANCE_ID`: OTLP basic-auth username;
+- `GRAFANA_CLOUD_OTLP_TOKEN`: Cloud Access Policy token with `metrics:write` and
+  `traces:write` scopes.
+
+Keep those values in the process environment or a secret manager, never in a
+Compose env file committed to Git. Start the pinned, vendor-neutral Collector:
+
+```powershell
+docker compose -f deploy/local/observability.compose.yaml up -d
+$env:OTEL_EXPORTER_OTLP_ENDPOINT = 'http://127.0.0.1:4318'
+$env:ASSETLIBRARY_METRICS_BIND = '127.0.0.1:9090'
+```
+
+The Collector receives local OTLP traces and scrapes the API metrics listener at
+`host.docker.internal:9090`. Check `http://127.0.0.1:13133/` and Collector logs,
+then confirm an `assetlibrary-*` service and
+`assetlibrary_http_requests_total` in Grafana Cloud. A running Collector proves
+only local configuration; provider-side receipt must be confirmed in Grafana.
+
 The cleanup CronJob is short lived, so a Prometheus scrape is best effort. Its
 JSON log, trace, audit rows, and object/database outcome remain the durable
 signals. Do not build an availability SLO from cleanup scrape series alone.

@@ -1,0 +1,23 @@
+name: assetlibrary-observability
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    environment:
+      GRAFANA_CLOUD_OTLP_ENDPOINT: ${GRAFANA_CLOUD_OTLP_ENDPOINT:?GRAFANA_CLOUD_OTLP_ENDPOINT is required}
+      GRAFANA_CLOUD_OTLP_INSTANCE_ID: ${GRAFANA_CLOUD_OTLP_INSTANCE_ID:?GRAFANA_CLOUD_OTLP_INSTANCE_ID is required}
+      GRAFANA_CLOUD_OTLP_TOKEN: ${GRAFANA_CLOUD_OTLP_TOKEN:?GRAFANA_CLOUD_OTLP_TOKEN is required}
+      ASSETLIBRARY_PROMETHEUS_TARGET: ${ASSETLIBRARY_PROMETHEUS_TARGET:-host.docker.internal:9090}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:13133:13133"
+    volumes:
+      - ./otel-collector-grafana.yaml:/etc/otelcol-contrib/config.yaml:ro
+    deploy:
+      resources:
+        limits: { cpus: "1", memory: 512M }
+    restart: unless-stopped
