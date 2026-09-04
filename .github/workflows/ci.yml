@@ -42,7 +42,7 @@ jobs:
           node-version: 20.20.2
       - name: Install pinned toolchains
         run: |
-          rustup toolchain install 1.95.0 --profile minimal
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt
           rustup default 1.95.0
           corepack enable
           corepack prepare pnpm@10.33.0 --activate
