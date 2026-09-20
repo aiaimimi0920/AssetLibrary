@@ -190,6 +190,7 @@ dependencies = [
  "assetlibrary-contracts",
  "assetlibrary-telemetry",
  "async-nats",
+ "axum",
  "futures-util",
  "hex",
  "redis",

@@ -4,6 +4,9 @@ mod edge_policy;
 mod opensearch;
 mod repository;
 
+#[cfg(test)]
+mod opensearch_tests;
+
 use assetlibrary_contracts::CatalogInvalidated;
 use assetlibrary_telemetry::{
     record_consumer_pending, record_event_lag, record_worker, set_parent_from_values,

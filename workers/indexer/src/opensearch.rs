@@ -1,9 +1,17 @@
 use assetlibrary_contracts::SearchPackageDocument;
 use reqwest::{Client, StatusCode, Url};
 use serde_json::{Value, json};
+use std::time::Duration;
 use uuid::Uuid;
 
 use crate::config::Config;
+
+/// Document reads and writes are small and retried by the JetStream consumer,
+/// so they keep a short deadline.
+const DOCUMENT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Index creation, alias moves, refreshes, and index deletes are serialized
+/// cluster-state updates that take tens of seconds on a small single node.
+const INDEX_MANAGEMENT_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Clone)]
 pub struct OpenSearch {
@@ -13,13 +21,22 @@ pub struct OpenSearch {
     password: String,
     pub alias: String,
     prefix: String,
+    management_timeout: Duration,
 }
 
 impl OpenSearch {
     pub fn new(config: &Config) -> Result<Self, reqwest::Error> {
+        Self::with_timeouts(config, DOCUMENT_TIMEOUT, INDEX_MANAGEMENT_TIMEOUT)
+    }
+
+    pub(crate) fn with_timeouts(
+        config: &Config,
+        document_timeout: Duration,
+        management_timeout: Duration,
+    ) -> Result<Self, reqwest::Error> {
         Ok(Self {
             client: Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
+                .timeout(document_timeout)
                 .redirect(reqwest::redirect::Policy::none())
                 .no_proxy()
                 .danger_accept_invalid_certs(config.opensearch_allow_invalid_certs)
@@ -29,6 +46,7 @@ impl OpenSearch {
             password: config.opensearch_password.clone(),
             alias: config.alias.clone(),
             prefix: config.index_prefix.clone(),
+            management_timeout,
         })
     }
 
@@ -106,6 +124,7 @@ impl OpenSearch {
         actions.push(json!({"add":{"index":next,"alias":self.alias,"is_write_index":true}}));
         let response = self
             .auth(self.client.post(self.url(&["_aliases"])?))
+            .timeout(self.management_timeout)
             .json(&json!({"actions":actions}))
             .send()
             .await
@@ -116,6 +135,7 @@ impl OpenSearch {
     pub async fn refresh(&self, index: &str) -> Result<(), String> {
         let response = self
             .auth(self.client.post(self.url(&[index, "_refresh"])?))
+            .timeout(self.management_timeout)
             .send()
             .await
             .map_err(|_| "OpenSearch refresh request failed".to_owned())?;
@@ -133,6 +153,7 @@ impl OpenSearch {
         }
         let response = self
             .auth(self.client.delete(self.url(&[index])?))
+            .timeout(self.management_timeout)
             .send()
             .await
             .map_err(|_| "OpenSearch rebuild-index cleanup failed".to_owned())?;
@@ -143,12 +164,19 @@ impl OpenSearch {
     }
 
     async fn create_index(&self, index: &str) -> Result<(), String> {
-        let response = self
+        let request = self
             .auth(self.client.put(self.url(&[index])?))
-            .json(&index_definition())
-            .send()
-            .await
-            .map_err(|_| "OpenSearch index creation failed".to_owned())?;
+            .timeout(self.management_timeout)
+            .json(&index_definition());
+        let response = match request.send().await {
+            Ok(response) => response,
+            Err(error) => {
+                // The node may still finish the creation after the client gave
+                // up; remove it so a restart does not leave an orphan behind.
+                self.discard_index(index).await;
+                return Err(format!("OpenSearch index creation failed: {error}"));
+            }
+        };
         let status = response.status();
         if status.is_success() {
             return Ok(());
@@ -158,6 +186,17 @@ impl OpenSearch {
             "OpenSearch index creation returned {status}: {}",
             detail.chars().take(500).collect::<String>()
         ))
+    }
+
+    async fn discard_index(&self, index: &str) {
+        let Ok(url) = self.url(&[index]) else {
+            return;
+        };
+        let _ = self
+            .auth(self.client.delete(url))
+            .timeout(self.management_timeout)
+            .send()
+            .await;
     }
 
     async fn alias_targets(&self) -> Result<Vec<String>, String> {
