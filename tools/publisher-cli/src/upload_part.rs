@@ -1,7 +1,7 @@
 use assetlibrary_contracts::{CompleteUploadPart, PresignUploadPartRequest, UploadedPart};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures_util::{StreamExt, stream};
-use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -168,26 +168,21 @@ async fn put_part(
             "presigned upload origin is not allowed",
         ));
     }
-    let mut request = api
-        .upload_client()
-        .put(url)
-        .timeout(Duration::from_secs(900))
-        .body(bytes.to_vec());
     if presigned.headers.len() > 32 {
         return Err(CliError::Validation(
             "presigned upload requested too many headers".to_owned(),
         ));
     }
+    let mut headers = HeaderMap::new();
     for (name, value) in presigned.headers {
+        let lower = name.to_ascii_lowercase();
         if name.len() > 128
             || value.len() > 4096
             || matches!(
-                name.to_ascii_lowercase().as_str(),
+                lower.as_str(),
                 "authorization"
                     | "connection"
-                    | "content-length"
                     | "cookie"
-                    | "host"
                     | "proxy-authorization"
                     | "transfer-encoding"
             )
@@ -196,14 +191,24 @@ async fn put_part(
                 "presigned upload requested a sensitive header".to_owned(),
             ));
         }
-        request = request.header(
+        if transport_header(&lower, &value, &url, bytes.len())? {
+            continue;
+        }
+        headers.insert(
             HeaderName::from_bytes(name.as_bytes())
                 .map_err(|_| CliError::Validation("invalid presigned header".to_owned()))?,
             HeaderValue::from_str(&value)
                 .map_err(|_| CliError::Validation("invalid presigned header".to_owned()))?,
         );
     }
-    let response = request.send().await?;
+    let response = api
+        .upload_client()
+        .put(url)
+        .timeout(Duration::from_secs(900))
+        .headers(headers)
+        .body(bytes.to_vec())
+        .send()
+        .await?;
     if !response.status().is_success() {
         return Err(CliError::Server(response.status().as_u16()));
     }
@@ -232,6 +237,30 @@ async fn read_part(source: &PartSource) -> Result<Vec<u8>, CliError> {
     let mut bytes = vec![0u8; size];
     file.read_exact(&mut bytes).await?;
     Ok(bytes)
+}
+
+/// SigV4 signs `host` and `content-length`, but the HTTP client owns both headers.
+/// They are skipped when they match the request and rejected when they conflict.
+fn transport_header(
+    name: &str,
+    value: &str,
+    url: &Url,
+    body_length: usize,
+) -> Result<bool, CliError> {
+    let expected = match name {
+        "host" => url.host_str().map(|host| match url.port() {
+            Some(port) => format!("{host}:{port}"),
+            None => host.to_owned(),
+        }),
+        "content-length" => Some(body_length.to_string()),
+        _ => return Ok(false),
+    };
+    if expected.as_deref() == Some(value) {
+        return Ok(true);
+    }
+    Err(CliError::Validation(
+        "presigned upload header conflicts with the request".to_owned(),
+    ))
 }
 
 fn origin(url: &Url) -> Option<Origin> {

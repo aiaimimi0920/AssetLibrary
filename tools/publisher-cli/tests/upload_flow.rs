@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -19,11 +20,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tempfile::TempDir;
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, task::JoinHandle};
 use uuid::Uuid;
 
 const TOKEN: &str = "mock-account-secret-never-print";
 const OBJECT_KEY: &str = "quarantine/private/secret-object-key";
+const ARCHIVE_BYTES: &[u8] = b"bounded-upload-fixture";
 
 #[derive(Clone)]
 struct MockState {
@@ -34,6 +36,7 @@ struct MockState {
     size: u64,
     digest: String,
     allow_put: Arc<AtomicBool>,
+    poison_headers: Arc<AtomicBool>,
     transient_failures: Arc<AtomicUsize>,
     create_calls: Arc<AtomicUsize>,
     put_calls: Arc<AtomicUsize>,
@@ -45,41 +48,8 @@ struct MockState {
 async fn upload_recovers_without_recreating_session_or_leaking_bearer() {
     let temp = TempDir::new().unwrap();
     let archive = temp.path().join("payload.zip");
-    let archive_bytes = b"bounded-upload-fixture";
-    fs::write(&archive, archive_bytes).unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let base = format!("http://{}", listener.local_addr().unwrap());
-    let state = MockState {
-        base: base.clone(),
-        release_id: Uuid::new_v4(),
-        session_id: Uuid::new_v4(),
-        artifact_id: Uuid::new_v4(),
-        size: archive_bytes.len() as u64,
-        digest: format!("{:x}", Sha256::digest(archive_bytes)),
-        allow_put: Arc::new(AtomicBool::new(false)),
-        transient_failures: Arc::new(AtomicUsize::new(1)),
-        create_calls: Arc::new(AtomicUsize::new(0)),
-        put_calls: Arc::new(AtomicUsize::new(0)),
-        bearer_leaked: Arc::new(AtomicBool::new(false)),
-        uploaded: Arc::new(Mutex::new(Vec::new())),
-    };
-    let app = Router::new()
-        .route(
-            "/v1/me/releases/{release_id}/upload-sessions",
-            post(create_upload),
-        )
-        .route("/v1/me/upload-sessions/{session_id}", get(upload_status))
-        .route(
-            "/v1/me/upload-sessions/{session_id}/parts/{part_number}",
-            post(presign),
-        )
-        .route(
-            "/v1/me/upload-sessions/{session_id}/complete",
-            post(complete),
-        )
-        .route("/object", put(put_object))
-        .with_state(state.clone());
-    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    fs::write(&archive, ARCHIVE_BYTES).unwrap();
+    let (state, server) = start_mock().await;
 
     let first = upload_command(&state, &archive).assert().failure().code(1);
     let first_output = first.get_output();
@@ -104,9 +74,69 @@ async fn upload_recovers_without_recreating_session_or_leaking_bearer() {
     assert_eq!(state.create_calls.load(Ordering::SeqCst), 1);
     assert_eq!(state.put_calls.load(Ordering::SeqCst), 3);
     assert!(!state.bearer_leaked.load(Ordering::SeqCst));
-    assert_eq!(*state.uploaded.lock().unwrap(), archive_bytes);
+    assert_eq!(*state.uploaded.lock().unwrap(), ARCHIVE_BYTES);
 
     server.abort();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn presign_requesting_a_sensitive_header_is_rejected_before_any_put() {
+    let temp = TempDir::new().unwrap();
+    let archive = temp.path().join("payload.zip");
+    fs::write(&archive, ARCHIVE_BYTES).unwrap();
+    let (state, server) = start_mock().await;
+    state.allow_put.store(true, Ordering::SeqCst);
+    state.poison_headers.store(true, Ordering::SeqCst);
+
+    let output = upload_command(&state, &archive)
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("sensitive header"));
+    assert!(!stderr.contains(TOKEN));
+    assert_eq!(state.put_calls.load(Ordering::SeqCst), 0);
+    assert!(!state.bearer_leaked.load(Ordering::SeqCst));
+
+    server.abort();
+}
+
+async fn start_mock() -> (MockState, JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let state = MockState {
+        base: format!("http://{}", listener.local_addr().unwrap()),
+        release_id: Uuid::new_v4(),
+        session_id: Uuid::new_v4(),
+        artifact_id: Uuid::new_v4(),
+        size: ARCHIVE_BYTES.len() as u64,
+        digest: format!("{:x}", Sha256::digest(ARCHIVE_BYTES)),
+        allow_put: Arc::new(AtomicBool::new(false)),
+        poison_headers: Arc::new(AtomicBool::new(false)),
+        transient_failures: Arc::new(AtomicUsize::new(1)),
+        create_calls: Arc::new(AtomicUsize::new(0)),
+        put_calls: Arc::new(AtomicUsize::new(0)),
+        bearer_leaked: Arc::new(AtomicBool::new(false)),
+        uploaded: Arc::new(Mutex::new(Vec::new())),
+    };
+    let app = Router::new()
+        .route(
+            "/v1/me/releases/{release_id}/upload-sessions",
+            post(create_upload),
+        )
+        .route("/v1/me/upload-sessions/{session_id}", get(upload_status))
+        .route(
+            "/v1/me/upload-sessions/{session_id}/parts/{part_number}",
+            post(presign),
+        )
+        .route(
+            "/v1/me/upload-sessions/{session_id}/complete",
+            post(complete),
+        )
+        .route("/object", put(put_object))
+        .with_state(state.clone());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    (state, server)
 }
 
 fn upload_command(state: &MockState, archive: &Path) -> Command {
@@ -171,6 +201,8 @@ async fn upload_status(
     .into_response()
 }
 
+/// Mirrors a real SigV4 presign: the signed `content-length` and checksum headers
+/// are returned to the client, which must honour them without leaking a bearer.
 async fn presign(
     State(state): State<MockState>,
     AxumPath((session_id, part_number)): AxumPath<(Uuid, u16)>,
@@ -184,11 +216,19 @@ async fn presign(
     {
         return StatusCode::BAD_REQUEST.into_response();
     }
+    let signed_headers = if state.poison_headers.load(Ordering::SeqCst) {
+        json!({"authorization": "Bearer stolen-object-store-bearer"})
+    } else {
+        json!({
+            "content-length": state.size.to_string(),
+            "x-amz-checksum-sha256": request["checksum_sha256_base64"]
+        })
+    };
     Json(json!({
         "part_number": 1,
         "method": "PUT",
         "url": format!("{}/object?part=1", state.base),
-        "headers": {},
+        "headers": signed_headers,
         "expires_in_seconds": 300
     }))
     .into_response()
@@ -200,7 +240,7 @@ async fn put_object(State(state): State<MockState>, headers: HeaderMap, body: By
         state.bearer_leaked.store(true, Ordering::SeqCst);
         return StatusCode::IM_A_TEAPOT.into_response();
     }
-    if !state.allow_put.load(Ordering::SeqCst) {
+    if !state.allow_put.load(Ordering::SeqCst) || !signed_headers_present(&headers, &body) {
         return StatusCode::BAD_REQUEST.into_response();
     }
     if state
@@ -218,6 +258,13 @@ async fn put_object(State(state): State<MockState>, headers: HeaderMap, body: By
         .headers_mut()
         .insert(header::ETAG, HeaderValue::from_static("\"etag-1\""));
     response
+}
+
+fn signed_headers_present(headers: &HeaderMap, body: &[u8]) -> bool {
+    let checksum = STANDARD.encode(Sha256::digest(body));
+    let text = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    text("x-amz-checksum-sha256") == Some(checksum.as_str())
+        && text("content-length") == Some(body.len().to_string().as_str())
 }
 
 async fn complete(

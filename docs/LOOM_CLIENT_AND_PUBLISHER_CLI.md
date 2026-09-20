@@ -122,6 +122,9 @@ bearer, download ticket, presigned URL, or proof private key.
 - Upload origins are an exact scheme/host/port allowlist. Redirects are disabled.
 - The Account bearer is sent only to AssetLibrary API endpoints, never to a
   presigned object-storage URL.
+- Presigned PUT headers are bounded. `host` and `content-length` belong to the
+  HTTP client and must match the request; `authorization`, `cookie`,
+  `connection`, `proxy-authorization`, and `transfer-encoding` are rejected.
 - A private signing key must be a regular PKCS#8 PEM file outside the package
   source. Symlink keys are rejected; Unix group/other permissions must be zero.
 - JSON/stdout and errors never contain bearer values, private keys, presigned
