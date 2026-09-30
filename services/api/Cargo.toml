@@ -11,7 +11,7 @@ assetlibrary-supply-chain = { path = "../../crates/supply-chain" }
 assetlibrary-telemetry = { path = "../../crates/telemetry" }
 async-trait = "0.1"
 axum = "0.8"
-base64 = "0.22"
+base64 = "0.23"
 jsonwebtoken = { version = "11", default-features = false, features = ["aws_lc_rs"] }
 hex = "0.4"
 hmac = "0.13"
