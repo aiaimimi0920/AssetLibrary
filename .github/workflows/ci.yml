@@ -52,6 +52,8 @@ jobs:
           cargo test --workspace --locked
           node scripts/test-ed25519-webcrypto.mjs
       - name: Web quality gates
+        env:
+          REDOCLY_TELEMETRY: "off"
         working-directory: apps/web
         run: |
           pnpm install --frozen-lockfile
