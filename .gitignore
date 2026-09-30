@@ -11,6 +11,8 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+__pycache__/
+.memsearch/
 *.log
 .DS_Store
 .vscode/

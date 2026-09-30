@@ -1,0 +1,49 @@
+# Overlay the existing PC2 dependency and application files. Load the separate
+# private cloud-downloads.env into the shell; never regenerate the database .env.
+x-r2-environment: &r2-environment
+  AWS_ACCESS_KEY_ID: ${ASSETLIBRARY_R2_ACCESS_KEY_ID:?R2 access key is required}
+  AWS_SECRET_ACCESS_KEY: ${ASSETLIBRARY_R2_SECRET_ACCESS_KEY:?R2 secret is required}
+  ASSETLIBRARY_S3_ENDPOINT: ${ASSETLIBRARY_R2_ENDPOINT:?R2 endpoint is required}
+  ASSETLIBRARY_S3_REGION: auto
+  ASSETLIBRARY_S3_FORCE_PATH_STYLE: "true"
+  ASSETLIBRARY_QUARANTINE_BUCKET: assetlibrary-pc2-quarantine
+  ASSETLIBRARY_PUBLISHED_BUCKET: assetlibrary-pc2-published
+
+services:
+  api:
+    image: ${ASSETLIBRARY_PC2_RUST_IMAGE:?Validated PC2 image is required}
+    environment:
+      <<: *r2-environment
+      ASSETLIBRARY_BIND: 0.0.0.0:28080
+      ASSETLIBRARY_APP_UPDATES_ENABLED: "false"
+      ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL: ${ASSETLIBRARY_DOWNLOAD_ORIGIN:?Edge origin is required}
+      ASSETLIBRARY_RESTRICTED_DOWNLOAD_BASE_URL: ${ASSETLIBRARY_DOWNLOAD_ORIGIN:?Edge origin is required}
+      ASSETLIBRARY_DOWNLOAD_TICKET_ISSUER: assetlibrary-pc2
+      ASSETLIBRARY_DOWNLOAD_TICKET_AUDIENCE: assetlibrary-pc2-edge
+      ASSETLIBRARY_DOWNLOAD_TICKET_SECRET_BASE64: ${ASSETLIBRARY_DOWNLOAD_TICKET_SECRET_BASE64:?Ticket secret is required}
+      ASSETLIBRARY_DOWNLOAD_TICKET_TTL_SECONDS: "300"
+
+  scanner:
+    image: ${ASSETLIBRARY_PC2_RUST_IMAGE:?Validated PC2 image is required}
+    environment:
+      <<: *r2-environment
+
+  cleanup:
+    image: ${ASSETLIBRARY_PC2_RUST_IMAGE:?Validated PC2 image is required}
+    environment:
+      <<: *r2-environment
+
+  outbox:
+    image: ${ASSETLIBRARY_PC2_RUST_IMAGE:?Validated PC2 image is required}
+
+  indexer:
+    image: ${ASSETLIBRARY_PC2_RUST_IMAGE:?Validated PC2 image is required}
+    environment:
+      ASSETLIBRARY_EDGE_POLICY_ACCOUNT_ID: ${ASSETLIBRARY_EDGE_POLICY_ACCOUNT_ID:?Account is required}
+      ASSETLIBRARY_EDGE_POLICY_NAMESPACE_ID: ${ASSETLIBRARY_EDGE_POLICY_NAMESPACE_ID:?Policy namespace is required}
+      ASSETLIBRARY_EDGE_POLICY_API_TOKEN: ${ASSETLIBRARY_EDGE_POLICY_API_TOKEN:?Policy token is required}
+
+  web:
+    environment:
+      ASSETLIBRARY_API_URL: http://127.0.0.1:28080
+      ASSETLIBRARY_UPLOAD_ORIGINS: ${ASSETLIBRARY_R2_ENDPOINT:?R2 endpoint is required}

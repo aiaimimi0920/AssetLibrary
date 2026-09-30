@@ -1,0 +1,30 @@
+name = "neuro-assetlibrary-edge-pc2"
+main = "../../services/edge/src/index.ts"
+compatibility_date = "2025-08-01"
+workers_dev = true
+
+[observability]
+enabled = true
+head_sampling_rate = 0.1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.05
+
+[vars]
+TICKET_ISSUER = "assetlibrary-pc2"
+TICKET_AUDIENCE = "assetlibrary-pc2-edge"
+
+[[r2_buckets]]
+binding = "PUBLISHED_BUCKET"
+bucket_name = "assetlibrary-pc2-published"
+
+[[kv_namespaces]]
+binding = "POLICY"
+id = "30bd9cfcc7044b4a8421d600bc9877db"
+
+[[queues.producers]]
+binding = "DOWNLOAD_EVENTS"
+queue = "assetlibrary-pc2-download-events"
+
+# Provision TICKET_SECRET separately; never include it in the release bundle.

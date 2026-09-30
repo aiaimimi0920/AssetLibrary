@@ -1,0 +1,141 @@
+name: assetlibrary
+
+services:
+  postgres:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_DB: assetlibrary
+      POSTGRES_USER: assetlibrary
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assetlibrary -d assetlibrary"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [control]
+
+  valkey:
+    image: valkey/valkey:9.0.2-alpine
+    command: ["valkey-server", "--appendonly", "yes", "--requirepass", "${VALKEY_PASSWORD:?VALKEY_PASSWORD is required}"]
+    ports: ["127.0.0.1:16379:6379"]
+    volumes: ["valkey-data:/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a \"$$VALKEY_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?VALKEY_PASSWORD is required}
+    restart: unless-stopped
+    networks: [control]
+
+  nats:
+    image: nats:2.12.4-alpine
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    ports:
+      - "127.0.0.1:14222:4222"
+      - "127.0.0.1:18222:8222"
+    volumes: ["nats-data:/data"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [control]
+
+  opensearch-snapshot-init:
+    image: opensearchproject/opensearch:3.8.0
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown 1000:1000 /snapshots && chmod 0700 /snapshots"]
+    volumes: ["opensearch-snapshot-data:/snapshots"]
+    network_mode: none
+    restart: "no"
+
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      path.repo: /snapshots
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+      cluster.routing.allocation.disk.watermark.low: 50GB
+      cluster.routing.allocation.disk.watermark.high: 30GB
+      cluster.routing.allocation.disk.watermark.flood_stage: 20GB
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?OPENSEARCH_INITIAL_ADMIN_PASSWORD is required}
+    ports: ["127.0.0.1:19200:9200"]
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+      - opensearch-snapshot-data:/snapshots
+    depends_on:
+      opensearch-snapshot-init:
+        condition: service_completed_successfully
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fk -u admin:\"$$OPENSEARCH_INITIAL_ADMIN_PASSWORD\" https://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [control]
+
+  object-store:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${ASSETLIBRARY_BROWSER_ORIGINS:-http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:18109}
+    ports:
+      - "127.0.0.1:9100:9000"
+      - "127.0.0.1:9101:9001"
+    volumes: ["object-data:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [control]
+
+  clamav:
+    image: clamav/clamav:1.5.4-debian13-slim
+    environment:
+      CLAMD_CONF_StreamMaxLength: 2048M
+      CLAMD_CONF_MaxScanSize: 10240M
+      CLAMD_CONF_MaxFileSize: 2048M
+      CLAMD_CONF_MaxRecursion: 32
+      CLAMD_CONF_MaxFiles: 10000
+      CLAMD_CONF_MaxThreads: 2
+      CLAMD_CONF_MaxQueue: 4
+    ports: ["127.0.0.1:13310:3310"]
+    volumes: ["clamav-data:/var/lib/clamav"]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10m
+    restart: unless-stopped
+    networks: [control]
+
+networks:
+  control:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  valkey-data:
+  nats-data:
+  opensearch-data:
+  opensearch-snapshot-data:
+  clickhouse-data:
+  clickhouse-backup-data:
+  object-data:
+  clamav-data:

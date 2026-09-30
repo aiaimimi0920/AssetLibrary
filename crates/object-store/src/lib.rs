@@ -1,13 +1,14 @@
 use assetlibrary_telemetry::record_dependency;
 use async_trait::async_trait;
-use aws_sdk_s3::presigning::PresigningConfig;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+mod multipart;
 
 #[derive(Clone, Debug)]
 pub struct ObjectStoreConfig {
@@ -126,6 +127,7 @@ pub struct S3ObjectStore {
     client: aws_sdk_s3::Client,
     quarantine_bucket: String,
     published_bucket: String,
+    r2_multipart: bool,
 }
 
 impl S3ObjectStore {
@@ -139,6 +141,7 @@ impl S3ObjectStore {
         {
             return Err(ObjectStoreError::InvalidConfiguration);
         }
+        let r2_multipart = multipart::is_r2_endpoint(config.endpoint_url.as_deref());
         let shared = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(aws_config::Region::new(config.region))
             .load()
@@ -152,6 +155,7 @@ impl S3ObjectStore {
             client: aws_sdk_s3::Client::from_conf(builder.build()),
             quarantine_bucket: config.quarantine_bucket,
             published_bucket: config.published_bucket,
+            r2_multipart,
         })
     }
 
@@ -297,39 +301,16 @@ impl ObjectStore for S3ObjectStore {
         content_length: u64,
         checksum_sha256_base64: &str,
     ) -> Result<PresignedRequest, ObjectStoreError> {
-        if part_number == 0 || checksum_sha256_base64.len() != 44 {
-            return Err(ObjectStoreError::InvalidConfiguration);
-        }
-        observe_s3("presign_upload_part", async {
-            let expires = Duration::from_secs(900);
-            let request = self
-                .client
-                .upload_part()
-                .bucket(&self.quarantine_bucket)
-                .key(object_key)
-                .upload_id(upload_id)
-                .part_number(i32::from(part_number))
-                .content_length(
-                    i64::try_from(content_length)
-                        .map_err(|_| ObjectStoreError::InvalidConfiguration)?,
-                )
-                .checksum_sha256(checksum_sha256_base64)
-                .presigned(
-                    PresigningConfig::expires_in(expires)
-                        .map_err(|_| ObjectStoreError::InvalidConfiguration)?,
-                )
-                .await
-                .map_err(|_| ObjectStoreError::RequestFailed)?;
-            Ok(PresignedRequest {
-                method: request.method().to_owned(),
-                url: request.uri().to_owned(),
-                headers: request
-                    .headers()
-                    .map(|(name, value)| (name.to_owned(), value.to_owned()))
-                    .collect(),
-                expires_in_seconds: expires.as_secs(),
-            })
-        })
+        observe_s3(
+            "presign_upload_part",
+            self.presign_part_request(
+                object_key,
+                upload_id,
+                part_number,
+                content_length,
+                checksum_sha256_base64,
+            ),
+        )
         .await
     }
 
@@ -389,6 +370,7 @@ impl ObjectStore for S3ObjectStore {
                         part.checksum_sha256(),
                         part.size(),
                     ) else {
+                        // R2 omits part SHA-256. Re-upload rather than trusting an ETag.
                         continue;
                     };
                     let Ok(part_number) = u16::try_from(number) else {
@@ -507,7 +489,9 @@ impl ObjectStore for S3ObjectStore {
                 aws_sdk_s3::types::CompletedPart::builder()
                     .part_number(i32::from(part.part_number))
                     .e_tag(&part.etag)
-                    .checksum_sha256(&part.checksum_sha256_base64)
+                    .set_checksum_sha256(
+                        (!self.r2_multipart).then(|| part.checksum_sha256_base64.clone()),
+                    )
                     .build(),
             );
         }

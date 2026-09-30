@@ -1,0 +1,122 @@
+services:
+  object-store:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    ports:
+      - "0.0.0.0:19100:9000"
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
+    network_mode: host
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until mc alias set local http://127.0.0.1:19100
+        "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null 2>&1; do sleep 2; done;
+        mc mb --ignore-existing local/assetlibrary-quarantine;
+        mc mb --ignore-existing local/assetlibrary-published
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    restart: "no"
+
+  api:
+    image: assetlibrary-rust:pc2
+    command: ["/app/assetlibrary-api"]
+    network_mode: host
+    environment: &rust-environment
+      ASSETLIBRARY_ENVIRONMENT: development
+      ASSETLIBRARY_APP_UPDATES_ENABLED: "false"
+      ASSETLIBRARY_BIND: 0.0.0.0:28080
+      ASSETLIBRARY_METRICS_BIND: 127.0.0.1:19090
+      DATABASE_URL: postgresql://assetlibrary:${POSTGRES_PASSWORD}@127.0.0.1:15432/assetlibrary
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      ASSETLIBRARY_S3_ENDPOINT: http://127.0.0.1:19100
+      ASSETLIBRARY_S3_REGION: us-east-1
+      ASSETLIBRARY_S3_FORCE_PATH_STYLE: "true"
+      ASSETLIBRARY_QUARANTINE_BUCKET: assetlibrary-quarantine
+      ASSETLIBRARY_PUBLISHED_BUCKET: assetlibrary-published
+      ASSETLIBRARY_OPENSEARCH_URL: https://127.0.0.1:19200
+      ASSETLIBRARY_OPENSEARCH_USERNAME: admin
+      ASSETLIBRARY_OPENSEARCH_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      ASSETLIBRARY_OPENSEARCH_ALLOW_INVALID_CERTS: "true"
+      ASSETLIBRARY_VALKEY_URL: redis://:${VALKEY_PASSWORD}@127.0.0.1:16379/0
+      ASSETLIBRARY_SEARCH_ALIAS: assetlibrary-packages
+    restart: unless-stopped
+
+  web:
+    image: assetlibrary-web:pc2
+    network_mode: host
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "18109"
+      ASSETLIBRARY_API_URL: http://127.0.0.1:28080
+      ASSETLIBRARY_PUBLIC_URL: http://192.168.15.200:18109
+      ASSETLIBRARY_UPLOAD_ORIGINS: http://192.168.15.200:19100
+    depends_on: [api]
+    restart: unless-stopped
+
+  outbox:
+    image: assetlibrary-rust:pc2
+    command: ["/app/assetlibrary-outbox-worker"]
+    network_mode: host
+    environment:
+      DATABASE_URL: postgresql://assetlibrary:${POSTGRES_PASSWORD}@127.0.0.1:15432/assetlibrary
+      ASSETLIBRARY_NATS_URL: nats://127.0.0.1:14222
+      ASSETLIBRARY_METRICS_BIND: 127.0.0.1:19091
+    restart: unless-stopped
+
+  indexer:
+    image: assetlibrary-rust:pc2
+    command: ["/app/assetlibrary-indexer-worker"]
+    network_mode: host
+    environment:
+      ASSETLIBRARY_ENVIRONMENT: development
+      DATABASE_URL: postgresql://assetlibrary:${POSTGRES_PASSWORD}@127.0.0.1:15432/assetlibrary
+      NATS_URL: nats://127.0.0.1:14222
+      ASSETLIBRARY_VALKEY_URL: redis://:${VALKEY_PASSWORD}@127.0.0.1:16379/0
+      ASSETLIBRARY_OPENSEARCH_URL: https://127.0.0.1:19200
+      ASSETLIBRARY_OPENSEARCH_USERNAME: admin
+      ASSETLIBRARY_OPENSEARCH_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      ASSETLIBRARY_OPENSEARCH_ALLOW_INVALID_CERTS: "true"
+      ASSETLIBRARY_SEARCH_INDEX_PREFIX: assetlibrary-packages-v1
+      ASSETLIBRARY_SEARCH_ALIAS: assetlibrary-packages
+      ASSETLIBRARY_METRICS_BIND: 127.0.0.1:19092
+    restart: unless-stopped
+
+  scanner:
+    image: assetlibrary-rust:pc2
+    command: ["/app/assetlibrary-scanner-worker"]
+    network_mode: host
+    environment:
+      ASSETLIBRARY_ENVIRONMENT: development
+      DATABASE_URL: postgresql://assetlibrary:${POSTGRES_PASSWORD}@127.0.0.1:15432/assetlibrary
+      ASSETLIBRARY_NATS_URL: nats://127.0.0.1:14222
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      ASSETLIBRARY_S3_ENDPOINT: http://127.0.0.1:19100
+      ASSETLIBRARY_S3_REGION: us-east-1
+      ASSETLIBRARY_S3_FORCE_PATH_STYLE: "true"
+      ASSETLIBRARY_QUARANTINE_BUCKET: assetlibrary-quarantine
+      ASSETLIBRARY_PUBLISHED_BUCKET: assetlibrary-published
+      ASSETLIBRARY_CLAMAV_ADDRESS: 127.0.0.1:13310
+      ASSETLIBRARY_METRICS_BIND: 127.0.0.1:19093
+    restart: unless-stopped
+
+  cleanup:
+    image: assetlibrary-rust:pc2
+    command: ["/app/assetlibrary-cleanup-worker"]
+    network_mode: host
+    environment:
+      ASSETLIBRARY_ENVIRONMENT: development
+      DATABASE_URL: postgresql://assetlibrary:${POSTGRES_PASSWORD}@127.0.0.1:15432/assetlibrary
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      ASSETLIBRARY_S3_ENDPOINT: http://127.0.0.1:19100
+      ASSETLIBRARY_S3_REGION: us-east-1
+      ASSETLIBRARY_S3_FORCE_PATH_STYLE: "true"
+      ASSETLIBRARY_QUARANTINE_BUCKET: assetlibrary-quarantine
+      ASSETLIBRARY_PUBLISHED_BUCKET: assetlibrary-published
+      ASSETLIBRARY_METRICS_BIND: 127.0.0.1:19094
+    restart: "no"
