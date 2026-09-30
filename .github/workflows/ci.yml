@@ -148,6 +148,11 @@ jobs:
             tofu -chdir="deploy/tofu/environments/$environment" init -backend=false -input=false -lockfile=readonly
             tofu -chdir="deploy/tofu/environments/$environment" validate -no-color
           done
+      - name: Inspect pinned web Node runtime
+        run: |
+          asset_node_image=$(jq -er '.base_images.node_builder_runtime' deploy/images/build-matrix.json)
+          [[ "$asset_node_image" =~ ^node@sha256:[0-9a-f]{64}$ ]]
+          docker run --rm --network none --read-only "$asset_node_image" node --version
       - name: Clean worktree gate
         run: |
           git diff --check
