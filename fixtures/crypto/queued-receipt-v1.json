@@ -1,0 +1,4 @@
+{
+  "provenance": "Actual AssetLibrary 3b02dae0 QueuedReceipt serialization, original locked dependencies, synthetic oracle request; no key generation or network",
+  "queued_receipt_json": "{\"receipt_id\":\"11111111-1111-4111-8111-111111111111\",\"release_id\":\"77777777-7777-4777-8777-777777777777\",\"artifact_id\":\"66666666-6666-4666-8666-666666666666\",\"canonical_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"idempotency_key\":\"public-synthetic-compatibility-receipt\",\"request\":{\"installed_at_epoch_seconds\":1790726400,\"signature_base64\":\"DNnloh6hqT0ZKQGnLdeTxPJyHdlZC1vdSLWyLQ9AmoJP9YUY3c8dDh3EKyK+DUHY1kVJUTWi2TTNnFdfbIYBBg==\"}}"
+}

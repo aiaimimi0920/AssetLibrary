@@ -4,7 +4,10 @@ use assetlibrary_supply_chain::{
     validate_archive_path, validate_package_manifest, verify_signature_digest,
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use ed25519_dalek::{Signer, SigningKey, pkcs8::DecodePrivateKey};
+use ed25519_dalek::{
+    Signer, SigningKey,
+    pkcs8::{PrivateKeyInfoRef, SecretDocument},
+};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -307,7 +310,18 @@ fn read_signing_key(path: &Path) -> Result<SigningKey, CliError> {
         return Err(CliError::SigningKey);
     }
     let pem = std::str::from_utf8(&bytes).map_err(|_| CliError::SigningKey)?;
-    SigningKey::from_pkcs8_pem(pem).map_err(|_| CliError::SigningKey)
+    let (label, document) = SecretDocument::from_pem(pem).map_err(|_| CliError::SigningKey)?;
+    if label != "PRIVATE KEY" {
+        return Err(CliError::SigningKey);
+    }
+    let info =
+        PrivateKeyInfoRef::try_from(document.as_bytes()).map_err(|_| CliError::SigningKey)?;
+    // ed25519 3 otherwise discards an unaligned embedded public key, bypassing
+    // the keypair consistency check. Preserve the previous import rejection.
+    if info.public_key.is_some_and(|key| key.unused_bits() != 0) {
+        return Err(CliError::SigningKey);
+    }
+    SigningKey::try_from(info).map_err(|_| CliError::SigningKey)
 }
 
 fn read_public_key(path: &Path) -> Result<[u8; 32], CliError> {

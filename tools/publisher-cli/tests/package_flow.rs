@@ -132,6 +132,56 @@ fn pack_rejects_a_private_key_inside_the_source() {
     assert!(!archive.exists());
 }
 
+#[test]
+fn pack_rejects_malformed_and_oversized_private_keys_without_output() {
+    let temp = TempDir::new().unwrap();
+    let source = temp.path().join("source");
+    let private_key = temp.path().join("private.pem");
+    let archive = temp.path().join("sample.zip");
+    manifest_command(&source).assert().success();
+    fs::create_dir_all(source.join("runtime")).unwrap();
+    fs::write(source.join("runtime/main.exe"), b"test-runtime").unwrap();
+    write_private_key(&private_key);
+    for invalid in [b"not a PEM key".to_vec(), vec![b'x'; 64 * 1024 + 1]] {
+        fs::write(&private_key, invalid).unwrap();
+        pack_command(&source, &private_key, &archive)
+            .assert()
+            .failure()
+            .code(1);
+        assert!(!archive.exists());
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn pack_rejects_shared_read_permissions_and_symlink_private_keys() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    let temp = TempDir::new().unwrap();
+    let source = temp.path().join("source");
+    let private_key = temp.path().join("private.pem");
+    let archive = temp.path().join("sample.zip");
+    manifest_command(&source).assert().success();
+    fs::create_dir_all(source.join("runtime")).unwrap();
+    fs::write(source.join("runtime/main.exe"), b"test-runtime").unwrap();
+    write_private_key(&private_key);
+    for mode in [0o640, 0o604] {
+        fs::set_permissions(&private_key, fs::Permissions::from_mode(mode)).unwrap();
+        pack_command(&source, &private_key, &archive)
+            .assert()
+            .failure()
+            .code(1);
+        assert!(!archive.exists());
+    }
+    fs::set_permissions(&private_key, fs::Permissions::from_mode(0o600)).unwrap();
+    let linked_key = temp.path().join("linked.pem");
+    symlink(&private_key, &linked_key).unwrap();
+    pack_command(&source, &linked_key, &archive)
+        .assert()
+        .failure()
+        .code(4);
+    assert!(!archive.exists());
+}
+
 fn manifest_command(output: &Path) -> Command {
     let mut command = base_command("manifest");
     command
