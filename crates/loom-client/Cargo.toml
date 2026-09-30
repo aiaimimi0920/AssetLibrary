@@ -8,7 +8,7 @@ assetlibrary-contracts = { path = "../contracts" }
 assetlibrary-supply-chain = { path = "../supply-chain" }
 async-trait = "0.1"
 base64 = { version = "0.23", default-features = false, features = ["std"] }
-ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+ed25519-dalek = { version = "3.0.0", features = ["rand_core"] }
 hex = "0.4"
 libc = "0.2"
 rand_core = { version = "0.6", features = ["getrandom"] }

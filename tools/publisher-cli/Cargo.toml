@@ -9,7 +9,7 @@ assetlibrary-contracts = { path = "../../crates/contracts" }
 assetlibrary-supply-chain = { path = "../../crates/supply-chain" }
 base64 = { version = "0.23", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive", "env"] }
-ed25519-dalek = { version = "2.2.0", features = ["pem", "pkcs8"] }
+ed25519-dalek = { version = "3.0.0", features = ["pem", "pkcs8"] }
 futures-util = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 semver = "1"
