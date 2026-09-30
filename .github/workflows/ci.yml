@@ -71,6 +71,12 @@ jobs:
       - name: Browser accessibility and visual gates
         working-directory: apps/web
         run: pnpm test:browser
+      - name: Upload recovery refresh stability gate
+        working-directory: apps/web
+        run: >-
+          pnpm exec playwright test e2e/upload-recovery.spec.ts
+          --repeat-each=10 --retries=0 --reporter=line
+          --output=test-results/browser/upload-stability
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
