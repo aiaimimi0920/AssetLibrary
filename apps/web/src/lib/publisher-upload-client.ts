@@ -62,15 +62,20 @@ export function multipartPartCount(size: number): number {
 
 async function fileDigest(file: File, signal: AbortSignal, progress: (value: UploadProgress) => void) {
   const hash = sha256.create();
+  // Retain only part checksums so upload/recovery skip a second hashing read.
+  const partChecksums: string[] = [];
   const chunks = multipartPartCount(file.size);
   for (let index = 0; index < chunks; index += 1) {
     cancelled(signal);
     const start = index * UPLOAD_PART_SIZE;
-    hash.update(new Uint8Array(await file.slice(start, start + UPLOAD_PART_SIZE).arrayBuffer()));
+    const bytes = await file.slice(start, start + UPLOAD_PART_SIZE).arrayBuffer();
+    cancelled(signal);
+    hash.update(new Uint8Array(bytes));
+    partChecksums.push(base64(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))));
     progress({ stage: "hashing", completed: index + 1, total: chunks });
     await yieldToBrowser();
   }
-  return `sha256:${bytesToHex(hash.digest())}`;
+  return { expectedDigest: `sha256:${bytesToHex(hash.digest())}`, partChecksums };
 }
 
 function browserHeaders(headers: Record<string, string>): Headers {
@@ -83,11 +88,9 @@ function browserHeaders(headers: Record<string, string>): Headers {
 }
 
 async function uploadPart(file: File, sessionId: string, partNumber: number,
-  signal: AbortSignal): Promise<CompletedBrowserPart> {
+  checksum: string, signal: AbortSignal): Promise<CompletedBrowserPart> {
   const start = (partNumber - 1) * UPLOAD_PART_SIZE;
   const blob = file.slice(start, Math.min(file.size, start + UPLOAD_PART_SIZE));
-  const partBytes = await blob.arrayBuffer();
-  const checksum = base64(new Uint8Array(await crypto.subtle.digest("SHA-256", partBytes)));
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     cancelled(signal);
     const signed = unwrap(await presignUploadPartAction({
@@ -117,15 +120,14 @@ async function uploadPart(file: File, sessionId: string, partNumber: number,
 }
 
 async function matchingRecoveredParts(file: File, parts: Array<CompletedBrowserPart & { size_bytes: number }>,
-  signal: AbortSignal): Promise<CompletedBrowserPart[]> {
+  partChecksums: readonly string[], signal: AbortSignal): Promise<CompletedBrowserPart[]> {
   const matching: CompletedBrowserPart[] = [];
   for (const part of parts) {
     cancelled(signal);
     const start = (part.part_number - 1) * UPLOAD_PART_SIZE;
     const blob = file.slice(start, Math.min(file.size, start + UPLOAD_PART_SIZE));
     if (blob.size !== part.size_bytes) continue;
-    const bytes = await blob.arrayBuffer();
-    const checksum = base64(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
+    const checksum = partChecksums[part.part_number - 1];
     if (checksum === part.checksum_sha256_base64) {
       matching.push({ part_number: part.part_number, etag: part.etag,
         checksum_sha256_base64: part.checksum_sha256_base64 });
@@ -140,7 +142,7 @@ export async function uploadPublisherFile(file: File, releaseId: string, signal:
   const validation = validateUploadFile(file);
   if (validation) throw new Error(validation);
   const partCount = multipartPartCount(file.size);
-  const expectedDigest = await fileDigest(file, signal, progress);
+  const { expectedDigest, partChecksums } = await fileDigest(file, signal, progress);
   cancelled(signal);
   const mediaType = file.type || "application/zip";
   const stored = readUploadResume(releaseId);
@@ -176,7 +178,7 @@ export async function uploadPublisherFile(file: File, releaseId: string, signal:
     size_bytes: file.size, part_size_bytes: UPLOAD_PART_SIZE, part_count: partCount,
     expires_at_epoch_seconds: session.expires_at_epoch_seconds, expected_digest: expectedDigest });
   const completed: Array<CompletedBrowserPart | undefined> = new Array(partCount);
-  for (const part of await matchingRecoveredParts(file, recovered?.uploaded_parts ?? [], signal)) {
+  for (const part of await matchingRecoveredParts(file, recovered?.uploaded_parts ?? [], partChecksums, signal)) {
     completed[part.part_number - 1] = part;
   }
   const workerAbort = new AbortController();
@@ -192,7 +194,8 @@ export async function uploadPublisherFile(file: File, releaseId: string, signal:
     while (next < pending.length) {
       const partNumber = pending[next];
       next += 1;
-      completed[partNumber - 1] = await uploadPart(file, session.id, partNumber, workerAbort.signal);
+      completed[partNumber - 1] = await uploadPart(file, session.id, partNumber,
+        partChecksums[partNumber - 1], workerAbort.signal);
       uploaded += 1;
       progress({ stage: "uploading", completed: uploaded, total: partCount });
     }
