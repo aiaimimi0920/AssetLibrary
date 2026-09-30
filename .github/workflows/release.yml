@@ -22,6 +22,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      pull-requests: read
     uses: ./.github/workflows/security-policy.yml
     with:
       source_ref: ${{ inputs.source_ref || github.sha }}

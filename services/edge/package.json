@@ -14,7 +14,8 @@
   },
   "pnpm": {
     "overrides": {
-      "miniflare>sharp": "0.35.4"
+      "miniflare>sharp": "0.35.4",
+      "miniflare>undici": "7.29.1"
     }
   }
 }
