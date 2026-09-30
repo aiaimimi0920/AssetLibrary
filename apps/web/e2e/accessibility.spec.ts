@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./browser-contract";
 
 async function expectNoOverflow(page: import("@playwright/test").Page) {
   const widths = await page.evaluate(() => ({
