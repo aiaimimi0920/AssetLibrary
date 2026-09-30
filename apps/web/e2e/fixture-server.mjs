@@ -175,7 +175,7 @@ const server = createServer(async (request, response) => {
     const artifacts = upload?.status === "uploaded" ? [{
       ...workspaceFixture.artifacts[0], id: upload.artifact_id, status: "uploaded",
       file_name: upload.file_name, size_bytes: upload.size_bytes, media_type: upload.media_type,
-      expected_digest: upload.expected_digest, verified_digest: null,
+      expected_digest: upload.expected_digest.value, verified_digest: null,
       scanner_version: null, rule_version: null, verified_at: null,
     }] : [];
     return send(response, 200, { ...workspaceFixture, artifacts, submission: null,
@@ -222,7 +222,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`browser fixture listening on 127.0.0.1:${port}`);
+  console.log(`browser fixture listening on 127.0.0.1:${server.address().port}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
