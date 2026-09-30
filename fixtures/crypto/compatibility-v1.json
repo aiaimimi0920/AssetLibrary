@@ -1,0 +1,114 @@
+{
+  "archive": {
+    "canonical_sha256_hex": "5549499eb3a53aaa6b8f242116688dfe8c7ec6d97a6e9dd66a4d7b977eacab88",
+    "raw_sha256_hex": "ce1bbb6521d19cc178db3c2b58eb18abbb1724a2fe435157343cc98c1e9c5763",
+    "zip_base64": "UEsDBAoAAAAAAAAAIQBmisoRAwAAAAMAAAAFAAAAYi50eHR0d29QSwMECgAAAAAAAAAhAPGGbHoDAAAAAwAAAAUAAABhLnR4dG9uZVBLAwQKAAAAAAAAACEAqsYyIhQAAAAUAAAADgAAAHNpZ25hdHVyZS5qc29uZXhjbHVkZWQtcGxhY2Vob2xkZXJQSwECCgMKAAAAAAAAACEAZorKEQMAAAADAAAABQAAAAAAAAAAAAAApIEAAAAAYi50eHRQSwECCgMKAAAAAAAAACEA8YZsegMAAAADAAAABQAAAAAAAAAAAAAApIEmAAAAYS50eHRQSwECCgMKAAAAAAAAACEAqsYyIhQAAAAUAAAADgAAAAAAAAAAAAAApIFMAAAAc2lnbmF0dXJlLmpzb25QSwUGAAAAAAMAAwCiAAAAjAAAAAAA"
+  },
+  "hmac_boundaries": [
+    {
+      "database_sha256_hex": "b92a4b02dd783ab1fe49857301129f54bd500c9240ef125799d70a25ac743c75",
+      "key_bytes": 32,
+      "signature_base64url": "Ht3MepBht_kAuk9Rkr1WIjBXVoo46fe1SoKl5PLxDXE"
+    },
+    {
+      "database_sha256_hex": "0d7c0761eef9546c2eb84e3649afcc97ae5643dc4c0ad8db9b3dd2d70248df3f",
+      "key_bytes": 64,
+      "signature_base64url": "5OXVqkWxYqJRag7-RUpjE8bupTweLGdk3aje4cKRAKA"
+    },
+    {
+      "database_sha256_hex": "1d7897571127a2a40dac2274083549b7d8c73a262c51931b8127857b7af8d6b8",
+      "key_bytes": 65,
+      "signature_base64url": "WRYPUTlcmn27gauyNpdu8bQtcAsLUANWAuUMLqjFGLQ"
+    },
+    {
+      "database_sha256_hex": "8d7627eb81c369c5ca5ccbcb541a03c53a2490a4403eabf4f45c1d033ddbf600",
+      "key_bytes": 131,
+      "signature_base64url": "vuHX6NpB5mu0VF-pUKM8Xi_MWwA2twYiOoCi8LeFh_k"
+    }
+  ],
+  "provenance": "Frozen with AssetLibrary e4197654, sha2 0.10.9 and hmac 0.12.1. Public synthetic inputs only: HMAC key 32 bytes of 42, Ed25519 seed 32 bytes of 7.",
+  "sha256_boundaries": [
+    {
+      "sha256_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "sha256_hex": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size": 1
+    },
+    {
+      "sha256_hex": "463eb28e72f82e0a96c0a4cc53690c571281131f672aa229e0d45ae59b598b59",
+      "size": 55
+    },
+    {
+      "sha256_hex": "da2ae4d6b36748f2a318f23e7ab1dfdf45acdc9d049bd80e59de82a60895f562",
+      "size": 56
+    },
+    {
+      "sha256_hex": "29af2686fd53374a36b0846694cc342177e428d1647515f078784d69cdb9e488",
+      "size": 63
+    },
+    {
+      "sha256_hex": "fdeab9acf3710362bd2658cdc9a29e8f9c757fcf9811603a8c447cd1d9151108",
+      "size": 64
+    },
+    {
+      "sha256_hex": "4bfd2c8b6f1eec7a2afeb48b934ee4b2694182027e6d0fc075074f2fabb31781",
+      "size": 65
+    },
+    {
+      "sha256_hex": "92ca0fa6651ee2f97b884b7246a562fa71250fedefe5ebf270d31c546bfea976",
+      "size": 127
+    },
+    {
+      "sha256_hex": "471fb943aa23c511f6f72f8d1652d9c880cfa392ad80503120547703e56a2be5",
+      "size": 128
+    },
+    {
+      "sha256_hex": "5099c6a56203f9687f7d33f4bfdf576d31dc91f6b695ecea38b2770c87631135",
+      "size": 129
+    },
+    {
+      "sha256_hex": "dda402a2c028f0cbbdbc5c6ebae965eed9c75f71236e7022b0386d3455d5ae2f",
+      "size": 65535
+    },
+    {
+      "sha256_hex": "4b640d85ab3ba30fd02c9fc9db4a8928f416322ad27022ea58a65aaee68a4df2",
+      "size": 65536
+    },
+    {
+      "sha256_hex": "237356e18b503616912abb8ffaed3a72591e397d4ac294c4637917d48a3f529d",
+      "size": 65537
+    }
+  ],
+  "signature": {
+    "ed25519_base64": "q4Oca3fXhEIm9VU7p140GMjW1wLxZUy/4lkdyoYpOcreGQL1M2q0MeYNxJlJbLqYqKs3u3bX30prwk7dlUEGBQ==",
+    "fingerprint": "sha256:fe812c12f3ab4ce6ac5db69ac352f906cb1b11ef43fb33e252ef7ff552263889",
+    "pkcs8_pem_crlf_sha256_hex": "86ecbfca5a91670590f5e040d615c25283549341638821b374392fc33fb45896",
+    "pkcs8_pem_lf_sha256_hex": "43809ad432df5112ecb58bf8f9ffd8fc4b48429f35f96dcaeafa5b046b50772e",
+    "public_key_base64": "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw="
+  },
+  "ticket": {
+    "claims": {
+      "artifact_id": "55555555-5555-4555-8555-555555555555",
+      "audience": "download-edge",
+      "client_type": "loom",
+      "digest": "abababababababababababababababababababababababababababababababab",
+      "expires_at": 1700000300,
+      "issued_at": 1700000000,
+      "issuer": "assetlibrary",
+      "nonce": "66666666-6666-4666-8666-666666666666",
+      "not_before": 1700000000,
+      "object_key": "sha256/ab/abababababababababababababababababababababababababababababababab",
+      "package_id": "33333333-3333-4333-8333-333333333333",
+      "path": "/restricted/sha256/abababababababababababababababababababababababababababababababab/fixture.zip",
+      "publisher_id": "22222222-2222-4222-8222-222222222222",
+      "purpose": "download",
+      "release_id": "44444444-4444-4444-8444-444444444444",
+      "session_id": "11111111-1111-4111-8111-111111111111",
+      "signing_key_id": "synthetic-wire-fixture"
+    },
+    "database_sha256_hex": "b92a4b02dd783ab1fe49857301129f54bd500c9240ef125799d70a25ac743c75",
+    "encoded_ticket": "v1.eyJpc3N1ZXIiOiJhc3NldGxpYnJhcnkiLCJhdWRpZW5jZSI6ImRvd25sb2FkLWVkZ2UiLCJwdXJwb3NlIjoiZG93bmxvYWQiLCJzZXNzaW9uX2lkIjoiMTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExIiwicHVibGlzaGVyX2lkIjoiMjIyMjIyMjItMjIyMi00MjIyLTgyMjItMjIyMjIyMjIyMjIyIiwicGFja2FnZV9pZCI6IjMzMzMzMzMzLTMzMzMtNDMzMy04MzMzLTMzMzMzMzMzMzMzMyIsInJlbGVhc2VfaWQiOiI0NDQ0NDQ0NC00NDQ0LTQ0NDQtODQ0NC00NDQ0NDQ0NDQ0NDQiLCJhcnRpZmFjdF9pZCI6IjU1NTU1NTU1LTU1NTUtNDU1NS04NTU1LTU1NTU1NTU1NTU1NSIsInNpZ25pbmdfa2V5X2lkIjoic3ludGhldGljLXdpcmUtZml4dHVyZSIsImNsaWVudF90eXBlIjoibG9vbSIsImRpZ2VzdCI6ImFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIiLCJvYmplY3Rfa2V5Ijoic2hhMjU2L2FiL2FiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIiLCJwYXRoIjoiL3Jlc3RyaWN0ZWQvc2hhMjU2L2FiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIvZml4dHVyZS56aXAiLCJub25jZSI6IjY2NjY2NjY2LTY2NjYtNDY2Ni04NjY2LTY2NjY2NjY2NjY2NiIsImlzc3VlZF9hdCI6MTcwMDAwMDAwMCwibm90X2JlZm9yZSI6MTcwMDAwMDAwMCwiZXhwaXJlc19hdCI6MTcwMDAwMDMwMH0.Ht3MepBht_kAuk9Rkr1WIjBXVoo46fe1SoKl5PLxDXE"
+  }
+}

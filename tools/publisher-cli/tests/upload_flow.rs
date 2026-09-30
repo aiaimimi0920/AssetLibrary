@@ -110,7 +110,7 @@ async fn start_mock() -> (MockState, JoinHandle<()>) {
         session_id: Uuid::new_v4(),
         artifact_id: Uuid::new_v4(),
         size: ARCHIVE_BYTES.len() as u64,
-        digest: format!("{:x}", Sha256::digest(ARCHIVE_BYTES)),
+        digest: assetlibrary_supply_chain::hex_digest(&Sha256::digest(ARCHIVE_BYTES).into()),
         allow_put: Arc::new(AtomicBool::new(false)),
         poison_headers: Arc::new(AtomicBool::new(false)),
         transient_failures: Arc::new(AtomicUsize::new(1)),

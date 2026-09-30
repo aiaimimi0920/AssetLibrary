@@ -266,7 +266,7 @@ fn key_contract(row: KeyRow) -> Result<PublisherSigningKey, WorkflowError> {
         key_id: row.1,
         algorithm: SigningKeyAlgorithm::Ed25519,
         public_key_base64: STANDARD.encode(&row.2),
-        fingerprint: format!("sha256:{:x}", Sha256::digest(&row.2)),
+        fingerprint: format!("sha256:{}", hex::encode(Sha256::digest(&row.2))),
         status,
         created_at: row
             .4

@@ -207,7 +207,7 @@ impl S3ObjectStore {
             actual_size += read as u64;
             hasher.update(&buffer[..read]);
         }
-        let actual_digest = format!("{:x}", hasher.finalize());
+        let actual_digest = hex::encode(hasher.finalize());
         Ok(actual_size == size && actual_digest == sha256_hex)
     }
 
@@ -263,7 +263,7 @@ impl S3ObjectStore {
             actual_size += read as u64;
             hasher.update(&buffer[..read]);
         }
-        Ok(actual_size == size && format!("{:x}", hasher.finalize()) == sha256_hex)
+        Ok(actual_size == size && hex::encode(hasher.finalize()) == sha256_hex)
     }
 }
 
