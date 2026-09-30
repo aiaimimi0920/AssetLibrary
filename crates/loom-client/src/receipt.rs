@@ -4,7 +4,7 @@ use assetlibrary_contracts::{
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use ed25519_dalek::{Signer, SigningKey};
-use rand_core::OsRng;
+use getrandom::{SysRng, rand_core::UnwrapErr};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -38,7 +38,7 @@ impl ReceiptProofKey {
         if client_instance_id.is_nil() || !host.validate() {
             return Err(ClientError::InvalidInput("invalid Loom host profile"));
         }
-        let signing_key = SigningKey::generate(&mut OsRng);
+        let signing_key = SigningKey::generate(&mut UnwrapErr(SysRng));
         let receipt_id = Uuid::new_v4();
         let public_key = STANDARD.encode(signing_key.verifying_key().to_bytes());
         let host_profile_sha256 = hex::encode(Sha256::digest(

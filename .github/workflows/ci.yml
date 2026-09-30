@@ -50,6 +50,7 @@ jobs:
         run: |
           cargo fmt --all -- --check
           cargo test --workspace --locked
+          node scripts/test-ed25519-webcrypto.mjs
       - name: Web quality gates
         working-directory: apps/web
         run: |

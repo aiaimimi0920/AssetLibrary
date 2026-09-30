@@ -25,3 +25,11 @@ currently validate canonical 32-byte encoding without rejecting weak keys;
 their separate authorization and identity bindings remain required. Changing
 new-key admission or migrating existing keys/verification policy requires a
 separate security and compatibility decision.
+
+The paired dalek 3 / PKCS8 0.11 upgrade keeps the existing ordinary verifier.
+Receipt key generation uses the official `getrandom::SysRng` adapter and
+`UnwrapErr`, preserving the prior OS-entropy failure behavior without a fallback.
+The scanner explicitly retains dalek 2.2's `zeroize` feature for the separate
+nkeys/NATS dependency, because removing the old direct dependency would otherwise
+remove its existing drop guard. No old signature API is called by this feature
+guard. Other NATS consumers keep their original individual feature sets.
