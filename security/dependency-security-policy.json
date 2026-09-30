@@ -19,7 +19,7 @@
     "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
     "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
     "actions/dependency-review-action": "3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261",
-    "github/codeql-action": "b96794f015dfd88f77b49b1c93e0fa7110f94c63",
+    "github/codeql-action": "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
     "gitleaks/gitleaks-action": "dcedce43c6f43de0b836d1fe38946645c9c638dc",
     "docker/login-action": "dbcb813823bdd20940b903addbd779551569679f",
     "docker/setup-buildx-action": "37fe631027851001ddb9b187196cc803df7f5f0e",
