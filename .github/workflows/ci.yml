@@ -87,6 +87,8 @@ jobs:
             apps/web/test-results/browser
           if-no-files-found: ignore
       - name: Edge quality gates
+        env:
+          WRANGLER_SEND_METRICS: "false"
         working-directory: services/edge
         run: |
           pnpm install --frozen-lockfile
