@@ -117,4 +117,42 @@ mod tests {
         let tampered = format!("{}x", token);
         assert!(signer.verify(&tampered).is_err());
     }
+
+    #[test]
+    fn frozen_ticket_and_database_hash_remain_compatible() {
+        let golden: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../fixtures/crypto/compatibility-v1.json"
+        ))
+        .unwrap();
+        let claims: TicketClaims =
+            serde_json::from_value(golden["ticket"]["claims"].clone()).unwrap();
+        let signer = TicketSigner::new(vec![42; 32]).unwrap();
+        let (encoded, hash) = signer.issue(&claims).unwrap();
+        assert_eq!(
+            encoded,
+            golden["ticket"]["encoded_ticket"].as_str().unwrap()
+        );
+        assert_eq!(hex::encode(hash), golden["ticket"]["database_sha256_hex"]);
+        assert_eq!(signer.verify(&encoded).unwrap(), claims);
+        assert!(
+            TicketSigner::new(vec![43; 32])
+                .unwrap()
+                .verify(&encoded)
+                .is_err()
+        );
+        assert!(TicketSigner::new(vec![42; 31]).is_err());
+
+        for vector in golden["hmac_boundaries"].as_array().unwrap() {
+            let signer =
+                TicketSigner::new(vec![42; vector["key_bytes"].as_u64().unwrap() as usize])
+                    .unwrap();
+            let (encoded, hash) = signer.issue(&claims).unwrap();
+            assert_eq!(
+                encoded.rsplit('.').next().unwrap(),
+                vector["signature_base64url"]
+            );
+            assert_eq!(hex::encode(hash), vector["database_sha256_hex"]);
+            assert_eq!(signer.verify(&encoded).unwrap(), claims);
+        }
+    }
 }

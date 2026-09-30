@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use assetlibrary_supply_chain::{hex_digest, sha256_digest};
 use ed25519_dalek::{SigningKey, pkcs8::EncodePrivateKey};
 use pkcs8::LineEnding;
 use serde_json::Value;
@@ -48,12 +49,34 @@ fn manifest_pack_digest_and_validate_round_trip() {
         .stdout
         .clone();
     let packed = parse(&packed);
+    let golden: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/crypto/compatibility-v1.json"
+    ))
+    .unwrap();
+    assert_eq!(packed["fingerprint"], golden["signature"]["fingerprint"]);
+    assert_eq!(
+        packed["public_key_base64"],
+        golden["signature"]["public_key_base64"]
+    );
+    assert_eq!(
+        hex_digest(&sha256_digest(&fs::read(&private_key).unwrap())),
+        golden["signature"]["pkcs8_pem_lf_sha256_hex"]
+    );
     assert_eq!(packed["artifact"]["manifest_file"], "manifest.json");
     assert_ne!(
         packed["artifact"]["archive_sha256"],
         packed["artifact"]["canonical_sha256"]
     );
     fs::write(&public_key, packed["public_key_base64"].as_str().unwrap()).unwrap();
+    // Both conventional PEM line endings must load the same signing key.
+    let pem_crlf = SigningKey::from_bytes(&[7; 32])
+        .to_pkcs8_pem(LineEnding::CRLF)
+        .unwrap();
+    assert_eq!(
+        hex_digest(&sha256_digest(pem_crlf.as_bytes())),
+        golden["signature"]["pkcs8_pem_crlf_sha256_hex"]
+    );
+    fs::write(&private_key, pem_crlf.as_bytes()).unwrap();
     pack_command(&source, &private_key, &second_archive)
         .assert()
         .success();
