@@ -18,6 +18,8 @@ mod publisher_queries;
 mod publisher_routes;
 mod publisher_signing_keys;
 mod publisher_workspace;
+#[cfg(test)]
+mod request_id_tests;
 mod routes;
 mod search;
 mod search_routes;

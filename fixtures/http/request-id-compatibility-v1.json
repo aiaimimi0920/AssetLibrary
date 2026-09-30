@@ -1,0 +1,211 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "request_extension": "<generated-v4>",
+        "request_ids": [
+          "<generated-v4>"
+        ],
+        "response_extension": "<generated-v4>",
+        "response_ids": [
+          "<generated-v4>"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [],
+      "label": "missing"
+    },
+    {
+      "expected": {
+        "request_extension": "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "request_ids": [
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "response_extension": "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "response_ids": [
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+      ],
+      "label": "valid-uuid"
+    },
+    {
+      "expected": {
+        "request_extension": "6e6f742d612d75756964",
+        "request_ids": [
+          "6e6f742d612d75756964"
+        ],
+        "response_extension": "6e6f742d612d75756964",
+        "response_ids": [
+          "6e6f742d612d75756964"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "6e6f742d612d75756964"
+      ],
+      "label": "printable-non-uuid"
+    },
+    {
+      "expected": {
+        "request_extension": "",
+        "request_ids": [
+          ""
+        ],
+        "response_extension": "",
+        "response_ids": [
+          ""
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        ""
+      ],
+      "label": "empty"
+    },
+    {
+      "expected": {
+        "request_extension": "ff",
+        "request_ids": [
+          "ff"
+        ],
+        "response_extension": "ff",
+        "response_ids": [
+          "ff"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "ff"
+      ],
+      "label": "non-utf8"
+    },
+    {
+      "expected": {
+        "request_extension": "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "request_ids": [
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+          "7365636f6e64"
+        ],
+        "response_extension": "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "response_ids": [
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "7365636f6e64"
+      ],
+      "label": "duplicates"
+    },
+    {
+      "expected": {
+        "request_extension": "ff",
+        "request_ids": [
+          "ff",
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "response_extension": "ff",
+        "response_ids": [
+          "ff"
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "ff",
+        "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+      ],
+      "label": "non-utf8-first"
+    },
+    {
+      "expected": {
+        "request_extension": "",
+        "request_ids": [
+          "",
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "response_extension": "",
+        "response_ids": [
+          ""
+        ],
+        "status": 200
+      },
+      "handler_response": [],
+      "incoming": [
+        "",
+        "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+      ],
+      "label": "empty-first"
+    },
+    {
+      "expected": {
+        "request_extension": "31313131313131312d313131312d343131312d383131312d313131313131313131313131",
+        "request_ids": [
+          "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+        ],
+        "response_extension": "68616e646c6572",
+        "response_ids": [
+          "68616e646c6572"
+        ],
+        "status": 200
+      },
+      "handler_response": [
+        "68616e646c6572"
+      ],
+      "incoming": [
+        "31313131313131312d313131312d343131312d383131312d313131313131313131313131"
+      ],
+      "label": "handler-override"
+    },
+    {
+      "expected": {
+        "request_extension": "<generated-v4>",
+        "request_ids": [
+          "<generated-v4>"
+        ],
+        "response_extension": "68616e646c65722d6669727374",
+        "response_ids": [
+          "68616e646c65722d6669727374",
+          "68616e646c65722d7365636f6e64"
+        ],
+        "status": 200
+      },
+      "handler_response": [
+        "68616e646c65722d6669727374",
+        "68616e646c65722d7365636f6e64"
+      ],
+      "incoming": [],
+      "label": "handler-duplicate"
+    },
+    {
+      "expected": {
+        "request_extension": "<generated-v4>",
+        "request_ids": [
+          "<generated-v4>"
+        ],
+        "response_extension": "<generated-v4>",
+        "response_ids": [
+          "<generated-v4>"
+        ],
+        "status": 503
+      },
+      "handler_response": [],
+      "incoming": [],
+      "label": "failure-response"
+    }
+  ],
+  "oracle": "tower-http 0.6.11",
+  "schema_version": 1,
+  "scope": "Two request-id layers in production order. Generated values validated as UUIDv4 then normalized; does not establish authentication or logging policy."
+}
