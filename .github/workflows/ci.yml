@@ -166,10 +166,9 @@ jobs:
       - name: Download the newly uploaded quality evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: quality-evidence-${{ steps.source.outputs.commit }}
+          name: quality-evidence-${{ steps.source.outputs.commit }}
           path: release/evidence/artifact-roundtrip
-          merge-multiple: false
       - name: Verify evidence archive compatibility
         run: >-
           cmp release/evidence/tests/ci.json
-          "release/evidence/artifact-roundtrip/quality-evidence-${{ steps.source.outputs.commit }}/ci.json"
+          release/evidence/artifact-roundtrip/ci.json
