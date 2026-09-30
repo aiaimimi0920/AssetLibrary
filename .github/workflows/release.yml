@@ -45,7 +45,7 @@ jobs:
       registry_prefix: ${{ steps.release.outputs.registry_prefix }}
       matrix: ${{ steps.release.outputs.matrix }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.security.outputs.scanned_commit }}
       - id: release
@@ -93,7 +93,7 @@ jobs:
       TRIVY_USERNAME: ${{ github.actor }}
       TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
       - name: Recheck source identity
@@ -206,7 +206,7 @@ jobs:
             provenance.sigstore.json sbom.sigstore.json > SHA256SUMS
       - name: Upload signed image evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-evidence-${{ matrix.name }}-${{ needs.prepare.outputs.source_commit }}
           path: release/evidence/images/${{ matrix.name }}
@@ -221,7 +221,7 @@ jobs:
       contents: read
       packages: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
       - name: Download immutable image evidence
@@ -273,7 +273,7 @@ jobs:
             '{schema_version:"1.0",source_commit:$commit,status:"passed",api_digest:$api_digest,web_digest:$web_digest,workflow_run_id:$run_id,workflow_run_attempt:$run_attempt}' \
             > release/evidence/tests/image-runtime.json
       - name: Upload image runtime evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-runtime-evidence-${{ needs.prepare.outputs.source_commit }}
           path: release/evidence/tests
@@ -287,7 +287,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
       - name: Recheck candidate source identity
@@ -370,7 +370,7 @@ jobs:
             --phase verify \
             --output release/candidate
       - name: Upload immutable release candidate evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-candidate-${{ needs.prepare.outputs.version }}-${{ needs.prepare.outputs.source_commit }}
           path: release/candidate

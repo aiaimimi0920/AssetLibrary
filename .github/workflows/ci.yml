@@ -27,7 +27,7 @@ jobs:
     outputs:
       commit: ${{ steps.source.outputs.commit }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
       - id: source
@@ -37,7 +37,7 @@ jobs:
           test "${#expected}" -eq 40
           test "$(git rev-parse HEAD)" = "$expected"
           echo "commit=$expected" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.23.1
       - name: Install pinned toolchains
@@ -79,7 +79,7 @@ jobs:
           --output=test-results/browser/upload-stability
       - name: Upload browser failure evidence
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: assetlibrary-browser-evidence
           path: |
@@ -133,7 +133,7 @@ jobs:
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 lint /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml
           docker run --rm -v "$PWD:/src" alpine/helm@sha256:76c375eed56144c68d6197c55bc5a4552fb42002190b796729901cbab3ae6e51 template assetlibrary /src/deploy/helm/assetlibrary -f /src/deploy/helm/values-ci.yaml -f /src/deploy/helm/values-observability-ci.yaml -f /src/deploy/helm/values-progressive-ci.yaml | docker run --rm -i ghcr.io/yannh/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c -strict -ignore-missing-schemas -summary
-      - uses: opentofu/setup-opentofu@9d84900f3238fab8cd84ce47d658d25dd008be2f # v1
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
           tofu_version_file: .opentofu-version
       - name: OpenTofu static gates
@@ -157,9 +157,18 @@ jobs:
             '{schema_version:"1.0",source_commit:$commit,status:"passed",workflow_run_id:$run_id,workflow_run_attempt:$run_attempt}' \
             > release/evidence/tests/ci.json
       - name: Upload quality evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: quality-evidence-${{ steps.source.outputs.commit }}
           path: release/evidence/tests
           if-no-files-found: error
           retention-days: 90
+      - name: Download the newly uploaded quality evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: quality-evidence-${{ steps.source.outputs.commit }}
+          path: release/evidence/artifact-roundtrip
+      - name: Verify evidence archive compatibility
+        run: >-
+          cmp release/evidence/tests/ci.json
+          release/evidence/artifact-roundtrip/ci.json
