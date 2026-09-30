@@ -25,7 +25,7 @@
     "@asyncapi/parser": "3.6.3",
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1",
-    "@redocly/cli": "2.51.0",
+    "@redocly/cli": "2.54.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
