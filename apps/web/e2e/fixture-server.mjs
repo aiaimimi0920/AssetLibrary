@@ -172,13 +172,20 @@ const server = createServer(async (request, response) => {
     return send(response, 200, ownedRelease, "private, no-store");
   }
   if (request.method === "GET" && url.pathname === `/v1/me/releases/${ownedRelease.id}/workspace`) {
-    return send(response, 200, { ...workspaceFixture, artifacts: [], submission: null,
+    const artifacts = upload?.status === "uploaded" ? [{
+      ...workspaceFixture.artifacts[0], id: upload.artifact_id, status: "uploaded",
+      file_name: upload.file_name, size_bytes: upload.size_bytes, media_type: upload.media_type,
+      expected_digest: upload.expected_digest.value, verified_digest: null,
+      scanner_version: null, rule_version: null, verified_at: null,
+    }] : [];
+    return send(response, 200, { ...workspaceFixture, artifacts, submission: null,
       feedback: [], can_upload: true }, "private, no-store");
   }
   if (request.method === "POST"
     && url.pathname === `/v1/me/releases/${ownedRelease.id}/upload-sessions`) {
     const body = await jsonBody(request);
     upload = { id: uploadSessionId, release_id: ownedRelease.id, artifact_id: uploadArtifactId,
+      file_name: body.file_name, media_type: body.media_type,
       object_key: `quarantine/${ownedRelease.id}/${uploadArtifactId}/${body.file_name}`,
       part_size_bytes: body.part_size_bytes, max_parts: body.part_count, size_bytes: body.size_bytes,
       expires_at_epoch_seconds: Math.floor(Date.now() / 1_000) + 3_600,
@@ -215,7 +222,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, "127.0.0.1", () => {
-  console.log(`browser fixture listening on 127.0.0.1:${port}`);
+  console.log(`browser fixture listening on 127.0.0.1:${server.address().port}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

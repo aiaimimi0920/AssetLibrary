@@ -38,6 +38,12 @@ test("Publisher resumes only matching object-store parts after a page reload", a
   await expect.poll(() => page.evaluate((id) =>
     sessionStorage.getItem(`assetlibrary.upload.v1.${id}`), releaseId)).toBeNull();
 
+  // The client completion message precedes router.refresh(). Audit the refreshed document.
+  await expect(page.getByRole("heading", { level: 3, name: file.name })).toBeVisible();
+  await expect(page.getByText("等待扫描", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Neuro Painter.*v1\.0\.0/ })).toBeVisible();
+  await expect(page).toHaveTitle("Release 工作区 | AssetLibrary");
+
   const content = await page.locator("body").innerText();
   expect(content).not.toContain("browser-fixture-access-token");
   expect(content).not.toContain("browser-private-subject");
