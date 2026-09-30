@@ -33,3 +33,20 @@ The scanner explicitly retains dalek 2.2's `zeroize` feature for the separate
 nkeys/NATS dependency, because removing the old direct dependency would otherwise
 remove its existing drop guard. No old signature API is called by this feature
 guard. Other NATS consumers keep their original individual feature sets.
+
+`pkcs8-boundaries-v1.json` records 26 additional old-library DER and LF/CRLF
+PEM results separately from the intended CLI policy. New dalek 3 silently
+discards a non-byte-aligned embedded public key; the CLI explicitly rejects
+nonzero BIT STRING unused bits before the normal keypair consistency check.
+This restores the old rejection for unused bits 1-7, mismatches, and invalid
+public-key lengths. Valid PKCS8 v1/v2 and constructed empty attributes remain
+accepted. The original PEM whitespace and label cases also run through the
+actual CLI file-import path.
+
+Two malformed primitive attribute encodings (tag `0x80`, empty or NULL content)
+were accepted by the old parser and are rejected by the new parser. This
+fail-closed tightening is intentional: RFC 5958 defines Attributes as a
+constructed SET OF, whose context-specific tag is `0xA0`. The fixture preserves
+both the old result and the new expected CLI result; complete malformed-DER
+acceptance-set equality is not claimed. See
+<https://www.rfc-editor.org/rfc/rfc5958#section-2>.
