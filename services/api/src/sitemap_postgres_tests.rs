@@ -62,22 +62,79 @@ async fn hidden(catalog: &PostgresCatalog) {
     );
 }
 
-fn uuid_index_nodes<'a>(value: &'a Value, nodes: &mut Vec<&'a Value>) {
+fn package_scan_nodes<'a>(value: &'a Value, nodes: &mut Vec<&'a Value>) {
     match value {
         Value::Object(object) => {
-            if object.get("Index Name").and_then(Value::as_str) == Some("packages_pkey") {
+            if object.get("Relation Name").and_then(Value::as_str) == Some("packages") {
                 nodes.push(value);
             }
             for child in object.values() {
-                uuid_index_nodes(child, nodes);
+                package_scan_nodes(child, nodes);
             }
         }
         Value::Array(array) => {
             for child in array {
-                uuid_index_nodes(child, nodes);
+                package_scan_nodes(child, nodes);
             }
         }
         _ => {}
+    }
+}
+
+fn has_only_bounded_package_probes(plan: &Value, expected_loops: u64) -> bool {
+    let mut nodes = Vec::new();
+    package_scan_nodes(plan, &mut nodes);
+    !nodes.is_empty()
+        && nodes.iter().all(|node| {
+            let condition = node["Index Cond"].as_str().unwrap_or("");
+            matches!(
+                node["Node Type"].as_str(),
+                Some("Index Scan" | "Index Only Scan")
+            ) && node["Index Name"]
+                .as_str()
+                .is_some_and(|name| !name.is_empty())
+                && condition.contains("(id >= ")
+                && condition.contains("(id <= ")
+                && !condition.contains("(id)::text")
+                && node["Actual Loops"].as_u64() == Some(expected_loops)
+        })
+}
+
+#[test]
+fn sitemap_plan_guard_accepts_native_indexes_but_rejects_unbounded_access() {
+    let base = serde_json::json!({ "Relation Name": "packages", "Node Type": "Index Only Scan",
+        "Index Name": "packages_public_publisher_list_idx", "Actual Loops": 256,
+        "Index Cond": "((id >= 'lower'::uuid) AND (id <= 'upper'::uuid))" });
+    assert!(has_only_bounded_package_probes(&base, 256));
+    let mut primary = base.clone();
+    primary["Node Type"] = "Index Scan".into();
+    primary["Index Name"] = "packages_pkey".into();
+    assert!(has_only_bounded_package_probes(&primary, 256));
+    for (field, value) in [
+        ("Relation Name", serde_json::json!("releases")),
+        ("Node Type", serde_json::json!("Seq Scan")),
+        ("Index Cond", serde_json::json!("id >= 'lower'::uuid")),
+        (
+            "Index Cond",
+            serde_json::json!(
+                "((publisher_id >= 'lower'::uuid) AND (publisher_id <= 'upper'::uuid))"
+            ),
+        ),
+        (
+            "Index Cond",
+            serde_json::json!("(id)::text >= 'lower' AND (id)::text <= 'upper'"),
+        ),
+        ("Actual Loops", serde_json::json!(1)),
+    ] {
+        let mut invalid = base.clone();
+        invalid[field] = value;
+        assert!(!has_only_bounded_package_probes(&invalid, 256));
+        let mixed = serde_json::json!([base, invalid]);
+        if field == "Relation Name" {
+            assert!(has_only_bounded_package_probes(&mixed, 256));
+        } else {
+            assert!(!has_only_bounded_package_probes(&mixed, 256));
+        }
     }
 }
 
@@ -97,20 +154,8 @@ async fn query_plans(pool: &PgPool) {
         .await
         .unwrap();
     for (label, plan, expected_loops) in [("manifest", manifest, 256), ("leaf", shard, 1)] {
-        let mut nodes = Vec::new();
-        uuid_index_nodes(&plan, &mut nodes);
         assert!(
-            !nodes.is_empty(),
-            "{label} must use the UUID primary index: {plan}"
-        );
-        assert!(
-            nodes.iter().any(|node| {
-                let condition = node["Index Cond"].as_str().unwrap_or("");
-                condition.contains("id >=")
-                    && condition.contains("id <=")
-                    && !condition.contains("(id)::text")
-                    && node["Actual Loops"].as_u64() == Some(expected_loops)
-            }),
+            has_only_bounded_package_probes(&plan, expected_loops),
             "{label} must use bounded native UUID probes: {plan}"
         );
         println!("SITEMAP_EXPLAIN_{label}={plan}");
