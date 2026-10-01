@@ -95,7 +95,9 @@ export function EditPackageForm({ ownedPackage, idempotencyKey }: {
   useEffect(() => { if (state.error) error.current?.focus(); }, [state]);
   const update = (field: keyof PackageDraft, value: string) => setDraft(current => ({ ...current, [field]: value }));
   return (
-    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}>
+    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}
+      // Native action reset can desynchronize a controlled select; success remounts with the new editor key.
+      onReset={event => event.preventDefault()}>
       <input type="hidden" name="package_id" value={ownedPackage.id} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       <input type="hidden" name="expected_updated_at" value={ownedPackage.updated_at} />
