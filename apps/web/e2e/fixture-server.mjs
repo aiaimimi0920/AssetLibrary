@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { publicDiscoveryFixture } from './public-discovery-fixture.mjs';
+import { publicDownloadFixture } from './public-download-fixture.mjs';
 
 const port = Number(process.env.ASSETLIBRARY_BROWSER_FIXTURE_PORT ?? "18900");
 const token = "browser-fixture-access-token-that-stays-server-only";
@@ -27,6 +28,7 @@ const [packages, memberships, signingKeys, ownedPackages, ownedReleases, workspa
   fixture("publisher-release-workspace.v1.json"),
 ]);
 const discovery = publicDiscoveryFixture(packages, await fixture('published-release-page.v1.json'), send);
+const downloads = publicDownloadFixture(await fixture('published-release-page.v1.json'), port, send);
 let ownedPackage = { ...ownedPackages.items[0], description: "Browser editable package details." };
 const ownedRelease = ownedReleases.items[0];
 const uploadSessionId = "77777777-7777-4777-8777-777777777777";
@@ -73,6 +75,7 @@ function publicSession() {
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
   if (discovery(request, response, url)) return;
+  if (downloads(request, response, url)) return;
   if (request.method === "GET" && url.pathname === "/healthz") return send(response, 200, { status: "ok" });
   if (request.method === "GET" && url.pathname === "/fixture/upload-state") {
     return send(response, 200, { parts: upload ? [...upload.parts.keys()].sort((a, b) => a - b) : [] });

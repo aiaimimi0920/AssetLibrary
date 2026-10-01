@@ -111,6 +111,7 @@ spec:
             - { name: ASSETLIBRARY_ACCOUNT_SESSION_URL, value: {{ $root.Values.config.accountSessionUrl | quote }} }
             - { name: ASSETLIBRARY_ACCOUNT_SESSION_COOKIE, value: {{ $root.Values.config.accountSessionCookie | quote }} }
             - { name: ASSETLIBRARY_UPLOAD_ORIGINS, value: {{ join "," $root.Values.config.uploadOrigins | quote }} }
+            - { name: ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL, value: {{ $root.Values.config.publicDownloadBaseUrl | quote }} }
           {{- end }}
           readinessProbe:
             httpGet: { path: /readyz, port: http }

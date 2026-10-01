@@ -70,7 +70,7 @@ export default async function PackagePage({ params, searchParams }: PackagePageP
               <div><dt>类型</dt><dd>{kindLabels[result.data.kind]}</dd></div>
             </dl>
             {releases?.ok ? <>
-              <ReleaseList items={releases.data.items} markLatest={!cursor} />
+              <ReleaseList items={releases.data.items} markLatest={!cursor} publicArtDownload={result.data.kind === 'art'} />
               <ReleasePagination slug={result.data.slug} cursor={releases.data.next_cursor} />
             </> : releases ? <ReleaseFailure failure={releases.failure} /> : null}
             <footer className="detail-actions">

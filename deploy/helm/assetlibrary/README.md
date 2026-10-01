@@ -70,7 +70,8 @@ API tokens. Scanner temporary storage, ClamAV streaming storage, CPU, memory,
 scan duration, JetStream in-flight work, and replica count are all bounded.
 The web workload receives only server-side `ASSETLIBRARY_API_URL`, public-site,
 Account Service session endpoint/cookie-name, and the explicit HTTPS upload-origin
-allowlist. No bearer or account credential is put in a `NEXT_PUBLIC_*` variable.
+allowlist, plus the public download origin used for browser Art downloads.
+No bearer or account credential is put in a `NEXT_PUBLIC_*` variable.
 Each origin in `config.uploadOrigins` must match the origin used by object-store
 presigned PUT URLs, contain no path/query/fragment, and must expose `ETag` through
 its bucket CORS policy. The browser origins permitted by that CORS policy are a

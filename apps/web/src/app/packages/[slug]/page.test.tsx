@@ -57,12 +57,20 @@ describe("package release SSR", () => {
     expect(html).toContain("4242424242424242");
     expect(html).toContain("/publishers/neuro-labs");
     expect(html).toContain("最新公开版本");
+    expect(html).toContain("准备下载");
+    expect(html).not.toContain('/public/sha256/');
 
     const olderPage = renderToStaticMarkup(await PackagePage({
       params: Promise.resolve({ slug: "verified-art" }),
       searchParams: Promise.resolve({ cursor: "opaque" }),
     }));
     expect(olderPage).not.toContain("最新公开版本");
+    expect(olderPage).toContain("准备下载");
+    getPackageMock.mockResolvedValue({ ok: true, data: { ...packageFixture, kind: 'capability' } });
+    const capability = renderToStaticMarkup(await PackagePage({
+      params: Promise.resolve({ slug: 'verified-art' }), searchParams: Promise.resolve({}),
+    }));
+    expect(capability).not.toContain('准备下载');
   });
 
   it("renders release projection failure without hiding package identity", async () => {

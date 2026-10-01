@@ -113,6 +113,19 @@ describe("public immutable downloads", () => {
     expect(console.error).toHaveBeenCalledWith(expect.stringContaining('"dependency":"download_events"'));
   });
 
+  it("rejects a prepared public URL after revocation even when bytes are in the edge cache", async () => {
+    const cached = vi.fn().mockResolvedValue(new Response(bytes));
+    Object.defineProperty(globalThis, "caches", { configurable: true, value: { default: { match: cached } } });
+    const url = `https://download.test/public/sha256/${digest}/${fileName}`;
+    expect((await worker.fetch(new Request(url), env)).status).toBe(200);
+    expect(cached).toHaveBeenCalledTimes(1);
+    policy.values.set(`revoked:artifact:${ids.artifact_id}`, "1");
+    const denied = await worker.fetch(new Request(url), env);
+    expect(denied.status).toBe(404);
+    expect(denied.headers.get("cache-control")).toBe("no-store");
+    expect(cached).toHaveBeenCalledTimes(1);
+  });
+
   it("counts cache-hit GETs without caching request correlation data", async () => {
     const stored = new Map<string, Response>();
     Object.defineProperty(globalThis, "caches", { configurable: true, value: { default: {
