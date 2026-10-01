@@ -117,7 +117,12 @@ bounds, URL encoding, primary SSR content, and empty/unavailable separation.
   production OIDC/Account Service environment remains open; no login system will
   be added here. The local browser fixture is deliberately not an identity
   implementation.
-- Package-level structured data and a complete paginated sitemap remain open.
+- Package-level escaped JSON-LD and a runtime, bounded package sitemap now use
+  only the public catalog projection. Native UUID ranges avoid mutable cursor
+  gaps; overfull or unavailable shards fail rather than returning partial success.
+  See `docs/PUBLIC_DISCOVERY.md` for origin, privacy, capacity and verification
+  boundaries. Publisher-profile sitemap enumeration and automatic shard expansion
+  remain open.
 - Playwright now gates public-catalog and signing-key pages at desktop/mobile
   widths with keyboard entry, visible focus, overflow checks, Axe WCAG 2.0/2.1
   A/AA checks, privacy assertions, CI-configured Linux visual baselines, and

@@ -61,6 +61,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PackagePage' }
         4XX: { description: Client request error. }
+  /v1/public/sitemap:
+    $ref: './paths/sitemap.yaml#/Manifest'
+  /v1/public/sitemap/{shard}:
+    $ref: './paths/sitemap.yaml#/Shard'
   /v1/public/search:
     $ref: './paths/p5.yaml#/Search'
   /v1/public/packages/{slug}:

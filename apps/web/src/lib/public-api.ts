@@ -56,7 +56,7 @@ function apiBaseUrl(): URL {
   return url;
 }
 
-function endpoint(path: string, query?: object): URL {
+export function publicApiEndpoint(path: string, query?: object): URL {
   const url = new URL(path, apiBaseUrl());
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
@@ -71,7 +71,7 @@ async function request<T>(
   cache: RequestCache,
 ): Promise<PublicApiResult<T>> {
   try {
-    const url = endpoint(path, query);
+    const url = publicApiEndpoint(path, query);
     const response = await fetch(url, {
       cache,
       headers: { accept: "application/json" },

@@ -6,6 +6,8 @@ import { ReleaseFailure, ReleaseList, ReleasePagination } from "@/components/rel
 import { StoreHeader } from "@/components/store-header";
 import type { PackageKind } from "@/lib/contracts";
 import { getPackage, listPackageReleases } from "@/lib/public-api";
+import { discoverablePackage, packageStructuredData } from '@/lib/package-structured-data';
+import { publicOrigin } from '@/lib/public-origin';
 
 interface PackagePageProps {
   params: Promise<{ slug: string }>;
@@ -21,11 +23,12 @@ const kindLabels: Record<PackageKind, string> = {
 export async function generateMetadata({ params }: PackagePageProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await getPackage(slug);
-  if (!result.ok) return { title: "包详情", robots: { index: false, follow: true } };
+  const origin = publicOrigin();
+  if (!result.ok || !origin || !discoverablePackage(result.data)) return { title: "包详情", robots: { index: false, follow: true } };
   return {
     title: result.data.name,
     description: result.data.summary,
-    alternates: { canonical: `/packages/${encodeURIComponent(result.data.slug)}` },
+    alternates: { canonical: `${origin}/packages/${result.data.slug}` },
     openGraph: {
       title: `${result.data.name} | AssetLibrary`,
       description: result.data.summary,
@@ -46,6 +49,7 @@ export default async function PackagePage({ params, searchParams }: PackagePageP
     : result.ok
     ? await listPackageReleases(result.data.slug, { cursor, limit: 20 })
     : null;
+  const structuredData = result.ok ? packageStructuredData(result.data) : undefined;
 
   return (
     <div className="shell">
@@ -53,6 +57,7 @@ export default async function PackagePage({ params, searchParams }: PackagePageP
       <main id="main-content" className="detail-main">
         {!result.ok ? <CatalogFailure failure={result.failure} /> : (
           <article className="package-detail">
+            {structuredData ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structuredData }} /> : null}
             <header>
               <p className="eyebrow">{kindLabels[result.data.kind]} / PUBLISHED</p>
               <h1>{result.data.name}</h1>
