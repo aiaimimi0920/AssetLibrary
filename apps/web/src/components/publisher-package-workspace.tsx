@@ -57,7 +57,7 @@ export function PublisherPackageWorkspace({ ownedPackage, releases, membership, 
           <span>{canEdit ? "DRAFT / EDITABLE" : "LOCKED"}</span>
         </div>
         {canEdit
-          ? <EditPackageForm ownedPackage={ownedPackage} idempotencyKey={editKey} />
+          ? <EditPackageForm key={editKey} ownedPackage={ownedPackage} idempotencyKey={editKey} />
           : <div className="release-locked"><h2>Package 元数据已锁定</h2>
             <p>只有 active Owner 或 Maintainer 可以在 Package 仍为 draft 时修改元数据。</p></div>}
       </section>

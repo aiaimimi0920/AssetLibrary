@@ -1,5 +1,6 @@
 import { expect, test } from './browser-contract';
 import type { APIRequestContext } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 test.describe.configure({ retries: 0 });
 
@@ -61,5 +62,48 @@ for (const failure of ['validation', 'expired-session', 'conflict'] as const) {
     await expect(form.getByRole('textbox', { name: '摘要', exact: true })).toHaveValue('Unsaved summary');
     await expect(form.getByRole('combobox', { name: '可见性', exact: true })).toHaveValue('private');
     await expect(form.getByRole('textbox', { name: /^标签/ })).toHaveValue(failure === 'validation' ? 'INVALID TAG' : 'art, retry');
+    await expect(form.getByRole('alert')).toBeFocused();
+    await page.getByRole('button', { name: '保存 Package 草稿', exact: true }).click();
+    await expect(form.getByRole('alert')).toBeFocused();
+    await expect(form.getByRole('textbox', { name: '说明', exact: true })).toHaveValue('Unsaved detailed description\nSecond line must survive.');
+    await expect(form.locator('[name="idempotency_key"]')).toHaveValue(idempotency);
+    await expect(form.locator('[name="expected_updated_at"]')).toHaveValue(revision);
+    expect((await current(request)).name).toBe(failure === 'conflict' ? 'Concurrent editor saved this' : original.name);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([]);
+    if (failure === 'validation') {
+      await form.getByRole('textbox', { name: /^标签/ }).fill('art, retry');
+      await page.getByRole('button', { name: '保存 Package 草稿', exact: true }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Unsaved editor name', exact: true })).toBeVisible();
+      await expect(form.getByRole('alert')).toHaveCount(0);
+      await expect(form.locator('[name="idempotency_key"]')).not.toHaveValue(idempotency);
+      await expect(form.locator('[name="expected_updated_at"]')).not.toHaveValue(revision);
+      const saved = await current(request);
+      expect(saved).toMatchObject({ name: 'Unsaved editor name', summary: 'Unsaved summary',
+        description: 'Unsaved detailed description\nSecond line must survive.', visibility: 'private', tags: ['art', 'retry'] });
+      await expect(name).toHaveValue(saved.name);
+      await expect(form.getByRole('textbox', { name: '说明', exact: true })).toHaveValue(saved.description);
+    }
   });
 }
+
+test('leaving the editor discards unsaved input and does not persist or revive it across account gates', async ({ page, context }) => {
+  await page.goto(`/publisher/packages/${packageId}`);
+  const description = page.locator('#package-metadata form').getByRole('textbox', { name: '说明', exact: true });
+  await description.fill('Unsubmitted private draft must not follow navigation');
+  await page.getByRole('link', { name: '返回工作区', exact: true }).click();
+  await expect(page).toHaveURL(/\/publisher\?publisher=/);
+  await page.goBack();
+  await expect(description).toHaveValue(original.description);
+  await description.fill('Unsubmitted private draft must not follow navigation');
+  await context.addCookies([{ name: 'neuro_session', value: 'browser-fixture-expired', domain: '127.0.0.1', path: '/' }]);
+  // A new document request establishes the account boundary; this is not live-session revocation.
+  await page.goto('/publisher?publisher=11111111-1111-4111-8111-111111111111');
+  await expect(page.getByRole('heading', { level: 1, name: '账号会话响应无效', exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('Unsubmitted private draft');
+  expect(await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)])))
+    .not.toContain('Unsubmitted private draft');
+  await context.addCookies([{ name: 'neuro_session', value: 'browser-fixture-session', domain: '127.0.0.1', path: '/' }]);
+  await page.goto(`/publisher/packages/${packageId}`);
+  await expect(description).toHaveValue(original.description);
+});
