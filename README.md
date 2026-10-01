@@ -131,6 +131,8 @@ The P5 byte/search boundary and rebuild runbook are documented in
 [`docs/DOWNLOAD_SEARCH_EDGE.md`](docs/DOWNLOAD_SEARCH_EDGE.md).
 The P6 public SSR routes and their current boundary are documented in
 [`docs/PUBLIC_WEB.md`](docs/PUBLIC_WEB.md).
+Public Art browser download preparation and its direct Edge handoff are documented
+in [`docs/PUBLIC_ART_DOWNLOAD.md`](docs/PUBLIC_ART_DOWNLOAD.md).
 The P6 authenticated Publisher API boundary is documented in
 [`docs/PUBLISHER_API.md`](docs/PUBLISHER_API.md).
 The P6 Operator Review API and browser boundary is documented in

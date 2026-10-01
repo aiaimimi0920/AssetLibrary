@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { PublishedRelease } from "@/lib/public-details";
 import type { PublicApiFailure } from "@/lib/public-api";
+import { selectDownloadArtifact } from "@/lib/public-download-contract";
+import { PublicArtDownload } from "./public-art-download";
 
 const productLabels = { loom: "Loom", hook: "Hook" } as const;
 
@@ -23,7 +25,9 @@ function formatBytes(value: number): string {
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[index]}`;
 }
 
-export function ReleaseList({ items, markLatest = false }: { items: PublishedRelease[]; markLatest?: boolean }) {
+export function ReleaseList({ items, markLatest = false, publicArtDownload = false }: {
+  items: PublishedRelease[]; markLatest?: boolean; publicArtDownload?: boolean;
+}) {
   if (items.length === 0) {
     return (
       <section className="availability-note" aria-labelledby="versions-empty">
@@ -84,12 +88,16 @@ export function ReleaseList({ items, markLatest = false }: { items: PublishedRel
 
             <div className="artifact-list">
               {release.artifacts.map((artifact) => (
-                <dl className="artifact-row" key={artifact.artifact_id}>
+                <div key={artifact.artifact_id}>
+                <dl className="artifact-row">
                   <div><dt>制品</dt><dd>{artifact.file_name}</dd></div>
                   <div><dt>大小 / 类型</dt><dd>{formatBytes(artifact.size_bytes)} · {artifact.media_type}</dd></div>
                   <div><dt>签名密钥</dt><dd><code>{artifact.signing_key_id}</code></dd></div>
                   <div className="digest-field"><dt>SHA-256</dt><dd><code>{artifact.digest}</code></dd></div>
                 </dl>
+                {publicArtDownload ? <PublicArtDownload key={JSON.stringify(selectDownloadArtifact(artifact))}
+                  artifact={selectDownloadArtifact(artifact)} /> : null}
+                </div>
               ))}
             </div>
           </article>

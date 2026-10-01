@@ -47,3 +47,4 @@ services:
     environment:
       ASSETLIBRARY_API_URL: http://127.0.0.1:28080
       ASSETLIBRARY_UPLOAD_ORIGINS: ${ASSETLIBRARY_R2_ENDPOINT:?R2 endpoint is required}
+      ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL: ${ASSETLIBRARY_DOWNLOAD_ORIGIN:?Edge origin is required}

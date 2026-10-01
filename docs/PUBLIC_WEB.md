@@ -12,16 +12,17 @@ checkpoint, not a claim that P6 or production acceptance is complete.
 | `/packages/[slug]` | dynamic server rendering | package detail plus `GET /v1/public/packages/{slug}/releases` | package 404 is distinct from a release projection failure |
 | `/publishers/[slug]` | dynamic server rendering | publisher detail plus publisher-filtered package catalog | 404 unless the publisher owns a currently installable public package |
 | `/robots.txt` | static metadata route | repository policy | private route prefixes are disallowed |
-| `/sitemap.xml` | static metadata route | configured public origin | currently contains only the catalog root |
+| `/sitemap.xml` | dynamic route | configured public origin and public sitemap API | unavailable or overfull shards fail closed |
 
-Package bytes never enter these routes. Version rows expose only bounded public
-install metadata. A future download component must request the control-plane
-download contract and then use the returned edge URL; it must not add a Next
-route that proxies artifact bytes.
+Package bytes never enter these routes. Version rows expose bounded public
+install metadata. The public Art download control requests the authoritative
+download contract at click time and hands the validated Edge URL to the browser.
+Next never proxies artifact bytes. See `PUBLIC_ART_DOWNLOAD.md` for configuration,
+cancel/retry behavior and verification limits.
 
 The public release projection includes release/version/time, normalized Loom or
 Hook version requirements, declared permission names, and verified artifact
-identity (UUID, SHA-256, size, media type, derived safe filename, signing key
+identity (UUID, canonical package SHA-256, size, media type, derived safe filename, signing key
 ID). It deliberately excludes storage keys, quarantine paths, raw manifests,
 scanner evidence and versions, key bytes, account principals, moderation
 evidence, and download tickets. Malformed or over-bound persistence values fail
@@ -41,8 +42,8 @@ Server-side API resolution uses, in order:
 3. `http://127.0.0.1:8080` for local development.
 
 Only HTTP and HTTPS URLs are accepted. Public canonical metadata and the sitemap
-use `ASSETLIBRARY_PUBLIC_URL`, with `http://localhost:3000` as the local default.
-Production deployment must set both origins explicitly.
+use a validated `ASSETLIBRARY_PUBLIC_URL`; missing configuration omits canonical
+discovery and makes the sitemap unavailable. Deployments must set both origins explicitly.
 
 The API adapter bounds query length, cursor length, page size, and exact slug shape
 before sending a request. Responses pass the versioned runtime parser before

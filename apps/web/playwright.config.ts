@@ -45,6 +45,7 @@ export default defineConfig({
         ASSETLIBRARY_ACCOUNT_SESSION_URL: `${fixtureUrl}/v1/session`,
         ASSETLIBRARY_ACCOUNT_SESSION_COOKIE: "neuro_session",
         ASSETLIBRARY_UPLOAD_ORIGINS: fixtureUrl,
+        ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL: `http://localhost:${fixturePort}`,
         ASSETLIBRARY_BROWSER_WEB_PORT: String(webPort),
       },
       reuseExistingServer: false,
