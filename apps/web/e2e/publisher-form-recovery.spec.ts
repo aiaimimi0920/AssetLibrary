@@ -79,10 +79,11 @@ for (const failure of ['validation', 'expired-session', 'conflict'] as const) {
       await expect(form.locator('[name="idempotency_key"]')).not.toHaveValue(idempotency);
       await expect(form.locator('[name="expected_updated_at"]')).not.toHaveValue(revision);
       const saved = await current(request);
+      // HTML multipart field values use CRLF; the textarea DOM value uses LF.
       expect(saved).toMatchObject({ name: 'Unsaved editor name', summary: 'Unsaved summary',
-        description: 'Unsaved detailed description\nSecond line must survive.', visibility: 'private', tags: ['art', 'retry'] });
+        description: 'Unsaved detailed description\r\nSecond line must survive.', visibility: 'private', tags: ['art', 'retry'] });
       await expect(name).toHaveValue(saved.name);
-      await expect(form.getByRole('textbox', { name: '说明', exact: true })).toHaveValue(saved.description);
+      await expect(form.getByRole('textbox', { name: '说明', exact: true })).toHaveValue('Unsaved detailed description\nSecond line must survive.');
     }
   });
 }
