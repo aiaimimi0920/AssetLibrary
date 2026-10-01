@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import {
   createPackageAction,
   createReleaseAction,
@@ -12,6 +12,7 @@ import {
 import type { OwnedPackage, PublicCompatibility } from "@/lib/publisher-contracts";
 
 const initialState: PublisherActionState = {};
+type PackageDraft = Record<'name' | 'visibility' | 'summary' | 'description' | 'tags', string>;
 
 export function CreatePackageForm({ publisherId, idempotencyKey }: {
   publisherId: string;
@@ -85,8 +86,18 @@ export function EditPackageForm({ ownedPackage, idempotencyKey }: {
   idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(updatePackageAction, initialState);
+  // Keep rejected edits only in this mounted editor, never in browser storage.
+  const [draft, setDraft] = useState<PackageDraft>(() => ({ name: ownedPackage.name,
+    visibility: ownedPackage.visibility, summary: ownedPackage.summary,
+    description: ownedPackage.description, tags: ownedPackage.tags.join(', ') }));
+  const errorId = useId();
+  const error = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (state.error) error.current?.focus(); }, [state]);
+  const update = (field: keyof PackageDraft, value: string) => setDraft(current => ({ ...current, [field]: value }));
   return (
-    <form action={action} className="publisher-form">
+    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}
+      // Native action reset can desynchronize a controlled select; success remounts with the new editor key.
+      onReset={event => event.preventDefault()}>
       <input type="hidden" name="package_id" value={ownedPackage.id} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       <input type="hidden" name="expected_updated_at" value={ownedPackage.updated_at} />
@@ -95,21 +106,23 @@ export function EditPackageForm({ ownedPackage, idempotencyKey }: {
       </div>
       <div className="form-grid">
         <label>Package 名称<input name="name" required maxLength={160}
-          defaultValue={ownedPackage.name} autoComplete="off" /></label>
-        <label>可见性<select name="visibility" defaultValue={ownedPackage.visibility}>
+          value={draft.name} onChange={event => update('name', event.currentTarget.value)} autoComplete="off" /></label>
+        <label>可见性<select name="visibility" value={draft.visibility}
+          onChange={event => update('visibility', event.currentTarget.value)}>
           <option value="private">Private</option>
           <option value="unlisted">Unlisted</option>
           <option value="public">Public（发布后生效）</option>
         </select></label>
       </div>
       <label>摘要<textarea name="summary" rows={3} maxLength={1_000}
-        defaultValue={ownedPackage.summary} /></label>
+        value={draft.summary} onChange={event => update('summary', event.currentTarget.value)} /></label>
       <label>说明<textarea name="description" rows={9} maxLength={100_000}
-        defaultValue={ownedPackage.description} /></label>
-      <label>标签<input name="tags" maxLength={2_100} defaultValue={ownedPackage.tags.join(", ")}
+        value={draft.description} onChange={event => update('description', event.currentTarget.value)} /></label>
+      <label>标签<input name="tags" maxLength={2_100} value={draft.tags}
+        onChange={event => update('tags', event.currentTarget.value)}
         autoComplete="off" /><span>逗号分隔，最多 32 个小写标签。</span></label>
       <p className="form-note">保存时核对更新时间；Slug 与类型不可修改，其他成员的新修改不会被覆盖。</p>
-      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="form-error" role="alert" id={errorId} ref={error} tabIndex={-1}>{state.error}</p> : null}
       <div className="form-actions">
         <button className="primary-button" type="submit" disabled={pending}>
           {pending ? "正在保存…" : "保存 Package 草稿"}

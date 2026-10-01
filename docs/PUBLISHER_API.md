@@ -103,6 +103,16 @@ Only an active Owner or Maintainer may edit; a Release Manager remains read-only
 for package metadata. A stale editor receives `409`, and an idempotent replay
 returns the first result without another audit or event row.
 
+The Package editor retains its five editable fields in component memory after
+a rejected save and focuses the returned error. Validation failures, expired
+account sessions and revision conflicts do not clear the user's unsaved text.
+The failed editor keeps its original revision and idempotency key: retaining
+text does not authorize overwriting a concurrent edit or replaying with a new
+identity. No private draft is written to browser storage or a new server table.
+A successful save redirects to fresh authoritative data with a new editor key;
+leaving the editor discards unsaved component state. This improvement is scoped
+to Package editing, not a claim that every Publisher form has recovery coverage.
+
 Release version and creator identity remain immutable. A release edit accepts only
 compatibility and permission declarations, only while the locked release is
 `draft`, and requires the exact previously read `expected_updated_at` RFC 3339
