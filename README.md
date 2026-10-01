@@ -59,6 +59,11 @@ runtime parsers remain at untrusted HTTP boundaries. Playwright now exercises th
 public catalog, signing-key workspace, Package-edit journey, and reload-resumable
 upload at desktop/mobile widths with keyboard/focus, Axe, overflow, privacy, Linux
 CI baselines, and separately verified Windows baselines.
+Public package discovery now includes escaped package-level JSON-LD and runtime
+sitemap index/leaves backed by bounded, fixed UUID catalog partitions. Private
+robots rules preserve public Publisher crawling; errors and overfull partitions
+fail explicitly. See [`docs/PUBLIC_DISCOVERY.md`](docs/PUBLIC_DISCOVERY.md) for
+canonical-origin configuration, capacity and acceptance boundaries.
 P7 now includes a strict Rust Loom adapter with resumable direct downloads,
 raw/canonical digest and Ed25519 verification, host capability negotiation,
 transactional activation/rollback, bounded offline receipt synchronization, and

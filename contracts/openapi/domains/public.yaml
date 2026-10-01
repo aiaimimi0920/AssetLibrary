@@ -6,6 +6,8 @@ paths:
   /healthz: { $ref: '../openapi.yaml#/paths/~1healthz' }
   /readyz: { $ref: '../openapi.yaml#/paths/~1readyz' }
   /v1/public/packages: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages' }
+  /v1/public/sitemap: { $ref: '../openapi.yaml#/paths/~1v1~1public~1sitemap' }
+  /v1/public/sitemap/{shard}: { $ref: '../openapi.yaml#/paths/~1v1~1public~1sitemap~1{shard}' }
   /v1/public/search: { $ref: '../openapi.yaml#/paths/~1v1~1public~1search' }
   /v1/public/packages/{slug}: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages~1{slug}' }
   /v1/public/packages/{slug}/releases: { $ref: '../openapi.yaml#/paths/~1v1~1public~1packages~1{slug}~1releases' }

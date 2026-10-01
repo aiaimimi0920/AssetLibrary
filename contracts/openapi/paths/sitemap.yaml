@@ -1,0 +1,44 @@
+Manifest:
+  get:
+    summary: List occupied public sitemap shards
+    operationId: getSitemapManifest
+    description: >-
+      Accepts no query parameters. Computes at most 256 native UUID interval
+      existence probes under the public catalog eligibility gate. Responses
+      use Cache-Control no-store; reads are current, not a multi-request snapshot.
+    responses:
+      '200':
+        description: Ordered occupied shards. An empty array is a true empty catalog.
+        headers:
+          Cache-Control: { schema: { type: string, const: no-store } }
+        content:
+          application/json:
+            schema: { $ref: '../components/sitemap.yaml#/SitemapManifest' }
+      '400': { description: Query parameters are not accepted. }
+      '503': { description: Catalog query timed out or its projection is unavailable. }
+
+Shard:
+  get:
+    summary: Get a complete bounded public sitemap shard
+    operationId: getSitemapShard
+    description: >-
+      Accepts no query parameters. The lowercase two-digit shard selects an
+      immutable UUID first-byte interval. Each request applies current public
+      catalog eligibility. At most 5000 unique slugs are returned; an overfull
+      interval fails with 503 and never returns a truncated successful response.
+      All responses use Cache-Control no-store.
+    parameters:
+      - name: shard
+        in: path
+        required: true
+        schema: { type: string, pattern: '^[0-9a-f]{2}$' }
+    responses:
+      '200':
+        description: Complete eligible slug list. Empty valid intervals return an empty list.
+        headers:
+          Cache-Control: { schema: { type: string, const: no-store } }
+        content:
+          application/json:
+            schema: { $ref: '../components/sitemap.yaml#/SitemapShard' }
+      '400': { description: Invalid shard or query parameters. }
+      '503': { description: 'Overfull interval, invalid projection, timeout, or unavailable catalog.' }

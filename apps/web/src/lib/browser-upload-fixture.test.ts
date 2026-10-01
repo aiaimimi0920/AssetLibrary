@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { parsePublisherReleaseWorkspace } from "./publisher-workspace-parser";
+import { sitemapShards, sitemapSlugs } from './sitemap-api';
 
 let server: ChildProcess;
 let origin: string;
@@ -66,4 +67,21 @@ it("maps the upload digest object into an unverified workspace accepted by the p
   expect(() => parsePublisherReleaseWorkspace(invalid)).toThrow("Invalid Publisher artifact summary");
   await call("/fixture/reset-upload", {});
   expect((await workspace()).artifacts).toEqual([]);
+});
+
+it('serves the discovery fixture through the production bounded HTTP parser', async () => {
+  vi.stubEnv('ASSETLIBRARY_API_URL', origin);
+  try {
+    expect(await sitemapShards()).toEqual(['01']);
+    expect(await sitemapSlugs('01')).toEqual(['neuro-starter-art']);
+    expect(await sitemapSlugs('ff')).toEqual([]);
+    await call('/fixture/discovery-mode?mode=removed', {});
+    expect(await sitemapShards()).toEqual([]);
+    expect(await sitemapSlugs('01')).toEqual([]);
+    await call('/fixture/discovery-mode?mode=unavailable', {});
+    await expect(sitemapShards()).rejects.toThrow('unavailable');
+  } finally {
+    await call('/fixture/discovery-mode?mode=normal', {});
+    vi.unstubAllEnvs();
+  }
 });

@@ -1,0 +1,26 @@
+SitemapManifest:
+  type: object
+  additionalProperties: false
+  required: [schema_version, shards]
+  properties:
+    schema_version: { const: '1.0' }
+    shards:
+      type: array
+      maxItems: 256
+      uniqueItems: true
+      description: Ascending occupied UUID first-byte intervals, recomputed from current public eligibility.
+      items: { type: string, pattern: '^[0-9a-f]{2}$' }
+
+SitemapShard:
+  type: object
+  additionalProperties: false
+  required: [schema_version, shard, slugs]
+  properties:
+    schema_version: { const: '1.0' }
+    shard: { type: string, pattern: '^[0-9a-f]{2}$' }
+    slugs:
+      type: array
+      maxItems: 5000
+      uniqueItems: true
+      description: Complete current public package slugs in this fixed UUID interval, ordered by UUID.
+      items: { type: string, pattern: '^[a-z0-9][a-z0-9-]{0,119}$', maxLength: 120 }

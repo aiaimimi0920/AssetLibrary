@@ -23,6 +23,8 @@ mod request_id_tests;
 mod routes;
 mod search;
 mod search_routes;
+mod sitemap;
+mod sitemap_routes;
 mod uploads;
 mod workflow;
 mod workflow_routes;
@@ -100,6 +102,7 @@ fn router(state: AppState) -> Router {
         .route("/readyz", get(readiness))
         .route("/v1/public/packages", get(routes::list_packages))
         .route("/v1/public/search", get(search_routes::search))
+        .merge(sitemap_routes::router())
         .route("/v1/public/packages/{slug}", get(routes::get_package))
         .route(
             "/v1/public/packages/{slug}/releases",

@@ -136,6 +136,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/public/sitemap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List occupied public sitemap shards
+         * @description Accepts no query parameters. Computes at most 256 native UUID interval existence probes under the public catalog eligibility gate. Responses use Cache-Control no-store; reads are current, not a multi-request snapshot.
+         */
+        get: operations["getSitemapManifest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/public/sitemap/{shard}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a complete bounded public sitemap shard
+         * @description Accepts no query parameters. The lowercase two-digit shard selects an immutable UUID first-byte interval. Each request applies current public catalog eligibility. At most 5000 unique slugs are returned; an overfull interval fails with 503 and never returns a truncated successful response. All responses use Cache-Control no-store.
+         */
+        get: operations["getSitemapShard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -227,6 +267,19 @@ export interface components {
             /** Format: uuid */
             id: string;
             slug: string;
+        };
+        SitemapManifest: {
+            /** @constant */
+            schema_version: "1.0";
+            /** @description Ascending occupied UUID first-byte intervals, recomputed from current public eligibility. */
+            shards: string[];
+        };
+        SitemapShard: {
+            /** @constant */
+            schema_version: "1.0";
+            shard: string;
+            /** @description Complete current public package slugs in this fixed UUID interval, ordered by UUID. */
+            slugs: string[];
         };
     };
     responses: never;
@@ -516,6 +569,78 @@ export interface operations {
                 content?: never;
             };
             /** @description Search projection is unavailable or invalid. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSitemapManifest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordered occupied shards. An empty array is a true empty catalog. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitemapManifest"];
+                };
+            };
+            /** @description Query parameters are not accepted. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Catalog query timed out or its projection is unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSitemapShard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shard: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Complete eligible slug list. Empty valid intervals return an empty list. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitemapShard"];
+                };
+            };
+            /** @description Invalid shard or query parameters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Overfull interval, invalid projection, timeout, or unavailable catalog. */
             503: {
                 headers: {
                     [name: string]: unknown;

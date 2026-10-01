@@ -10,6 +10,10 @@ const PUBLIC_PACKAGE_COLUMNS: &str = r#"
 SELECT p.id, p.slug::text, p.name, p.kind, p.status, p.summary,
        publisher.id, publisher.slug::text, publisher.display_name,
        p.updated_at
+"#;
+
+// The catalog and compact sitemap projection must use exactly the same gate.
+pub(crate) const PUBLIC_PACKAGE_ELIGIBILITY: &str = r#"
 FROM packages p
 JOIN publishers publisher ON publisher.id = p.publisher_id
 WHERE p.status = 'published'
@@ -79,6 +83,12 @@ pub trait CatalogRepository: Send + Sync {
         filter: &ListFilter,
     ) -> Result<(Vec<PublishedPackage>, Option<CatalogCursor>), CatalogError>;
     async fn find_published(&self, slug: &str) -> Result<Option<PublishedPackage>, CatalogError>;
+    async fn sitemap_manifest(&self) -> Result<Vec<String>, CatalogError> {
+        Err(CatalogError::Unavailable)
+    }
+    async fn sitemap_shard(&self, _shard: u8) -> Result<Vec<String>, CatalogError> {
+        Err(CatalogError::Unavailable)
+    }
 }
 
 pub struct PostgresCatalog {
@@ -103,6 +113,14 @@ impl CatalogRepository for DevelopmentCatalog {
 
     async fn find_published(&self, _slug: &str) -> Result<Option<PublishedPackage>, CatalogError> {
         Ok(None)
+    }
+
+    async fn sitemap_manifest(&self) -> Result<Vec<String>, CatalogError> {
+        Ok(Vec::new())
+    }
+
+    async fn sitemap_shard(&self, _shard: u8) -> Result<Vec<String>, CatalogError> {
+        Ok(Vec::new())
     }
 }
 
@@ -140,7 +158,7 @@ impl CatalogRepository for PostgresCatalog {
             PackageKind::AppUpdate => "app_update",
         });
         let query = format!(
-            "{PUBLIC_PACKAGE_COLUMNS} AND ($1::text IS NULL OR p.kind = $1) \
+            "{PUBLIC_PACKAGE_COLUMNS} {PUBLIC_PACKAGE_ELIGIBILITY} AND ($1::text IS NULL OR p.kind = $1) \
              AND ($2::text IS NULL OR publisher.slug = $2) \
              AND ($3::timestamptz IS NULL OR p.updated_at < $3 \
                OR (p.updated_at = $3 AND p.id > $4)) \
@@ -162,13 +180,23 @@ impl CatalogRepository for PostgresCatalog {
     }
 
     async fn find_published(&self, slug: &str) -> Result<Option<PublishedPackage>, CatalogError> {
-        let query = format!("{PUBLIC_PACKAGE_COLUMNS} AND p.slug = $1 LIMIT 1");
+        let query = format!(
+            "{PUBLIC_PACKAGE_COLUMNS} {PUBLIC_PACKAGE_ELIGIBILITY} AND p.slug = $1 LIMIT 1"
+        );
         let row = sqlx::query_as::<_, PackageRow>(&query)
             .bind(slug)
             .fetch_optional(&self.pool)
             .await
             .map_err(CatalogError::Database)?;
         Ok(row.and_then(into_contract))
+    }
+
+    async fn sitemap_manifest(&self) -> Result<Vec<String>, CatalogError> {
+        crate::sitemap::manifest(&self.pool).await
+    }
+
+    async fn sitemap_shard(&self, shard: u8) -> Result<Vec<String>, CatalogError> {
+        crate::sitemap::shard(&self.pool, shard).await
     }
 }
 

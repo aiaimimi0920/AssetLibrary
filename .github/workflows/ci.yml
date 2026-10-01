@@ -24,6 +24,18 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    services:
+      sitemap-postgres:
+        image: postgres@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650 # 18.6-bookworm
+        env:
+          POSTGRES_DB: assetlibrary_sitemap_test
+          POSTGRES_USER: sitemap_test
+          POSTGRES_PASSWORD: sitemap-ci-only
+        ports: ["127.0.0.1:5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sitemap_test -d assetlibrary_sitemap_test"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+          --cpus 2 --memory 1g
     outputs:
       commit: ${{ steps.source.outputs.commit }}
     steps:
@@ -51,6 +63,12 @@ jobs:
           cargo fmt --all -- --check
           cargo test --workspace --locked
           node scripts/test-ed25519-webcrypto.mjs
+      - name: Public sitemap PostgreSQL projection gate
+        env:
+          ASSETLIBRARY_SITEMAP_TEST_DATABASE_URL: postgresql://sitemap_test:sitemap-ci-only@127.0.0.1:5432/assetlibrary_sitemap_test
+        run: >-
+          cargo test -p assetlibrary-api --locked sitemap_postgres_gate
+          -- --ignored --nocapture
       - name: Web quality gates
         env:
           REDOCLY_TELEMETRY: "off"

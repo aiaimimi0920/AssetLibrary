@@ -31,6 +31,8 @@ mod public_catalog;
 pub use public_catalog::*;
 mod review;
 pub use review::*;
+mod sitemap;
+pub use sitemap::*;
 mod search;
 pub use search::*;
 mod workflow_events;
