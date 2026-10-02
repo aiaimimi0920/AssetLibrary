@@ -64,7 +64,7 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 | --- | --- | --- |
 | 数据库 | Rust/SQLx 已使用 PostgreSQL；有本地/部署模板 | 托管商、TLS/连接限制、最小权限、备份恢复待选型验收；没有真实数据迁移 |
 | 目录列表 | 已从 PostgreSQL 读取并过滤公开可发布对象 | 保持完整授权和撤销过滤 |
-| 文本搜索 | OpenSearch + Valkey；非开发启动要求搜索配置 | 添加可切换 PG provider，再验证后改变默认部署依赖 |
+| 文本搜索 | 默认 OpenSearch + Valkey；已有可选 PG provider | [PG 搜索合同](docs/POSTGRES_SEARCH.md)需逐提交验证；默认部署依赖未删 |
 | 任务/撤销 | PostgreSQL outbox → NATS → worker/indexer → Edge 投影 | 保留现状；可靠队列精简是后续独立设计与验收 |
 | 扫描 | 流式读入、隔离检查、恶意扫描等已有实现 | ZIP 中央目录/JSON 峰值、阻塞任务超时后存活及重叠仍需验证 |
 | 拓扑与容量 | 大规模 Helm/Compose、P8/P9 证据规则已存在 | 小单实例 profile 未交付；配置 requests 不等于 RSS |
@@ -82,6 +82,9 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 不修改运行时代码、部署配置或安全准入。文档链接和仓库策略检查通过后走 PR 审查。
 
 ### B. 第一个可逆实现：PG 目录检索
+
+可选 provider 已加入，具体行为与验证命令见 [PG 搜索合同](docs/POSTGRES_SEARCH.md)。
+代码存在不代表部署切换或所有环境验收完成。
 
 只为现有公开搜索 API 增加 PostgreSQL provider，保留旧 provider 可显式切换。
 在切换前写清查询、过滤、排序、中文和游标语义；不宣称与 OpenSearch 相关度完全等价。
