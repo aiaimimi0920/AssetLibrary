@@ -23,9 +23,8 @@ No paid service, real credential, data migration or deployment is part of this
 architecture change.
 
 This is a target, not a completed migration: the current runtime still uses
-OpenSearch/Valkey search and NATS workers. The first planned code change adds
-optional PostgreSQL public search while retaining the old provider/default and
-Edge revocation path. Small deployment profiles and measured resource results
+OpenSearch/Valkey search and NATS workers. An [optional PostgreSQL public-search provider](docs/POSTGRES_SEARCH.md) is
+available while retaining the old provider/default and Edge revocation path. Small deployment profiles and measured resource results
 remain pending. App Update production admission remains closed.
 
 ## Current implementation status

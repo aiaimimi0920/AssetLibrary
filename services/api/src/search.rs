@@ -201,6 +201,15 @@ struct SearchHit {
 #[async_trait]
 impl SearchRepository for OpenSearchRepository {
     async fn search(&self, filter: &SearchFilter) -> Result<SearchResult, SearchError> {
+        // Provider switching invalidates opaque cursors; never forward a
+        // PostgreSQL cursor to OpenSearch or return a cached page for it.
+        if filter
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| cursor.len() != 3)
+        {
+            return Err(SearchError::InvalidCursor);
+        }
         let generation = self.generation().await;
         let serialized = serde_json::to_vec(filter).map_err(|_| SearchError::InvalidProjection)?;
         let digest = Sha256::digest(&serialized);
@@ -332,3 +341,7 @@ fn kind_text(kind: &PackageKind) -> &'static str {
         PackageKind::AppUpdate => "app_update",
     }
 }
+
+#[cfg(test)]
+#[path = "search_legacy_tests.rs"]
+mod tests;
