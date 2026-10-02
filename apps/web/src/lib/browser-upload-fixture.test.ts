@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { parsePublisherReleaseWorkspace } from "./publisher-workspace-parser";
+import { parseOwnedPackage, parseOwnedPackagePage, parseOwnedRelease, parseOwnedReleasePage } from './publisher-parser';
 import { sitemapShards, sitemapSlugs } from './sitemap-api';
 
 let server: ChildProcess;
@@ -34,11 +35,11 @@ afterAll(async () => {
   });
 });
 
-async function call(path: string, body?: object): Promise<unknown> {
+async function call(path: string, body?: object, key?: string): Promise<unknown> {
   const response = await fetch(`${origin}${path}`, {
     method: body ? "POST" : "GET",
     headers: { authorization: "Bearer browser-fixture-access-token-that-stays-server-only",
-      "content-type": "application/json" },
+      "content-type": "application/json", ...(key ? { 'idempotency-key': key } : {}) },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(3_000),
   });
@@ -67,6 +68,43 @@ it("maps the upload digest object into an unverified workspace accepted by the p
   expect(() => parsePublisherReleaseWorkspace(invalid)).toThrow("Invalid Publisher artifact summary");
   await call("/fixture/reset-upload", {});
   expect((await workspace()).artifacts).toEqual([]);
+});
+
+it('serves created drafts and their navigation contracts through the production parsers', async () => {
+  const packagePath = '/v1/me/publishers/11111111-1111-4111-8111-111111111111/packages';
+  const releasePath = '/v1/me/packages/22222222-2222-4222-8222-222222222222/releases';
+  const body = { slug: 'synthetic-draft', kind: 'capability', visibility: 'private', name: 'Synthetic draft',
+    summary: 'Synthetic summary', description: 'Synthetic\r\ntext', tags: ['test'] };
+  await call('/fixture/reset-draft-creation-state', {});
+  try {
+    const denied = await fetch(`${origin}${packagePath}`, { method: 'POST', body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'synthetic-create-key' },
+      signal: AbortSignal.timeout(3_000) });
+    expect(denied.status).toBe(401);
+    expect(await call('/fixture/draft-creation-state')).toMatchObject({ create_requests: 0, packages: [], releases: [] });
+    const created = parseOwnedPackage(await call(packagePath, body, 'synthetic-create-key'));
+    expect(created).toMatchObject(body);
+    expect(parseOwnedPackage(await call(packagePath, body, 'synthetic-create-key'))).toEqual(created);
+    expect(parseOwnedPackage(await call(`/v1/me/packages/${created.id}`))).toEqual(created);
+    expect(parseOwnedPackagePage(await call(packagePath)).items.map(item => item.id)).toContain(created.id);
+    expect(parseOwnedReleasePage(await call(`/v1/me/packages/${created.id}/releases`)).items).toEqual([]);
+    const changed = await fetch(`${origin}${packagePath}`, { method: 'POST', body: JSON.stringify({ ...body, name: 'Changed' }),
+      headers: { authorization: 'Bearer browser-fixture-access-token-that-stays-server-only',
+        'content-type': 'application/json', 'idempotency-key': 'synthetic-create-key' },
+      signal: AbortSignal.timeout(3_000) });
+    expect(changed.status).toBe(409);
+    const releaseBody = { version: '1.2.3', permissions: ['network.fetch'], compatibility: { products: [] } };
+    const release = parseOwnedRelease(await call(releasePath, releaseBody, 'synthetic-release-key'));
+    expect(release).toMatchObject(releaseBody);
+    expect(parseOwnedRelease(await call(`/v1/me/releases/${release.id}`))).toEqual(release);
+    expect(parseOwnedReleasePage(await call(releasePath)).items.map(item => item.id)).toContain(release.id);
+    expect(parsePublisherReleaseWorkspace(await call(`/v1/me/releases/${release.id}/workspace`)))
+      .toMatchObject({ release_id: release.id, artifacts: [], submission: null, feedback: [], can_upload: true });
+    expect(await call('/fixture/draft-creation-state')).toMatchObject({ packages: [created], releases: [release] });
+  } finally {
+    await call('/fixture/reset-draft-creation-state', {});
+  }
+  expect(await call('/fixture/draft-creation-state')).toMatchObject({ create_requests: 0, packages: [], releases: [], pending: false });
 });
 
 it('serves the discovery fixture through the production bounded HTTP parser', async () => {

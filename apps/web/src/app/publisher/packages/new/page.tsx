@@ -47,6 +47,7 @@ export default async function NewPackagePage({ searchParams }: NewPackagePagePro
     </main>);
   }
 
+  const idempotencyKey = randomUUID();
   return frame(
     <main id="main-content" className="console-form-page">
       <header>
@@ -55,7 +56,7 @@ export default async function NewPackagePage({ searchParams }: NewPackagePagePro
         <p>目标工作区：<strong>{membership.publisher.display_name}</strong>。创建后仍需上传、扫描和审核。</p>
         <Link className="secondary-link" href={`/publisher?publisher=${membership.publisher.id}`}>返回工作区</Link>
       </header>
-      <CreatePackageForm publisherId={membership.publisher.id} idempotencyKey={randomUUID()} />
+      <CreatePackageForm key={idempotencyKey} publisherId={membership.publisher.id} idempotencyKey={idempotencyKey} />
     </main>,
   );
 }

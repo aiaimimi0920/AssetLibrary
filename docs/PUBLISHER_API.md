@@ -113,6 +113,17 @@ A successful save redirects to fresh authoritative data with a new editor key;
 leaving the editor discards unsaved component state. This improvement is scoped
 to Package editing, not a claim that every Publisher form has recovery coverage.
 
+The new Package and new Release forms also retain their current input after
+validation, expired-session or API-conflict errors and focus the returned error.
+The original target and idempotency key remain unchanged on rejection. The
+draft lives only in the mounted form, with no browser-storage or server-draft
+persistence. Success still redirects to the created resource's workspace;
+leaving, reloading or refreshing into a new server-rendered form discards
+unsubmitted input and provides a fresh key. A newly requested account gate
+does not restore that input after sign-in. This does not provide live-session
+revocation, cancel a creation already sent to the server, or change backend
+authorization, uniqueness or idempotency rules.
+
 Release version and creator identity remain immutable. A release edit accepts only
 compatibility and permission declarations, only while the locked release is
 `draft`, and requires the exact previously read `expected_updated_at` RFC 3339
