@@ -8,7 +8,7 @@ publish = false
 http = "1"
 metrics = "0.24.6"
 metrics-exporter-prometheus = { version = "0.18.3", default-features = false, features = ["http-listener"] }
-opentelemetry = "0.32.0"
+opentelemetry = "0.33.0"
 opentelemetry-otlp = { version = "0.32.0", default-features = false, features = ["experimental-http-retry", "http-proto", "reqwest-blocking-client", "trace"] }
 opentelemetry_sdk = "0.32.1"
 sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio-rustls"] }
