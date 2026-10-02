@@ -67,6 +67,21 @@ jobs:
             -v "$PWD/release/evidence:/evidence" \
             ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
             scan source --recursive --format json --output-file /evidence/osv.json /src
+      - name: Generate OSV SARIF for code scanning
+        if: ${{ !cancelled() && hashFiles('release/evidence/osv.json') != '' }}
+        run: |
+          docker run --rm \
+            -v "$PWD:$PWD:ro" -w "$PWD" \
+            -v "$PWD/release/evidence:/evidence" \
+            ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
+            scan source --recursive --format sarif --output-file /evidence/osv.sarif .
+      - name: Upload OSV SARIF to code scanning
+        if: ${{ !cancelled() && hashFiles('release/evidence/osv.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: release/evidence/osv.sarif
+          category: osv-source
+          wait-for-processing: true
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.23.1
@@ -160,8 +175,10 @@ jobs:
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           output: release/evidence/codeql/${{ matrix.language }}
-          upload: never
+          upload: always
+          category: /language:${{ matrix.language }}
       - name: Upload CodeQL SARIF evidence
+        if: ${{ !cancelled() && hashFiles(format('release/evidence/codeql/{0}/**/*.sarif', matrix.language)) != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: codeql-${{ matrix.language }}-${{ inputs.source_ref || github.sha }}
