@@ -31,11 +31,14 @@ The shared security workflow runs:
 - Trivy deployment/IaC scanning;
 - CodeQL for Rust and JavaScript/TypeScript.
 
-CodeQL writes SARIF to a retained workflow artifact. This keeps the scan usable
-for a private trial repository whose plan has not enabled GitHub code scanning;
-it does not pretend that the SARIF was uploaded to the repository Security tab.
-When code scanning is enabled, a reviewed workflow change may switch the pinned
-analyze action back to provider upload.
+CodeQL and OSV publish SARIF to GitHub code scanning using the existing
+security-events permission. CodeQL retains its language-specific SARIF artifacts;
+OSV retains both the JSON release evidence and an additional SARIF report. The
+OSV SARIF scan runs even when the JSON scan finds vulnerabilities, and available
+SARIF is uploaded even after scanner findings fail the job. Findings and upload
+errors remain failures; no new exceptions are introduced. The former artifact-only
+private-trial policy is retired for this public repository. Verify a successful
+default-branch upload before claiming the Security tab has refreshed.
 
 Each pnpm audit has a five-minute process deadline plus a termination grace
 period. Timeout is failure, never an empty or successful report. Scanner,

@@ -184,6 +184,8 @@ if (-not (Test-Path -LiteralPath $exceptionsPath)) {
 }
 & node (Join-Path $PSScriptRoot 'test-security-pr-permissions.mjs')
 if ($LASTEXITCODE -ne 0) { $violations += 'Secret scan PR permissions contract failed.' }
+& node (Join-Path $PSScriptRoot 'test-security-sarif-publication.mjs')
+if ($LASTEXITCODE -ne 0) { $violations += 'Security SARIF publication contract failed.' }
 & node (Join-Path $PSScriptRoot 'test-dependabot-coverage.mjs')
 if ($LASTEXITCODE -ne 0) { $violations += 'Dependency update coverage contract failed.' }
 
