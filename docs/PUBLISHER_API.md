@@ -131,6 +131,17 @@ timestamp. A stale editor receives `409` rather than overwriting another member'
 change. Replaying the same key and body returns the first updated resource without
 adding another audit or event row.
 
+The Release editor keeps its permissions and Loom/Hook requirement inputs in the
+current mounted form after a rejected save and focuses the returned error. The
+immutable version, target IDs, original revision and idempotency key do not
+advance on failure. A successful same-route redirect remounts the editor with
+authoritative values and a fresh server-generated key. Leaving or refreshing
+the editor discards unsaved input; after a conflict, refresh explicitly loads
+the other editor's revision. No private draft is persisted in browser storage.
+Fresh-document account gates and target navigation do not revive the previous
+form, without claiming live session revocation or cross-account integration
+coverage. Server validation, authorization and concurrency rules are unchanged.
+
 Publisher state and membership role are checked while the relevant rows are
 locked in the mutation transaction. Suspended or closed publishers cannot
 create drafts. Revoked members and cross-publisher principals fail closed.

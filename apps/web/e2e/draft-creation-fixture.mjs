@@ -1,5 +1,5 @@
 // Synthetic, in-memory creation endpoints; no external account or object storage.
-export function draftCreationFixture({ packageTemplate, currentPackage, releaseTemplate, workspaceTemplate, send, jsonBody }) {
+export function draftCreationFixture({ packageTemplate, currentPackage, releaseTemplate, currentRelease, workspaceTemplate, send, jsonBody }) {
   const publisherId = packageTemplate.publisher_id;
   const packagePath = `/v1/me/publishers/${publisherId}/packages`;
   const releasePath = `/v1/me/packages/${packageTemplate.id}/releases`;
@@ -89,7 +89,7 @@ export function draftCreationFixture({ packageTemplate, currentPackage, releaseT
       send(response, 200, { schema_version: '1.0', items: [], next_cursor: null });
     } else if (url.pathname === releasePath) {
       send(response, 200, { schema_version: '1.0',
-        items: [releaseTemplate, ...(createdRelease ? [createdRelease] : [])], next_cursor: null });
+        items: [currentRelease(), ...(createdRelease ? [createdRelease] : [])], next_cursor: null });
     } else if (createdRelease && url.pathname === `/v1/me/releases/${releaseId}`) {
       send(response, 200, createdRelease);
     } else if (createdRelease && url.pathname === `/v1/me/releases/${releaseId}/workspace`) {

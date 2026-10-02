@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { publicDiscoveryFixture } from './public-discovery-fixture.mjs';
 import { publicDownloadFixture } from './public-download-fixture.mjs';
 import { draftCreationFixture } from './draft-creation-fixture.mjs';
+import { releaseEditFixture } from './release-edit-fixture.mjs';
 
 const port = Number(process.env.ASSETLIBRARY_BROWSER_FIXTURE_PORT ?? "18900");
 const token = "browser-fixture-access-token-that-stays-server-only";
@@ -37,7 +38,9 @@ const uploadArtifactId = "88888888-8888-4888-8888-888888888888";
 let upload = null;
 let delayedSecondPart = false;
 let protectedRequestCount = 0;
-const drafts = draftCreationFixture({ packageTemplate: ownedPackage, currentPackage: () => ownedPackage, releaseTemplate: ownedRelease,
+const releaseEditor = releaseEditFixture(ownedRelease, { jsonBody,
+  send: (response, status, body) => send(response, status, body, 'private, no-store') });
+const drafts = draftCreationFixture({ packageTemplate: ownedPackage, currentPackage: () => ownedPackage, releaseTemplate: ownedRelease, currentRelease: releaseEditor.current,
   workspaceTemplate: workspaceFixture, jsonBody,
   send: (response, status, body) => send(response, status, body, 'private, no-store') });
 
@@ -97,6 +100,7 @@ const server = createServer(async (request, response) => {
     return send(response, 200, { reset: true });
   }
   if (await drafts.control(request, response, url)) return;
+  if (await releaseEditor.control(request, response, url)) return;
   const objectPart = url.pathname.match(/^\/fixture-upload\/([0-9a-f-]+)\/(\d+)$/i);
   if (objectPart && request.method === "OPTIONS") {
     cors(response, 204);
@@ -151,6 +155,7 @@ const server = createServer(async (request, response) => {
   protectedRequestCount += 1;
   if (!authorized(request)) return send(response, 401, { error: "unauthenticated" });
   if (await drafts.api(request, response, url)) return;
+  if (await releaseEditor.api(request, response, url)) return;
   if (request.method === "GET" && url.pathname === "/v1/me/publishers") {
     return send(response, 200, memberships, "private, no-store");
   }
@@ -179,9 +184,6 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "GET" && url.pathname === `/v1/me/packages/${ownedPackage.id}/releases`) {
     return send(response, 200, ownedReleases, "private, no-store");
-  }
-  if (request.method === "GET" && url.pathname === `/v1/me/releases/${ownedRelease.id}`) {
-    return send(response, 200, ownedRelease, "private, no-store");
   }
   if (request.method === "GET" && url.pathname === `/v1/me/releases/${ownedRelease.id}/workspace`) {
     const artifacts = upload?.status === "uploaded" ? [{

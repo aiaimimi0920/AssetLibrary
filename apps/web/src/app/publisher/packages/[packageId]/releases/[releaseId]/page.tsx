@@ -41,6 +41,7 @@ export default async function PublisherReleasePage({ params }: {
       || !workspace.ok && ["unavailable", "invalid_response"].includes(workspace.failure);
     return gated(unavailable ? "api_unavailable" : "forbidden");
   }
+  const editKey = randomUUID();
   return <div className="shell"><StoreHeader active="publisher" environmentMark="PRIVATE / PUBLISHER" />
     <main id="main-content" className="console-form-page release-workspace">
       <header>
@@ -52,10 +53,10 @@ export default async function PublisherReleasePage({ params }: {
         <Link className="secondary-link" href={`/publisher/packages/${packageId}`}>返回 Package</Link>
       </header>
       {release.data.status === "draft"
-        ? <EditReleaseForm releaseId={release.data.id} packageId={release.data.package_id}
+        ? <EditReleaseForm key={editKey} releaseId={release.data.id} packageId={release.data.package_id}
           version={release.data.version} updatedAt={release.data.updated_at}
           compatibility={release.data.compatibility} permissions={release.data.permissions}
-          idempotencyKey={randomUUID()} />
+          idempotencyKey={editKey} />
         : <section className="release-locked"><h2>Release 元数据已锁定</h2>
           <p>上传或审核开始后不可修改兼容范围和权限；请依据当前供应链状态继续处理。</p></section>}
       <PublisherReleasePipeline packageId={packageId} releaseStatus={release.data.status}
