@@ -123,3 +123,50 @@ it('serves the discovery fixture through the production bounded HTTP parser', as
     vi.unstubAllEnvs();
   }
 });
+
+it('keeps synthetic release edits immutable, coherent and replayable before stale-revision rejection', async () => {
+  const path = '/v1/me/releases/33333333-3333-4333-8333-333333333333';
+  await call('/fixture/reset-release-edit', {});
+  const original = parseOwnedRelease(await call(path));
+  const body = { expected_updated_at: original.updated_at,
+    compatibility: { products: [{ name: 'loom', version_requirement: '>=0.2.0' }] }, permissions: ['network.fetch'] };
+  const patch = (value: object, key: string, authenticated = true) => fetch(`${origin}${path}`, {
+    method: 'PATCH', body: JSON.stringify(value), signal: AbortSignal.timeout(3_000),
+    headers: { 'content-type': 'application/json', 'idempotency-key': key,
+      ...(authenticated ? { authorization: 'Bearer browser-fixture-access-token-that-stays-server-only' } : {}) },
+  });
+  const immutable = (value: typeof original) => {
+    const { compatibility: _compatibility, permissions: _permissions, updated_at: _updatedAt, ...rest } = value;
+    return rest;
+  };
+  try {
+    expect((await patch(body, 'fixture-release-edit-key', false)).status).toBe(401);
+    expect(await call('/fixture/release-edit-state')).toMatchObject({ patch_requests: 0, writes: 0, release: original });
+    const savedResponse = await patch(body, 'fixture-release-edit-key');
+    expect(savedResponse.status).toBe(200);
+    const saved = parseOwnedRelease(await savedResponse.json());
+    expect(saved).toMatchObject({ compatibility: body.compatibility, permissions: body.permissions });
+    expect(saved.updated_at).not.toBe(original.updated_at);
+    expect(immutable(saved)).toEqual(immutable(original));
+    const reordered = { permissions: body.permissions, compatibility: {
+      products: [{ version_requirement: '>=0.2.0', name: 'loom' }] }, expected_updated_at: original.updated_at };
+    const replay = await patch(reordered, 'fixture-release-edit-key');
+    expect(replay.status).toBe(200);
+    expect(parseOwnedRelease(await replay.json())).toEqual(saved);
+    expect(await call('/fixture/release-edit-state')).toMatchObject({ writes: 1 });
+    const laterResponse = await patch({ ...body, expected_updated_at: saved.updated_at, permissions: ['later.permission'] }, 'fixture-later-key');
+    expect(laterResponse.status).toBe(200);
+    const later = parseOwnedRelease(await laterResponse.json());
+    expect(immutable(later)).toEqual(immutable(original));
+    expect(parseOwnedRelease(await (await patch(body, 'fixture-release-edit-key')).json())).toEqual(saved);
+    expect((await patch({ ...body, permissions: ['changed.permission'] }, 'fixture-release-edit-key')).status).toBe(409);
+    expect((await patch(body, 'fixture-stale-fresh-key')).status).toBe(409);
+    expect((await patch({ ...body, version: '9.9.9' }, 'fixture-forged-version-key')).status).toBe(400);
+    expect(await call('/fixture/release-edit-state')).toMatchObject({ writes: 2, release: later });
+    const history = parseOwnedReleasePage(await call('/v1/me/packages/22222222-2222-4222-8222-222222222222/releases'));
+    expect(history.items.find(item => item.id === original.id)).toEqual(later);
+  } finally {
+    await call('/fixture/reset-release-edit', {});
+  }
+  expect(await call('/fixture/release-edit-state')).toEqual({ release: original, attempts: [], patch_requests: 0, writes: 0 });
+});
