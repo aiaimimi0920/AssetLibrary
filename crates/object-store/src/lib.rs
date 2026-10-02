@@ -9,6 +9,8 @@ use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 mod multipart;
+#[cfg(test)]
+mod sdk_retry_tests;
 
 #[derive(Clone, Debug)]
 pub struct ObjectStoreConfig {
