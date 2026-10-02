@@ -153,10 +153,15 @@ export function EditReleaseForm({ releaseId, packageId, version, updatedAt, comp
   idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(updateReleaseAction, initialState);
+  const errorId = useId();
+  const error = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (state.error) error.current?.focus(); }, [state]);
   const loom = compatibility.products.find((item) => item.name === "loom")?.version_requirement ?? "";
   const hook = compatibility.products.find((item) => item.name === "hook")?.version_requirement ?? "";
   return (
-    <form action={action} className="publisher-form">
+    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}
+      // Keep rejected edits in this mounted form; fresh server data gets a new editor key.
+      onReset={event => event.preventDefault()}>
       <input type="hidden" name="package_id" value={packageId} />
       <input type="hidden" name="release_id" value={releaseId} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
@@ -175,7 +180,7 @@ export function EditReleaseForm({ releaseId, packageId, version, updatedAt, comp
           defaultValue={hook} autoComplete="off" /></label>
       </div>
       <p className="form-note">保存时会核对当前更新时间；其他成员已修改时，本次提交会安全失败而不是覆盖。</p>
-      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="form-error" role="alert" id={errorId} ref={error} tabIndex={-1}>{state.error}</p> : null}
       <div className="form-actions">
         <button className="primary-button" type="submit" disabled={pending}>
           {pending ? "正在保存…" : "保存 Release 草稿"}
