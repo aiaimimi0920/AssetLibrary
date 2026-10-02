@@ -154,6 +154,27 @@ async fn search_postgres_gate() {
     let search = PostgresSearchRepository::new(pool.clone());
     text_and_filters(&search).await;
     pagination(&search).await;
+    // Deliberately put the largest UUID first by timestamp, so this catches
+    // an accidental UUID-only sort rather than merely testing matching orders.
+    execute(
+        &pool,
+        "UPDATE packages SET updated_at='2026-10-03T00:00:00.123456Z' WHERE slug='package-8'",
+    )
+    .await;
+    let mut newest = filter();
+    newest.limit = 1;
+    let page = search.search(&newest).await.unwrap();
+    assert_eq!(page.items[0].slug, "package-8");
+    newest.cursor = page.next_cursor;
+    assert_eq!(
+        search.search(&newest).await.unwrap().items[0].slug,
+        "package-1"
+    );
+    execute(
+        &pool,
+        "UPDATE packages SET updated_at='2026-10-01T00:00:00.123456Z' WHERE slug='package-8'",
+    )
+    .await;
     let response = crate::search_routes::route_tests::app(std::sync::Arc::new(
         PostgresSearchRepository::new(pool.clone()),
     ))
