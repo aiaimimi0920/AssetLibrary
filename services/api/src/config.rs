@@ -1,6 +1,13 @@
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use std::{env, fmt, net::SocketAddr};
 
+#[path = "search_config.rs"]
+mod search_config;
+pub use search_config::{SearchConfig, SearchProvider};
+#[cfg(test)]
+#[path = "search_config_tests.rs"]
+mod tests;
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub environment: Environment,
@@ -10,6 +17,7 @@ pub struct Config {
     pub object_store: Option<ObjectStoreConfig>,
     pub app_updates_enabled: bool,
     pub downloads: Option<DownloadConfig>,
+    pub search_provider: SearchProvider,
     pub search: Option<SearchConfig>,
 }
 
@@ -60,36 +68,17 @@ impl fmt::Debug for DownloadConfig {
     }
 }
 
-#[derive(Clone)]
-pub struct SearchConfig {
-    pub opensearch_url: reqwest::Url,
-    pub opensearch_username: String,
-    pub opensearch_password: String,
-    pub allow_invalid_certs: bool,
-    pub valkey_url: String,
-    pub alias: String,
-}
-
-impl fmt::Debug for SearchConfig {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("SearchConfig")
-            .field("opensearch_url", &self.opensearch_url)
-            .field("opensearch_username", &self.opensearch_username)
-            .field("opensearch_password", &"[REDACTED_SECRET]")
-            .field("allow_invalid_certs", &self.allow_invalid_certs)
-            .field("valkey_url", &"[REDACTED_URL]")
-            .field("alias", &self.alias)
-            .finish()
-    }
-}
-
 impl Config {
     pub fn from_env() -> Result<Self, String> {
+        Self::from_lookup(|name| env::var(name).ok())
+    }
+
+    fn from_lookup(get: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
+        let search_provider = SearchProvider::from_value(get("ASSETLIBRARY_SEARCH_PROVIDER"))?;
         let oidc_values = (
-            env::var("ASSETLIBRARY_OIDC_ISSUER").ok(),
-            env::var("ASSETLIBRARY_OIDC_AUDIENCE").ok(),
-            env::var("ASSETLIBRARY_OIDC_JWKS_URL").ok(),
+            get("ASSETLIBRARY_OIDC_ISSUER"),
+            get("ASSETLIBRARY_OIDC_AUDIENCE"),
+            get("ASSETLIBRARY_OIDC_JWKS_URL"),
         );
         let oidc = match oidc_values {
             (Some(issuer), Some(audience), Some(jwks_url)) => Some(OidcConfig {
@@ -105,18 +94,18 @@ impl Config {
             }
         };
         let object_store_values = (
-            env::var("ASSETLIBRARY_S3_REGION").ok(),
-            env::var("ASSETLIBRARY_QUARANTINE_BUCKET").ok(),
-            env::var("ASSETLIBRARY_PUBLISHED_BUCKET").ok(),
+            get("ASSETLIBRARY_S3_REGION"),
+            get("ASSETLIBRARY_QUARANTINE_BUCKET"),
+            get("ASSETLIBRARY_PUBLISHED_BUCKET"),
         );
         let object_store = match object_store_values {
             (Some(region), Some(quarantine_bucket), Some(published_bucket)) => {
                 Some(ObjectStoreConfig {
-                    endpoint_url: env::var("ASSETLIBRARY_S3_ENDPOINT").ok(),
+                    endpoint_url: get("ASSETLIBRARY_S3_ENDPOINT"),
                     region,
                     quarantine_bucket,
                     published_bucket,
-                    force_path_style: env::var("ASSETLIBRARY_S3_FORCE_PATH_STYLE")
+                    force_path_style: get("ASSETLIBRARY_S3_FORCE_PATH_STYLE")
                         .map(|value| value == "true")
                         .unwrap_or(false),
                 })
@@ -130,19 +119,19 @@ impl Config {
             }
         };
         let download_values = (
-            env::var("ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL").ok(),
-            env::var("ASSETLIBRARY_RESTRICTED_DOWNLOAD_BASE_URL").ok(),
-            env::var("ASSETLIBRARY_DOWNLOAD_TICKET_ISSUER").ok(),
-            env::var("ASSETLIBRARY_DOWNLOAD_TICKET_AUDIENCE").ok(),
-            env::var("ASSETLIBRARY_DOWNLOAD_TICKET_SECRET_BASE64").ok(),
+            get("ASSETLIBRARY_PUBLIC_DOWNLOAD_BASE_URL"),
+            get("ASSETLIBRARY_RESTRICTED_DOWNLOAD_BASE_URL"),
+            get("ASSETLIBRARY_DOWNLOAD_TICKET_ISSUER"),
+            get("ASSETLIBRARY_DOWNLOAD_TICKET_AUDIENCE"),
+            get("ASSETLIBRARY_DOWNLOAD_TICKET_SECRET_BASE64"),
         );
         let downloads = match download_values {
             (Some(public), Some(restricted), Some(issuer), Some(audience), Some(secret)) => {
                 let secret = URL_SAFE_NO_PAD
                     .decode(secret)
                     .map_err(|_| "download ticket secret must be unpadded base64url".to_owned())?;
-                let ttl = env::var("ASSETLIBRARY_DOWNLOAD_TICKET_TTL_SECONDS")
-                    .unwrap_or_else(|_| "300".to_owned())
+                let ttl = get("ASSETLIBRARY_DOWNLOAD_TICKET_TTL_SECONDS")
+                    .unwrap_or_else(|| "300".to_owned())
                     .parse::<u16>()
                     .map_err(|_| "download ticket TTL must be an integer".to_owned())?;
                 Some(DownloadConfig {
@@ -161,75 +150,13 @@ impl Config {
                 );
             }
         };
-        let search_values = (
-            env::var("ASSETLIBRARY_OPENSEARCH_URL").ok(),
-            env::var("ASSETLIBRARY_OPENSEARCH_USERNAME").ok(),
-            env::var("ASSETLIBRARY_OPENSEARCH_PASSWORD").ok(),
-            env::var("ASSETLIBRARY_VALKEY_URL").ok(),
-        );
-        let search = match search_values {
-            (Some(url), Some(username), Some(password), Some(valkey_url)) => {
-                let opensearch_url = reqwest::Url::parse(&url)
-                    .map_err(|error| format!("invalid OpenSearch URL: {error}"))?;
-                if !matches!(opensearch_url.scheme(), "http" | "https")
-                    || opensearch_url.host_str().is_none()
-                    || !opensearch_url.username().is_empty()
-                    || opensearch_url.password().is_some()
-                {
-                    return Err(
-                        "OpenSearch URL must be an HTTP(S) origin without credentials".to_owned(),
-                    );
-                }
-                let valkey = reqwest::Url::parse(&valkey_url)
-                    .map_err(|error| format!("invalid Valkey URL: {error}"))?;
-                if !matches!(valkey.scheme(), "redis" | "rediss") || valkey.host_str().is_none() {
-                    return Err("Valkey URL must use redis or rediss".to_owned());
-                }
-                Some(SearchConfig {
-                    opensearch_url,
-                    opensearch_username: validate_label("OpenSearch username", username)?,
-                    opensearch_password: validate_secret("OpenSearch password", password)?,
-                    allow_invalid_certs: env::var("ASSETLIBRARY_OPENSEARCH_ALLOW_INVALID_CERTS")
-                        .is_ok_and(|value| value == "true"),
-                    valkey_url,
-                    alias: validate_search_name(
-                        env::var("ASSETLIBRARY_SEARCH_ALIAS")
-                            .unwrap_or_else(|_| "assetlibrary-packages".to_owned()),
-                    )?,
-                })
-            }
-            (None, None, None, None) => None,
-            _ => {
-                return Err(
-                    "OpenSearch credentials and Valkey URL must be configured together".to_owned(),
-                );
-            }
-        };
-        Self::from_values(
-            &env::var("ASSETLIBRARY_ENVIRONMENT").unwrap_or_else(|_| "development".to_owned()),
-            &env::var("ASSETLIBRARY_BIND").unwrap_or_else(|_| "127.0.0.1:8080".to_owned()),
-            env::var("DATABASE_URL").ok(),
-            oidc,
-            object_store,
-            env::var("ASSETLIBRARY_APP_UPDATES_ENABLED")
-                .map(|value| value == "true")
-                .unwrap_or(false),
-            downloads,
-            search,
-        )
-    }
-
-    fn from_values(
-        environment: &str,
-        bind: &str,
-        database_url: Option<String>,
-        oidc: Option<OidcConfig>,
-        object_store: Option<ObjectStoreConfig>,
-        app_updates_enabled: bool,
-        downloads: Option<DownloadConfig>,
-        search: Option<SearchConfig>,
-    ) -> Result<Self, String> {
-        let environment = match environment {
+        let search = SearchConfig::from_lookup(search_provider, &get)?;
+        let app_updates_enabled =
+            get("ASSETLIBRARY_APP_UPDATES_ENABLED").is_some_and(|value| value == "true");
+        let environment = match get("ASSETLIBRARY_ENVIRONMENT")
+            .as_deref()
+            .unwrap_or("development")
+        {
             "development" => Environment::Development,
             "staging" => Environment::Staging,
             "production" => Environment::Production,
@@ -238,12 +165,16 @@ impl Config {
         if environment != Environment::Development && app_updates_enabled {
             return Err("App Update admission gate is closed outside development".to_owned());
         }
-        let bind = bind
+        let bind = get("ASSETLIBRARY_BIND")
+            .unwrap_or_else(|| "127.0.0.1:8080".to_owned())
             .parse()
             .map_err(|error| format!("invalid ASSETLIBRARY_BIND: {error}"))?;
-        let database_url = database_url.filter(|value| !value.is_empty());
+        let database_url = get("DATABASE_URL").filter(|value| !value.is_empty());
         if environment != Environment::Development && database_url.is_none() {
             return Err("DATABASE_URL is required outside development".to_owned());
+        }
+        if search_provider == SearchProvider::Postgres && database_url.is_none() {
+            return Err("DATABASE_URL is required for PostgreSQL search".to_owned());
         }
         if environment != Environment::Development && oidc.is_none() {
             return Err("OIDC configuration is required outside development".to_owned());
@@ -254,7 +185,10 @@ impl Config {
         if environment != Environment::Development && downloads.is_none() {
             return Err("download configuration is required outside development".to_owned());
         }
-        if environment != Environment::Development && search.is_none() {
+        if environment != Environment::Development
+            && search_provider == SearchProvider::OpenSearch
+            && search.is_none()
+        {
             return Err("search configuration is required outside development".to_owned());
         }
         if let Some(downloads) = downloads.as_ref() {
@@ -272,21 +206,7 @@ impl Config {
             }
         }
         if let Some(search) = search.as_ref() {
-            let loopback = matches!(
-                search.opensearch_url.host_str(),
-                Some("127.0.0.1" | "localhost")
-            );
-            if environment != Environment::Development
-                && (search.opensearch_url.scheme() != "https"
-                    || !search.valkey_url.starts_with("rediss://"))
-            {
-                return Err("OpenSearch and Valkey must use TLS outside development".to_owned());
-            }
-            if search.allow_invalid_certs && !loopback {
-                return Err(
-                    "invalid OpenSearch certificates may be accepted only on loopback".to_owned(),
-                );
-            }
+            search.validate(environment)?;
         }
         Ok(Self {
             environment,
@@ -296,83 +216,9 @@ impl Config {
             object_store,
             app_updates_enabled,
             downloads,
+            search_provider,
             search,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Config, Environment};
-
-    #[test]
-    fn production_requires_database_url() {
-        let error = Config::from_values(
-            "production",
-            "127.0.0.1:8080",
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(error, "DATABASE_URL is required outside development");
-    }
-
-    #[test]
-    fn production_requires_oidc_after_database() {
-        let error = Config::from_values(
-            "production",
-            "127.0.0.1:8080",
-            Some("postgres://database".to_owned()),
-            None,
-            None,
-            false,
-            None,
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(error, "OIDC configuration is required outside development");
-    }
-
-    #[test]
-    fn development_can_start_without_external_services() {
-        let config = Config::from_values(
-            "development",
-            "127.0.0.1:8080",
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-        )
-        .unwrap();
-        assert_eq!(config.environment, Environment::Development);
-        assert!(config.database_url.is_none());
-        assert!(config.oidc.is_none());
-        assert!(!config.app_updates_enabled);
-    }
-
-    #[test]
-    fn production_cannot_enable_app_updates_before_admission() {
-        let error = Config::from_values(
-            "production",
-            "127.0.0.1:8080",
-            None,
-            None,
-            None,
-            true,
-            None,
-            None,
-        )
-        .unwrap_err();
-        assert_eq!(
-            error,
-            "App Update admission gate is closed outside development"
-        );
     }
 }
 
@@ -401,26 +247,6 @@ fn validate_label(name: &str, value: String) -> Result<String, String> {
         return Err(format!(
             "{name} must contain 1 to 200 visible ASCII characters"
         ));
-    }
-    Ok(value)
-}
-
-fn validate_secret(name: &str, value: String) -> Result<String, String> {
-    if value.is_empty() || value.len() > 4096 || !value.bytes().all(|byte| byte.is_ascii_graphic())
-    {
-        return Err(format!("{name} has invalid length or characters"));
-    }
-    Ok(value)
-}
-
-fn validate_search_name(value: String) -> Result<String, String> {
-    if value.is_empty()
-        || value.len() > 100
-        || !value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
-        return Err("search alias contains unsupported characters".to_owned());
     }
     Ok(value)
 }

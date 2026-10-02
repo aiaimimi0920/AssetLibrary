@@ -22,6 +22,8 @@ mod publisher_workspace;
 mod request_id_tests;
 mod routes;
 mod search;
+mod search_cursor;
+mod search_postgres;
 mod search_routes;
 mod sitemap;
 mod sitemap_routes;
@@ -37,7 +39,7 @@ use axum::{
     routing::get,
 };
 use catalog::{CatalogRepository, PostgresCatalog};
-use config::{Config, Environment};
+use config::{Config, Environment, SearchProvider};
 use downloads::{DownloadRepository, PostgresDownloadRepository, UnavailableDownloadRepository};
 use identity::{DevelopmentIdentityAdapter, ExternalIdentityAdapter, IdentityProvider};
 use install_receipts::{
@@ -309,9 +311,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         ),
         _ => Arc::new(UnavailableDownloadRepository),
     };
-    let search: Arc<dyn SearchRepository> = match config.search {
-        Some(search) => Arc::new(OpenSearchRepository::new(search).map_err(std::io::Error::other)?),
-        None => Arc::new(UnavailableSearchRepository),
+    let search: Arc<dyn SearchRepository> = match config.search_provider {
+        SearchProvider::Postgres => {
+            let pool = pool.clone().ok_or_else(|| {
+                std::io::Error::other("Config rejects missing PostgreSQL search database")
+            })?;
+            Arc::new(crate::search_postgres::PostgresSearchRepository::new(pool))
+        }
+        SearchProvider::OpenSearch => match config.search {
+            Some(search) => {
+                Arc::new(OpenSearchRepository::new(search).map_err(std::io::Error::other)?)
+            }
+            None => Arc::new(UnavailableSearchRepository),
+        },
     };
     let public_releases: Arc<dyn PublicReleaseRepository> = match pool.clone() {
         Some(pool) => Arc::new(PostgresPublicReleaseRepository::new(pool)),

@@ -101,7 +101,15 @@ archive retention, ClickHouse ingestion, aggregation, deduplication, and
 install-success attribution remain P8 work; authorization events must not be
 counted as completed downloads.
 
-## Search projection
+## Search provider selection
+
+OpenSearch remains the default. An explicit optional PostgreSQL provider is
+available for the same public search API; see [POSTGRES_SEARCH](POSTGRES_SEARCH.md)
+for its literal Unicode matching, ordering/cursor differences, eligibility,
+deadlines and rollback contract. It performs no search cache/index read and does
+not remove the indexer or any Edge authorization/revocation work below.
+
+## Default OpenSearch projection
 
 The indexer consumes `assetlibrary.catalog.invalidated.v1` from one durable
 JetStream consumer. Event payloads are signals only: every projection is loaded

@@ -6,7 +6,7 @@ use std::time::Duration;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-const PUBLIC_PACKAGE_COLUMNS: &str = r#"
+pub(crate) const PUBLIC_PACKAGE_COLUMNS: &str = r#"
 SELECT p.id, p.slug::text, p.name, p.kind, p.status, p.summary,
        publisher.id, publisher.slug::text, publisher.display_name,
        p.updated_at
@@ -200,7 +200,7 @@ impl CatalogRepository for PostgresCatalog {
     }
 }
 
-type PackageRow = (
+pub(crate) type PackageRow = (
     Uuid,
     String,
     String,
@@ -220,7 +220,7 @@ fn row_cursor(row: &PackageRow) -> CatalogCursor {
     }
 }
 
-fn into_contract(row: PackageRow) -> Option<PublishedPackage> {
+pub(crate) fn into_contract(row: PackageRow) -> Option<PublishedPackage> {
     let kind = match row.3.as_str() {
         "art" => PackageKind::Art,
         "capability" => PackageKind::Capability,

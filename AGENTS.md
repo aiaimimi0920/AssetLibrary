@@ -17,14 +17,21 @@ It must not grow registration, password, MFA, session, or account tables.
 - Rust/Axum is the stateless control-plane API and worker foundation.
 - Next.js App Router is the public web surface. Public catalog pages are
   server-rendered or incrementally regenerated; private pages are uncached.
-- PostgreSQL is the source of truth for catalog and workflow facts.
+- Managed PostgreSQL is the target production source of truth for catalog and
+  workflow facts. Provider and Web/API hosting are undecided; clients never
+  receive database credentials or direct SQL access. Read ADR-009 and the current
+  development plan before changing architecture.
 - Object bytes use an S3-compatible provider through a storage port. Production
   defaults to Cloudflare R2 behind CDN/WAF; API responses never proxy public
   artifact bytes.
-- NATS JetStream receives transactional-outbox events. Workers are isolated,
-  bounded, observable, and fail closed.
-- OpenSearch owns catalog search; Valkey is cache/rate-limit/idempotency
-  support; analytics are asynchronous.
+- Target a small single-instance control plane for roughly 100 users and 1-2
+  active users. Queries are bounded and parameterized; scanning stays isolated
+  and asynchronous. Authentication, authorization and optional quota are separate
+  boundaries; no billing/quota policy has been selected.
+- Current runtime still uses NATS JetStream after the transactional outbox and
+  OpenSearch/Valkey search. PostgreSQL search is the first reversible transition;
+  do not remove the indexer, queue or revocation path along with it. Workers
+  remain bounded, observable and fail closed; analytics stay asynchronous.
 - Release and artifact identities are immutable and digest-addressed.
 - Only a verified artifact may enter review or publication. Quarantine objects
   remain private. Every state transition is auditable and idempotent.
@@ -38,7 +45,11 @@ It must not grow registration, password, MFA, session, or account tables.
 - Add focused tests for new behavior and security/concurrency invariants.
 - Run formatter, focused tests, direct compile/type checks, `git diff --check`,
   and dependency/security checks before claiming completion.
-- Keep secrets out of source, logs, fixtures, and command output.
+- Keep secrets out of source, logs, fixtures, client bundles, and command output.
+- Do not create paid resources, configure real credentials, migrate real data,
+  or deploy merely to implement this architecture goal; those need authorization.
+- Report actual tests and measured resources only. Deployment requests/limits,
+  buffer sizes and managed hosting are not proof of peak RSS or resource savings.
 - Use UTF-8 without BOM. Prefer ASCII for source and configuration.
 
 ## Local commands
