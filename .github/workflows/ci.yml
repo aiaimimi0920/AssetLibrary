@@ -69,6 +69,12 @@ jobs:
         run: >-
           cargo test -p assetlibrary-api --locked sitemap_postgres_gate
           -- --ignored --nocapture
+      - name: PostgreSQL public search provider gate
+        env:
+          ASSETLIBRARY_SEARCH_TEST_DATABASE_URL: postgresql://sitemap_test:sitemap-ci-only@127.0.0.1:5432/assetlibrary_sitemap_test
+        run: >-
+          cargo test -p assetlibrary-api --locked search_postgres_gate
+          -- --ignored --nocapture
       - name: Web quality gates
         env:
           REDOCLY_TELEMETRY: "off"
