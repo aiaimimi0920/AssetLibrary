@@ -5,7 +5,35 @@ packages, Capability packages, and future application updates. It provides a
 web catalog and machine-facing APIs while keeping the account system in a
 separate service.
 
-## Current status
+## Current development direction
+
+The accepted target is a small control-plane service backed by **managed
+PostgreSQL**, for roughly 100 users and one or two active users. Browser,
+Hook/Loom EXE and CLI clients use bounded API queries after applicable identity,
+authorization and optional quota checks; no client gets database credentials or
+arbitrary SQL access. Quota/billing policy is not defined. File bytes stay in
+object storage/CDN and scanning stays isolated and asynchronous.
+
+See the current [development goals](DEVELOPMENT_PLAN.md),
+[ADR-009](docs/ADR/ADR-009-managed-postgres-small-scale.md), and
+[development standard](docs/DEVELOPMENT_STANDARD.md).
+The database supplier and Web/API hosting locations are undecided. PlanetScale
+PostgreSQL through Cloudflare is a candidate only; D1 is not selected.
+No paid service, real credential, data migration or deployment is part of this
+architecture change.
+
+This is a target, not a completed migration: the current runtime still uses
+OpenSearch/Valkey search and NATS workers. The first planned code change adds
+optional PostgreSQL public search while retaining the old provider/default and
+Edge revocation path. Small deployment profiles and measured resource results
+remain pending. App Update production admission remains closed.
+
+## Current implementation status
+
+The P0-P9 labels below refer to the
+[historical plan](docs/history/DEVELOPMENT_PLAN_2026-09-04.md).
+They describe existing foundations and recorded acceptance boundaries, not
+proof that the new target is deployed or production-ready.
 
 P0-P4 and the P5 control/data-plane implementation are covered by local gates:
 contracts, direct
@@ -20,7 +48,7 @@ slice: server-rendered
 catalog/search/package/publisher pages consume versioned package, release,
 compatibility, permission, and explicitly approval-bound artifact projections
 while distinguishing empty results from dependency failures; see
-[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md). P6 also includes authenticated,
+[`docs/PUBLIC_WEB.md`](docs/PUBLIC_WEB.md). P6 also includes authenticated,
 role-scoped Publisher membership and owned draft APIs with cursor pagination,
 SemVer enforcement, idempotency, immutable creator facts, and transactional
 audit/outbox events. A dynamic Publisher Console now exchanges one configured
