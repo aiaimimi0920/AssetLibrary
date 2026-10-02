@@ -19,8 +19,13 @@ export function CreatePackageForm({ publisherId, idempotencyKey }: {
   idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(createPackageAction, initialState);
+  const errorId = useId();
+  const error = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (state.error) error.current?.focus(); }, [state]);
   return (
-    <form action={action} className="publisher-form">
+    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}
+      // Rejected actions must retain the mounted draft; success redirects away.
+      onReset={event => event.preventDefault()}>
       <input type="hidden" name="publisher_id" value={publisherId} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       <div className="form-grid">
@@ -42,7 +47,7 @@ export function CreatePackageForm({ publisherId, idempotencyKey }: {
       <label>标签<input name="tags" maxLength={2_100} placeholder="art, workflow, illustration" autoComplete="off" />
         <span>逗号分隔，最多 32 个小写标签。</span>
       </label>
-      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="form-error" role="alert" id={errorId} ref={error} tabIndex={-1}>{state.error}</p> : null}
       <div className="form-actions">
         <button className="primary-button" type="submit" disabled={pending}>
           {pending ? "正在创建…" : "创建包草稿"}
@@ -58,8 +63,13 @@ export function CreateReleaseForm({ packageId, publisherId, idempotencyKey }: {
   idempotencyKey: string;
 }) {
   const [state, action, pending] = useActionState(createReleaseAction, initialState);
+  const errorId = useId();
+  const error = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (state.error) error.current?.focus(); }, [state]);
   return (
-    <form action={action} className="publisher-form">
+    <form action={action} className="publisher-form" aria-describedby={state.error ? errorId : undefined}
+      // Rejected actions must retain the mounted draft; success redirects away.
+      onReset={event => event.preventDefault()}>
       <input type="hidden" name="publisher_id" value={publisherId} />
       <input type="hidden" name="package_id" value={packageId} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
@@ -71,7 +81,7 @@ export function CreateReleaseForm({ packageId, publisherId, idempotencyKey }: {
         <label>Loom 版本范围<input name="loom_requirement" maxLength={100} placeholder=">=0.1.0" autoComplete="off" /></label>
         <label>Hook 版本范围<input name="hook_requirement" maxLength={100} placeholder=">=0.1.0" autoComplete="off" /></label>
       </div>
-      {state.error ? <p className="form-error" role="alert">{state.error}</p> : null}
+      {state.error ? <p className="form-error" role="alert" id={errorId} ref={error} tabIndex={-1}>{state.error}</p> : null}
       <div className="form-actions">
         <button className="primary-button" type="submit" disabled={pending}>
           {pending ? "正在创建…" : "创建版本草稿"}

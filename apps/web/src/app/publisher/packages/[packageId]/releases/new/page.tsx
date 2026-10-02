@@ -55,6 +55,7 @@ export default async function NewReleasePage({ params, searchParams }: NewReleas
     return gate("forbidden");
   }
 
+  const idempotencyKey = randomUUID();
   return frame(
     <main id="main-content" className="console-form-page">
       <header>
@@ -64,9 +65,10 @@ export default async function NewReleasePage({ params, searchParams }: NewReleas
         <Link className="secondary-link" href={`/publisher?publisher=${membership.publisher.id}`}>返回工作区</Link>
       </header>
       <CreateReleaseForm
+        key={idempotencyKey}
         packageId={ownedPackage.id}
         publisherId={membership.publisher.id}
-        idempotencyKey={randomUUID()}
+        idempotencyKey={idempotencyKey}
       />
     </main>,
   );

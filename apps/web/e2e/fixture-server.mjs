@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { publicDiscoveryFixture } from './public-discovery-fixture.mjs';
 import { publicDownloadFixture } from './public-download-fixture.mjs';
+import { draftCreationFixture } from './draft-creation-fixture.mjs';
 
 const port = Number(process.env.ASSETLIBRARY_BROWSER_FIXTURE_PORT ?? "18900");
 const token = "browser-fixture-access-token-that-stays-server-only";
@@ -36,7 +37,9 @@ const uploadArtifactId = "88888888-8888-4888-8888-888888888888";
 let upload = null;
 let delayedSecondPart = false;
 let protectedRequestCount = 0;
-let draftCreationRequestCount = 0;
+const drafts = draftCreationFixture({ packageTemplate: ownedPackage, currentPackage: () => ownedPackage, releaseTemplate: ownedRelease,
+  workspaceTemplate: workspaceFixture, jsonBody,
+  send: (response, status, body) => send(response, status, body, 'private, no-store') });
 
 function send(response, status, body, cacheControl = "no-store") {
   response.writeHead(status, {
@@ -93,13 +96,7 @@ const server = createServer(async (request, response) => {
     protectedRequestCount = 0;
     return send(response, 200, { reset: true });
   }
-  if (request.method === 'GET' && url.pathname === '/fixture/draft-creation-state') {
-    return send(response, 200, { create_requests: draftCreationRequestCount });
-  }
-  if (request.method === 'POST' && url.pathname === '/fixture/reset-draft-creation-state') {
-    draftCreationRequestCount = 0;
-    return send(response, 200, { reset: true });
-  }
+  if (await drafts.control(request, response, url)) return;
   const objectPart = url.pathname.match(/^\/fixture-upload\/([0-9a-f-]+)\/(\d+)$/i);
   if (objectPart && request.method === "OPTIONS") {
     cors(response, 204);
@@ -152,11 +149,8 @@ const server = createServer(async (request, response) => {
     }, "private, no-store");
   }
   protectedRequestCount += 1;
-  if (request.method === 'POST' && [
-    '/v1/me/publishers/11111111-1111-4111-8111-111111111111/packages',
-    '/v1/me/packages/22222222-2222-4222-8222-222222222222/releases',
-  ].includes(url.pathname)) draftCreationRequestCount++;
   if (!authorized(request)) return send(response, 401, { error: "unauthenticated" });
+  if (await drafts.api(request, response, url)) return;
   if (request.method === "GET" && url.pathname === "/v1/me/publishers") {
     return send(response, 200, memberships, "private, no-store");
   }
