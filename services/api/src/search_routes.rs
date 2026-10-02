@@ -94,20 +94,21 @@ fn decode_cursor(value: &str) -> Result<Vec<Value>, StatusCode> {
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Vec<Value>>(&bytes).ok())
         .filter(|parts| {
-            parts.len() == 3
-                && parts[0]
-                    .as_f64()
-                    .is_some_and(|value| value.is_finite() && value >= 0.0)
-                && (parts[1]
-                    .as_i64()
-                    .is_some_and(|value| (0..=253_402_300_799_000).contains(&value))
-                    || parts[1]
+            (crate::search_cursor::valid_postgres_shape(parts))
+                || (parts.len() == 3
+                    && parts[0]
+                        .as_f64()
+                        .is_some_and(|value| value.is_finite() && value >= 0.0)
+                    && (parts[1]
+                        .as_i64()
+                        .is_some_and(|value| (0..=253_402_300_799_000).contains(&value))
+                        || parts[1]
+                            .as_str()
+                            .is_some_and(|value| !value.is_empty() && value.len() <= 64))
+                    && parts[2]
                         .as_str()
-                        .is_some_and(|value| !value.is_empty() && value.len() <= 64))
-                && parts[2]
-                    .as_str()
-                    .and_then(|value| Uuid::parse_str(value).ok())
-                    .is_some_and(|value| !value.is_nil())
+                        .and_then(|value| Uuid::parse_str(value).ok())
+                        .is_some_and(|value| !value.is_nil()))
         });
     decoded.ok_or(StatusCode::BAD_REQUEST)
 }
@@ -128,3 +129,7 @@ mod tests {
         assert_eq!(decode_cursor(&encoded).unwrap(), parts);
     }
 }
+
+#[cfg(test)]
+#[path = "search_route_tests.rs"]
+pub(crate) mod route_tests;

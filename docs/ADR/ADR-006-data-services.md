@@ -1,6 +1,10 @@
 # ADR-006: Data and event services
 
-Status: Accepted
+Status: Partially superseded by [ADR-009](ADR-009-managed-postgres-small-scale.md)
+
+The following describes the existing implementation. Its mandatory large-scale
+topology is no longer the default development target. Authority, outbox,
+idempotency and authorization invariants remain in force.
 
 PostgreSQL is the transactional source of truth. PgBouncer protects connection
 capacity and read replicas serve eligible public reads. Valkey supplies

@@ -1,5 +1,13 @@
 # Architecture Baseline
 
+The current target is [ADR-009](ADR/ADR-009-managed-postgres-small-scale.md):
+a small single-instance control plane and managed PostgreSQL, with provider and
+Web/API hosting undecided. Clients use an API with separate identity, permission
+and optional quota boundaries; database credentials never enter clients. Quota
+policy is not yet defined. The sections below describe the existing runtime,
+not a completed transition. See [the development plan](../DEVELOPMENT_PLAN.md)
+for gaps, reversible steps and preserved safety gates.
+
 ## Planes
 
 The control plane owns metadata, workflow state, authorization decisions,
