@@ -7,6 +7,8 @@ on:
       - 'security/**'
       - 'scripts/Test-CiPolicy.ps1'
       - 'scripts/test-security-*.mjs'
+      - 'scripts/*development*quality*'
+      - 'scripts/Test-SourceSize.ps1'
       - 'scripts/test-dependabot-coverage.mjs'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'security/**'
       - 'scripts/Test-CiPolicy.ps1'
       - 'scripts/test-security-*.mjs'
+      - 'scripts/*development*quality*'
+      - 'scripts/Test-SourceSize.ps1'
       - 'scripts/test-dependabot-coverage.mjs'
   workflow_dispatch:
 
@@ -33,3 +37,7 @@ jobs:
       - name: Verify scanner pins, coverage and release boundaries
         shell: pwsh
         run: ./scripts/Test-CiPolicy.ps1
+      - name: Verify quality findings versus execution failures
+        run: |
+          python scripts/test_development_quality.py -v
+          python scripts/test_asset_quality.py -v

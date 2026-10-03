@@ -1,0 +1,81 @@
+name: Development Quality Reports
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '43 19 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: development-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  reports:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [rustfmt, asset-lines, eslint, openapi, tofu-fmt]
+    env:
+      REDOCLY_TELEMETRY: "off"
+      NO_COLOR: "1"
+      CI: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: matrix.kind == 'eslint' || matrix.kind == 'openapi'
+        with:
+          node-version: 22.23.1
+      - name: Install locked web tools
+        if: matrix.kind == 'eslint' || matrix.kind == 'openapi'
+        working-directory: apps/web
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Install pinned Rust formatting tool
+        if: matrix.kind == 'rustfmt'
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt
+          rustup default 1.95.0
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        if: matrix.kind == 'tofu-fmt'
+        with:
+          tofu_version_file: .opentofu-version
+          tofu_wrapper: false
+      - name: Report Rust formatting
+        if: matrix.kind == 'rustfmt'
+        run: python scripts/development_quality.py rustfmt --output artifacts/quality/rustfmt -- cargo fmt --all -- --check
+      - name: Report source size
+        if: matrix.kind == 'asset-lines'
+        run: python scripts/development_quality.py asset-lines --output artifacts/quality/asset-lines --report artifacts/source-size.json -- pwsh -NoProfile -File scripts/Test-SourceSize.ps1 -JsonOutput artifacts/source-size.json
+      - name: Preserve lint coverage contract and report ESLint
+        if: matrix.kind == 'eslint'
+        working-directory: apps/web
+        run: |
+          node --test tests/lint-glob-contract.mjs
+          python ../../scripts/development_quality.py eslint --output ../../artifacts/quality/eslint -- node node_modules/eslint/bin/eslint.js . --format json
+      - name: Report full OpenAPI lint
+        if: matrix.kind == 'openapi'
+        working-directory: apps/web
+        run: python ../../scripts/development_quality.py openapi --output ../../artifacts/quality/openapi -- node node_modules/@redocly/cli/bin/cli.js lint ../../contracts/openapi/openapi.yaml --format=json --max-problems=100000
+      - name: Report OpenTofu formatting
+        if: matrix.kind == 'tofu-fmt'
+        run: python scripts/development_quality.py tofu-fmt --output artifacts/quality/tofu-fmt -- tofu fmt -check -recursive deploy/tofu
+      - name: Retain complete raw and structured quality report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: quality-${{ matrix.kind }}-${{ github.run_id }}
+          path: artifacts/quality
+          if-no-files-found: error
+          retention-days: 30
