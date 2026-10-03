@@ -13,14 +13,20 @@ test("CodeQL publishes stable language categories and retains release evidence",
   assert.doesNotMatch(workflow, /upload: never|continue-on-error: true/);
 });
 
-test("OSV preserves JSON and generates SARIF despite findings without masking failure", () => {
-  assert.match(workflow, /scan source --recursive --format json --output-file \/evidence\/osv.json \/src/);
-  assert.match(workflow, /name: Generate OSV SARIF for code scanning\n\s+if: \$\{\{ !cancelled\(\) && hashFiles\('release\/evidence\/osv.json'\) != '' \}\}/);
-  assert.match(workflow, /scan source --recursive --format sarif --output-file \/evidence\/osv.sarif \./);
-  assert.ok(workflow.includes('-v "$PWD:$PWD:ro" -w "$PWD"'));
-  assert.match(workflow, /name: Upload OSV SARIF to code scanning\n\s+if: \$\{\{ !cancelled\(\) && hashFiles\('release\/evidence\/osv.sarif'\) != '' \}\}/);
+test("OSV preserves raw exits, explicit locks, SARIF and strict release defaults", () => {
+  for (const lock of ["Cargo.lock", "apps/web/pnpm-lock.yaml", "packages/api-client/pnpm-lock.yaml", "services/edge/pnpm-lock.yaml"]) {
+    assert.ok(workflow.includes("--lockfile=/github/workspace/" + lock));
+  }
+  assert.ok(workflow.includes("scanner_status=$?"));
+  assert.ok(workflow.includes("reporter_status=$?"));
+  assert.ok(workflow.includes("python3 scripts/security_scan_summary.py osv"));
+  assert.ok(workflow.includes("--all-packages --config=/github/workspace/osv-scanner.toml"));
+  assert.ok(workflow.includes("steps.osv-report.outputs.report_valid == 'true'"));
   assert.ok(workflow.includes(`uses: github/codeql-action/upload-sarif@${pin}`));
   assert.match(workflow, /sarif_file: release\/evidence\/osv.sarif\n\s+category: osv-source\n\s+wait-for-processing: true/);
+  assert.match(workflow, /development-advisory:[\s\S]*?default: false/);
+  assert.doesNotMatch(read(".github/workflows/release.yml"), /development-advisory: true/);
+  assert.ok(read(".github/workflows/security.yml").includes("development-advisory: ${{ !startsWith(github.ref, 'refs/tags/') }}"));
   assert.match(workflow, /name: Upload dependency and SBOM evidence\n\s+if: always\(\)/);
   assert.doesNotMatch(workflow, /\|\| true|continue-on-error/);
 });
@@ -28,7 +34,8 @@ test("OSV preserves JSON and generates SARIF despite findings without masking fa
 test("publication uses existing permission and scanner pins", () => {
   const policy = JSON.parse(read("security/dependency-security-policy.json"));
   assert.equal(policy.actions["github/codeql-action"], pin);
-  assert.equal(workflow.split(policy.tool_images.osv_scanner).length - 1, 2);
+  assert.equal(workflow.split(policy.tool_images.osv_scanner).length - 1, 1);
+  assert.ok(workflow.includes('docker run "${common[@]}" "$image"'));
   assert.doesNotMatch(workflow, /contents: write|packages: write|id-token:|pull_request_target/);
   assert.match(read("scripts/Test-CiPolicy.ps1"), /test-security-sarif-publication\.mjs/);
 });
