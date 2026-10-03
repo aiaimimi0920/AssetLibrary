@@ -43,6 +43,7 @@ test("publication uses existing permission and scanner pins", () => {
 
 test("OSV invokes the binary explicitly and retains failure diagnostics", () => {
   assert.match(workflow, /common=\(.*--entrypoint \/osv-scanner/);
+  assert.ok(workflow.includes('--user "$(id -u):$(id -g)"'));
   assert.ok(workflow.includes("release/evidence/osv-json.log"));
   assert.ok(workflow.includes("release/evidence/osv-sarif.log"));
 });
