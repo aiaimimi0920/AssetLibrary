@@ -55,6 +55,21 @@ class AssetQualityTests(unittest.TestCase):
             self.assertEqual(result["findings"], 1)
             self.assertEqual(result["status"], "findings")
 
+    def test_tofu_coverage_excludes_hidden_and_editor_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".terraform").mkdir()
+            (root / ".terraform/cache.tf").write_text("ignored", encoding="utf-8")
+            (root / ".hidden.tf").write_text("ignored", encoding="utf-8")
+            (root / "backup~").mkdir()
+            (root / "backup~/main.tf").write_text("ignored", encoding="utf-8")
+            (root / "#swap#").mkdir()
+            (root / "#swap#/main.tf").write_text("ignored", encoding="utf-8")
+            self.assertEqual(quality.tofu_sources(root), [])
+            for name in ("main.tf", "alt.tofu", "vars.tfvars", "case.tftest.hcl", "case.tofutest.hcl"):
+                (root / name).write_text("", encoding="utf-8")
+            self.assertEqual(len(quality.tofu_sources(root)), 5)
+
     def test_tofu_specific_exit_and_existing_paths(self):
         with patch.object(Path, "is_file", return_value=True):
             self.assertEqual(quality.classify("tofu-fmt", 3, "deploy/tofu/main.tf\n", ""), 1)

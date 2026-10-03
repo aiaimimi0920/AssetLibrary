@@ -56,7 +56,7 @@ def classify(kind, code, stdout, stderr, report=None):
         require(code in (0, 3) and not stderr.strip(), "OpenTofu parsing or execution failed")
         paths = stdout.splitlines()
         require((code == 3) == bool(paths), "OpenTofu exit/diff mismatch")
-        require(all(re.fullmatch(r"deploy/tofu/[A-Za-z0-9_./-]+\.(tf|tfvars)", p)
+        require(all(re.fullmatch(r"deploy/tofu/[A-Za-z0-9_./-]+\.(tf|tofu|tfvars|tftest\.hcl|tofutest\.hcl)", p)
                     and ".." not in p.split("/") and Path(p).is_file() for p in paths),
                 "unknown OpenTofu diff output")
         return len(paths)
@@ -163,6 +163,23 @@ def classify(kind, code, stdout, stderr, report=None):
     return len(violations) + sum(f.get("status") == "legacy" for f in report["files"])
 
 
+def tofu_sources(root):
+    # OpenTofu v1.12.6: configs.IsIgnoredFile and fmtSupportedExts.
+    files = []
+    with os.scandir(root) as entries:
+        for entry in entries:
+            name = entry.name
+            if name.startswith(".") or name.endswith("~") or (name.startswith("#") and name.endswith("#")):
+                continue
+            require(not entry.is_symlink(), "OpenTofu source is a symbolic link")
+            if entry.is_dir(follow_symlinks=False):
+                files.extend(tofu_sources(Path(entry.path)))
+            elif name.endswith((".tf", ".tofu", ".tfvars", ".tftest.hcl", ".tofutest.hcl")):
+                require(entry.is_file(follow_symlinks=False), "OpenTofu input is not a regular file")
+                files.append(Path(entry.path))
+    return files
+
+
 def run(args):
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=False)
@@ -174,7 +191,9 @@ def run(args):
             require(not Path(args.report).exists(), "refusing a stale report")
         require(bool(args.command), "missing scanner command")
         if args.kind == "tofu-fmt":
-            require(any(Path("deploy/tofu").rglob("*.tf")), "OpenTofu scanned no sources")
+            sources = tofu_sources(Path("deploy/tofu"))
+            require(sources, "OpenTofu scanned no sources")
+            result["scanned_sources"] = [p.as_posix() for p in sources]
         process = subprocess.run(args.command, capture_output=True, timeout=args.timeout,
                                  check=False)
         result["exit_code"] = process.returncode
