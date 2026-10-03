@@ -19,7 +19,12 @@ test("the Gitleaks job can read PR metadata without any write scope", () => {
   assert.deepEqual(jobPermissions(policy, "secret-scan"), {
     contents: "read", "pull-requests": "read",
   });
-  assert.match(policy, /GITLEAKS_ENABLE_COMMENTS: "false"/);
+  const secretJob = policy.match(/^  secret-scan:\n[\s\S]*?(?=^  [\w-]+:|$(?![\s\S]))/m)[0];
+  assert.doesNotMatch(secretJob, /gitleaks\/gitleaks-action@|GITHUB_TOKEN:|GH_TOKEN:|github\.token|secrets\./);
+  assert.match(secretJob, /gitleaks" git --redact=100 --no-banner --exit-code=42/);
+  assert.match(secretJob, /sha256sum --check --status/);
+  assert.match(secretJob, /--report-format=json/);
+  assert.match(secretJob, /scripts\/security_findings\.py gitleaks/);
 });
 
 test("permission parsing accepts Windows checkout line endings", () => {
