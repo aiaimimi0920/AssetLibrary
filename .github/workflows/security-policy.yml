@@ -105,7 +105,7 @@ jobs:
           grep -Eq '^osv-scanner version:[[:space:]]*2\.5\.1([[:space:]]|$)' release/evidence/osv-version.log
           common=(--rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner
             --user "$(id -u):$(id -g)"
-            --cpus=2 --memory=1g --tmpfs /tmp:rw,nosuid,nodev,size=128m
+            --cpus=2 --memory=1g --tmpfs '/tmp:rw,nosuid,nodev,size=128m'
             -v "$PWD:/github/workspace:ro" -w /github/workspace
             -v "$PWD/release/evidence:/evidence")
           locks=(--lockfile=/github/workspace/Cargo.lock
