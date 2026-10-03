@@ -23,8 +23,17 @@ test("OpenTelemetry API, SDK, exporter and tracing bridge update together", () =
   const cargo = source.replace(/\r\n/g, "\n").split(/\n  - package-ecosystem: /)
     .slice(1).find((entry) => entry.startsWith("cargo\n"));
   assert.ok(cargo);
-  assert.match(cargo, /    groups:\n      opentelemetry:\n        patterns:/);
+  assert.match(cargo, /    groups:\n      opentelemetry:\n        update-types: \[minor, patch\]\n        patterns:/);
   for (const name of ["opentelemetry", "opentelemetry-*", "opentelemetry_sdk", "tracing-opentelemetry"]) {
     assert.ok(cargo.includes(`          - "${name}"`), `${name} must update with its compatible family`);
   }
+});
+
+
+test("GitHub Actions cooldown uses supported default-days only", () => {
+  const source = readFileSync(new URL("../.github/dependabot.yml", import.meta.url), "utf8");
+  const actions = source.split(/\n  - package-ecosystem: /).slice(1).find(entry => entry.startsWith("github-actions\n"));
+  assert.ok(actions);
+  assert.match(actions, /default-days: 7/);
+  assert.doesNotMatch(actions, /semver-(major|minor|patch)-days/);
 });

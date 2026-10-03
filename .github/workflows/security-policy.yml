@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: ""
+      development-advisory:
+        description: Report validated dependency findings without blocking development
+        required: false
+        type: boolean
+        default: false
     outputs:
       scanned_commit:
         description: Exact commit scanned by the shared security policy
@@ -16,9 +21,24 @@ on:
 permissions:
   actions: read
   contents: read
-  security-events: write
 
 jobs:
+  report-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.23.1
+      - name: Verify synthetic scan-report contracts
+        run: |
+          python3 -m unittest discover -s scripts/tests -p test_security_scan_summary.py
+          python3 -m unittest discover -s scripts/tests -p test_sarif_coverage.py
+          node --test scripts/tests/codeql-summary.test.mjs
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -27,11 +47,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
 
   dependencies:
+    needs: report-contract
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -40,11 +66,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
           fetch-depth: 0
       - id: commit
         name: Bind evidence to the triggering commit
+        env:
+          EXPECTED_COMMIT: ${{ inputs.source_ref || github.sha }}
         run: |
-          expected="${{ inputs.source_ref || github.sha }}"
+          expected="$EXPECTED_COMMIT"
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]]
           test "$expected" = "$(git rev-parse HEAD)"
           test "${#expected}" -eq 40
           echo "commit=$expected" >> "$GITHUB_OUTPUT"
@@ -60,23 +90,58 @@ jobs:
             --exclude '**/.next/**' --exclude '**/dist/**' --exclude '**/test-results/**' \
             --exclude './release/evidence/**'
           test -s release/evidence/source.spdx.json
-      - name: Scan supported lockfiles with OSV
+      - name: Scan explicit existing lockfiles with pinned OSV
+        id: osv-scan
+        shell: bash
         run: |
-          docker run --rm \
-            -v "$PWD:/src:ro" \
-            -v "$PWD/release/evidence:/evidence" \
-            ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
-            scan source --recursive --format json --output-file /evidence/osv.json /src
-      - name: Generate OSV SARIF for code scanning
-        if: ${{ !cancelled() && hashFiles('release/evidence/osv.json') != '' }}
+          mkdir -p .tmp/security
+          image=ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734
+          set +e
+          docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner "$image" --version > release/evidence/osv-version.log 2>&1
+          version_status=$?
+          set -e
+          printf '%s\n' "$version_status" > release/evidence/osv-version.exit
+          test "$version_status" -eq 0
+          grep -Eq '^osv-scanner version:[[:space:]]*2\.5\.1([[:space:]]|$)' release/evidence/osv-version.log
+          common=(--rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner
+            --user "$(id -u):$(id -g)"
+            --cpus=2 --memory=1g --tmpfs '/tmp:rw,nosuid,nodev,size=128m'
+            -v "$PWD:/github/workspace:ro" -w /github/workspace
+            -v "$PWD/release/evidence:/evidence")
+          locks=(--lockfile=/github/workspace/Cargo.lock
+            --lockfile=/github/workspace/apps/web/pnpm-lock.yaml
+            --lockfile=/github/workspace/packages/api-client/pnpm-lock.yaml
+            --lockfile=/github/workspace/services/edge/pnpm-lock.yaml)
+          set +e
+          timeout --signal=TERM --kill-after=30s 600s docker run "${common[@]}" "$image" \
+            scan source --all-packages --config=/github/workspace/osv-scanner.toml \
+            --format json --output-file /evidence/osv.json "${locks[@]}" > release/evidence/osv-json.log 2>&1
+          scanner_status=$?
+          reporter_status=-1
+          if [[ "$scanner_status" == 0 || "$scanner_status" == 1 ]]; then
+            timeout --signal=TERM --kill-after=30s 600s docker run "${common[@]}" "$image" \
+              scan source --all-packages --config=/github/workspace/osv-scanner.toml \
+              --format sarif --output-file /evidence/osv.sarif "${locks[@]}" > release/evidence/osv-sarif.log 2>&1
+            reporter_status=$?
+          fi
+          set -e
+          echo "scanner_exit=$scanner_status" >> "$GITHUB_OUTPUT"
+          echo "reporter_exit=$reporter_status" >> "$GITHUB_OUTPUT"
+      - name: Validate and classify OSV evidence
+        id: osv-report
+        env:
+          DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
+          SCANNER_EXIT: ${{ steps.osv-scan.outputs.scanner_exit }}
+          REPORTER_EXIT: ${{ steps.osv-scan.outputs.reporter_exit }}
         run: |
-          docker run --rm \
-            -v "$PWD:$PWD:ro" -w "$PWD" \
-            -v "$PWD/release/evidence:/evidence" \
-            ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734 \
-            scan source --recursive --format sarif --output-file /evidence/osv.sarif .
+          args=()
+          if [[ "$DEVELOPMENT_ADVISORY" == true ]]; then args+=(--advisory); fi
+          python3 scripts/security_scan_summary.py osv --json release/evidence/osv.json \
+            --sarif release/evidence/osv.sarif --scan-exit "$SCANNER_EXIT" --report-exit "$REPORTER_EXIT" \
+            --lockfile Cargo.lock --lockfile apps/web/pnpm-lock.yaml \
+            --lockfile packages/api-client/pnpm-lock.yaml --lockfile services/edge/pnpm-lock.yaml "${args[@]}"
       - name: Upload OSV SARIF to code scanning
-        if: ${{ !cancelled() && hashFiles('release/evidence/osv.sarif') != '' }}
+        if: ${{ !cancelled() && steps.osv-report.outputs.report_valid == 'true' }}
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: release/evidence/osv.sarif
@@ -86,6 +151,8 @@ jobs:
         with:
           node-version: 22.23.1
       - name: Audit pnpm dependency graphs
+        env:
+          DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
         shell: bash
         run: |
           corepack enable
@@ -104,9 +171,10 @@ jobs:
             > release/evidence/pnpm-audit-edge.json
           edge_status=$?
           set -e
-          test "$web_status" -eq 0
-          test "$client_status" -eq 0
-          test "$edge_status" -eq 0
+          args=()
+          if [[ "$DEVELOPMENT_ADVISORY" == true ]]; then args+=(--advisory); fi
+          python3 scripts/security_scan_summary.py audit --evidence release/evidence \
+            --statuses "$web_status,$client_status,$edge_status" "${args[@]}"
       - name: Upload dependency and SBOM evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -126,6 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
@@ -139,6 +208,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
       - name: Scan deployment configuration
         run: |
           mkdir -p release/evidence
@@ -158,25 +228,37 @@ jobs:
           retention-days: 30
 
   codeql:
+    needs: report-contract
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      CODEQL_ACTION_DIFF_INFORMED_QUERIES: "false"
     strategy:
       fail-fast: false
       matrix:
-        language: [javascript-typescript, rust]
+        language: [javascript-typescript, rust, actions]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          persist-credentials: false
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           languages: ${{ matrix.language }}
-      - uses: github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+          build-mode: none
+          queries: security-extended
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           output: release/evidence/codeql/${{ matrix.language }}
           upload: always
           category: /language:${{ matrix.language }}
+      - name: Report bounded CodeQL finding and diagnostic inventory
+        if: ${{ !cancelled() }}
+        run: python3 scripts/summarize_codeql_results.py release/evidence/codeql/${{ matrix.language }}
       - name: Upload CodeQL SARIF evidence
         if: ${{ !cancelled() && hashFiles(format('release/evidence/codeql/{0}/**/*.sarif', matrix.language)) != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

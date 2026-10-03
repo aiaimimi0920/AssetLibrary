@@ -22,4 +22,5 @@ jobs:
       security-events: write
       pull-requests: read
     uses: ./.github/workflows/security-policy.yml
-    secrets: inherit
+    with:
+      development-advisory: ${{ !startsWith(github.ref, 'refs/tags/') }}
