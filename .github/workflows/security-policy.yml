@@ -254,34 +254,41 @@ jobs:
         env:
           DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
         run: |
-          mkdir -p release/evidence .tmp
-          cp -a deploy .tmp/iac-source
-          for environment in staging production; do
-            cp ".tmp/iac-source/tofu/environments/$environment/terraform.tfvars.example" \
-              ".tmp/iac-source/tofu/environments/$environment/terraform.tfvars"
-          done
-          set +e
-          docker run --rm \
-            -v "$PWD:/src:ro" \
-            -v "$PWD/release/evidence:/evidence" \
-            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
-            config --exit-code 42 --include-non-failures --severity MEDIUM,HIGH,CRITICAL \
-            --helm-values /src/deploy/helm/values-ci.yaml \
-            --helm-values /src/deploy/helm/values-observability-ci.yaml \
-            --helm-values /src/deploy/helm/values-progressive-ci.yaml \
-            --format json --output /evidence/trivy-iac.json /src/.tmp/iac-source \
-            > release/evidence/trivy-iac.log 2>&1
-          status=$?
-          set -e
-          printf '%s\n' "$status" > release/evidence/trivy-iac.exit
-          if grep -Eq 'WARN|ERROR|FATAL|Skipping chart' release/evidence/trivy-iac.log; then
-            echo "::error::Trivy emitted a coverage or execution diagnostic; see the retained log"
-            exit 2
-          fi
+          mkdir -p release/evidence
+          image="aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969"
+          docker pull "$image"
           args=()
           if [[ "$DEVELOPMENT_ADVISORY" != true ]]; then args+=(--strict); fi
-          python3 scripts/security_findings.py trivy --report release/evidence/trivy-iac.json \
-            --exit-code "$status" "${args[@]}"
+          failed=0
+          for scope in platform staging production; do
+            scan_args=(--skip-dirs /src/deploy/tofu
+              --helm-values /src/deploy/helm/values-ci.yaml
+              --helm-values /src/deploy/helm/values-observability-ci.yaml
+              --helm-values /src/deploy/helm/values-progressive-ci.yaml)
+            target=/src/deploy
+            if [[ "$scope" != platform ]]; then
+              target="/src/deploy/tofu/environments/$scope"
+              scan_args=(--tf-vars "$target/terraform.tfvars.example")
+            fi
+            report="release/evidence/trivy-$scope"
+            set +e
+            docker run --rm -v "$PWD:/src:ro" -v "$PWD/release/evidence:/evidence" "$image" \
+              config --exit-code 42 --include-non-failures --severity MEDIUM,HIGH,CRITICAL \
+              "${scan_args[@]}" --format json --output "/evidence/trivy-$scope.json" "$target" \
+              > "$report.log" 2>&1
+            status=$?
+            set -e
+            printf '%s\n' "$status" > "$report.exit"
+            if grep -Eq 'WARN|ERROR|FATAL|Skipping chart' "$report.log"; then
+              grep -E 'WARN|ERROR|FATAL|Skipping chart' "$report.log"
+              echo "::error::Trivy emitted a coverage or execution diagnostic for $scope"
+              failed=1
+              continue
+            fi
+            python3 scripts/security_findings.py trivy --report "$report.json" \
+              --exit-code "$status" "${args[@]}" || failed=1
+          done
+          exit "$failed"
       - name: Upload IaC evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
