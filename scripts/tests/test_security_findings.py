@@ -30,7 +30,7 @@ class ReportContract(unittest.TestCase):
     def test_iac_inventory_and_exits(self):
         data = {"SchemaVersion": 2, "Results": [{
             "Target": "deploy/example.yaml", "Class": "config",
-            "MisconfSummary": {"Successes": 1, "Failures": 1, "Exceptions": 0},
+            "MisconfSummary": {"Successes": 1, "Failures": 1},
             "Misconfigurations": [{"ID": "AVD-test", "Status": "FAIL"}]}]}
         self.assertEqual(classify("trivy", data, 42)["finding_count"], 1)
         for bad in ({}, {"SchemaVersion": 2, "Results": []}):

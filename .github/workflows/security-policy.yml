@@ -254,17 +254,30 @@ jobs:
         env:
           DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
         run: |
-          mkdir -p release/evidence
+          mkdir -p release/evidence .tmp
+          cp -a deploy .tmp/iac-source
+          for environment in staging production; do
+            cp ".tmp/iac-source/tofu/environments/$environment/terraform.tfvars.example" \
+              ".tmp/iac-source/tofu/environments/$environment/terraform.tfvars"
+          done
           set +e
           docker run --rm \
             -v "$PWD:/src:ro" \
             -v "$PWD/release/evidence:/evidence" \
             aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
             config --exit-code 42 --include-non-failures --severity MEDIUM,HIGH,CRITICAL \
-            --format json --output /evidence/trivy-iac.json /src/deploy
+            --helm-values /src/deploy/helm/values-ci.yaml \
+            --helm-values /src/deploy/helm/values-observability-ci.yaml \
+            --helm-values /src/deploy/helm/values-progressive-ci.yaml \
+            --format json --output /evidence/trivy-iac.json /src/.tmp/iac-source \
+            > release/evidence/trivy-iac.log 2>&1
           status=$?
           set -e
           printf '%s\n' "$status" > release/evidence/trivy-iac.exit
+          if grep -Eq 'WARN|ERROR|FATAL|Skipping chart' release/evidence/trivy-iac.log; then
+            echo "::error::Trivy emitted a coverage or execution diagnostic; see the retained log"
+            exit 2
+          fi
           args=()
           if [[ "$DEVELOPMENT_ADVISORY" != true ]]; then args+=(--strict); fi
           python3 scripts/security_findings.py trivy --report release/evidence/trivy-iac.json \

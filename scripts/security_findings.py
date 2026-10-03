@@ -45,14 +45,16 @@ def classify(kind, data, status):
                 "invalid Trivy report")
         results = data.get("Results")
         require(isinstance(results, list) and len(results) > 0, "empty IaC scan coverage")
+        executed = 0
         for result in results:
             require(result.get("Target") and result.get("Class") == "config",
                     "unexpected IaC result")
             summary = result.get("MisconfSummary")
             require(isinstance(summary, dict) and
-                    all(type(summary.get(k)) is int for k in ("Successes", "Failures", "Exceptions")),
+                    all(type(summary.get(k)) is int for k in ("Successes", "Failures")),
                     "missing IaC check inventory")
-            require(sum(summary.values()) > 0, "no IaC checks executed")
+            require(all(v >= 0 for v in summary.values()), "invalid IaC counts")
+            executed += sum(summary.values())
             rows = result.get("Misconfigurations", [])
             require(isinstance(rows, list), "invalid IaC findings")
             for row in rows:
@@ -61,6 +63,7 @@ def classify(kind, data, status):
                 if row["Status"] == "FAIL":
                     findings.append({"rule": row["ID"], "file": result["Target"],
                                      "severity": row.get("Severity", "UNKNOWN")})
+        require(executed > 0, "no IaC checks executed")
     elif kind == "review":
         require(status == 0 and isinstance(data, dict), "Dependency Review execution failed")
         changes, vulnerable = data.get("changes"), data.get("vulnerable")
@@ -124,7 +127,8 @@ def main():
         print(json.dumps({k: v for k, v in report.items() if k != "findings"}))
         return 1 if args.strict and report["finding_count"] else 0
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
-        print("::error::Scanner execution or report validation failed: " + type(error).__name__)
+        print("::error::Scanner execution or report validation failed: " + type(error).__name__
+              + (": " + str(error) if type(error) is ValueError else ""))
         return 2
 
 
