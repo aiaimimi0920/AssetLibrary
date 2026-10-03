@@ -39,6 +39,7 @@ jobs:
           python3 -m unittest discover -s scripts/tests -p test_security_scan_summary.py
           python3 -m unittest discover -s scripts/tests -p test_sarif_coverage.py
           node --test scripts/tests/codeql-summary.test.mjs
+          python3 -m unittest discover -s scripts/tests -p test_security_findings.py
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -48,9 +49,23 @@ jobs:
         with:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      - id: review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
+          warn-only: ${{ inputs.development-advisory }}
+      - name: Validate and retain Dependency Review outputs
+        env:
+          REVIEW_CHANGES: ${{ steps.review.outputs.dependency-changes }}
+          REVIEW_VULNERABLE: ${{ steps.review.outputs.vulnerable-changes }}
+          REVIEW_SUMMARY: ${{ steps.review.outputs.comment-content }}
+        run: python3 scripts/security_findings.py review --report release/evidence/dependency-review.json --exit-code 0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: dependency-review-${{ github.sha }}
+          path: release/evidence/dependency-review*.json
+          if-no-files-found: error
 
   dependencies:
     needs: report-contract
@@ -196,10 +211,36 @@ jobs:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+      - name: Scan history with verified Gitleaks and a dedicated findings exit
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_COMMENTS: "false"
+          DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
+        run: |
+          mkdir -p release/evidence "$RUNNER_TEMP/gitleaks"
+          curl --fail --silent --show-error --location --retry 2 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check --status
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          test "$(git rev-list --all --count)" -gt 0
+          set +e
+          "$RUNNER_TEMP/gitleaks/gitleaks" git --redact=100 --no-banner --exit-code=42 \
+            --log-opts="--all" --report-format=json --report-path=release/evidence/gitleaks.json . \
+            > release/evidence/gitleaks.log 2>&1
+          status=$?
+          set -e
+          printf '%s\n' "$status" > release/evidence/gitleaks.exit
+          args=()
+          if [[ "$DEVELOPMENT_ADVISORY" != true ]]; then args+=(--strict); fi
+          python3 scripts/security_findings.py gitleaks --report release/evidence/gitleaks.json \
+            --exit-code "$status" "${args[@]}"
+      - name: Retain redacted secret report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-secrets-${{ inputs.source_ref || github.sha }}
+          path: release/evidence/gitleaks*
+          if-no-files-found: error
+          retention-days: 30
 
   iac:
     runs-on: ubuntu-latest
@@ -210,14 +251,24 @@ jobs:
           ref: ${{ inputs.source_ref || github.sha }}
           persist-credentials: false
       - name: Scan deployment configuration
+        env:
+          DEVELOPMENT_ADVISORY: ${{ inputs.development-advisory }}
         run: |
           mkdir -p release/evidence
+          set +e
           docker run --rm \
             -v "$PWD:/src:ro" \
             -v "$PWD/release/evidence:/evidence" \
             aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
-            config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
+            config --exit-code 42 --include-non-failures --severity MEDIUM,HIGH,CRITICAL \
             --format json --output /evidence/trivy-iac.json /src/deploy
+          status=$?
+          set -e
+          printf '%s\n' "$status" > release/evidence/trivy-iac.exit
+          args=()
+          if [[ "$DEVELOPMENT_ADVISORY" != true ]]; then args+=(--strict); fi
+          python3 scripts/security_findings.py trivy --report release/evidence/trivy-iac.json \
+            --exit-code "$status" "${args[@]}"
       - name: Upload IaC evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
