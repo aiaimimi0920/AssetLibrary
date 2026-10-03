@@ -1,0 +1,43 @@
+name: Security Configuration Contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'security/**'
+      - 'scripts/Test-CiPolicy.ps1'
+      - 'scripts/test-security-*.mjs'
+      - 'scripts/*development*quality*'
+      - 'scripts/Test-SourceSize.ps1'
+      - 'scripts/test-dependabot-coverage.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'security/**'
+      - 'scripts/Test-CiPolicy.ps1'
+      - 'scripts/test-security-*.mjs'
+      - 'scripts/*development*quality*'
+      - 'scripts/Test-SourceSize.ps1'
+      - 'scripts/test-dependabot-coverage.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.23.1
+      - name: Verify scanner pins, coverage and release boundaries
+        shell: pwsh
+        run: ./scripts/Test-CiPolicy.ps1
+      - name: Verify quality findings versus execution failures
+        run: |
+          python scripts/test_development_quality.py -v
+          python scripts/test_asset_quality.py -v
