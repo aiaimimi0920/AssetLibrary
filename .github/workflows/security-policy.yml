@@ -102,8 +102,7 @@ jobs:
           set -e
           printf '%s\n' "$version_status" > release/evidence/osv-version.exit
           test "$version_status" -eq 0
-          version="$(cat release/evidence/osv-version.log)"
-          [[ "$version" =~ ^osv-scanner\ version:[[:space:]]*2\.5\.1([[:space:]]|$) ]]
+          grep -Eq '^osv-scanner version:[[:space:]]*2\.5\.1([[:space:]]|$)' release/evidence/osv-version.log
           common=(--rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner
             --cpus=2 --memory=1g --tmpfs /tmp:rw,nosuid,nodev,size=128m
             -v "$PWD:/github/workspace:ro" -w /github/workspace
