@@ -26,4 +26,4 @@ uuid = { version = "1", features = ["serde", "v4"] }
 
 [dev-dependencies]
 ed25519-dalek = "3.0"
-zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }

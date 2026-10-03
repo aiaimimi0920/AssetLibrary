@@ -5,6 +5,10 @@ use std::io::{Cursor, Read, Seek};
 use std::path::{Component, Path};
 use zip::ZipArchive;
 
+#[cfg(test)]
+#[path = "archive_name_tests.rs"]
+mod name_tests;
+
 pub const MAX_ARCHIVE_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub const MAX_ARCHIVE_ENTRIES: usize = 10_000;
 pub const MAX_ENTRY_BYTES: u64 = 2 * 1024 * 1024 * 1024;
@@ -219,11 +223,12 @@ pub fn read_zip_entry_file(
     if maximum_bytes == 0 || !validate_archive_path(entry_name) {
         return Err(ArchiveError::UnsafePath);
     }
-    let file = File::open(path).map_err(|_| ArchiveError::OpenArchive)?;
-    let mut archive = ZipArchive::new(file).map_err(|_| ArchiveError::InvalidArchive)?;
+    let maximum_bytes = maximum_bytes.min(MAX_ENTRY_BYTES);
+    let mut archive = open_entry_archive(path)?;
+    let index = decoded_entry_index(&mut archive, entry_name)?.ok_or(ArchiveError::MissingEntry)?;
     let mut entry = archive
-        .by_name(entry_name)
-        .map_err(|_| ArchiveError::MissingEntry)?;
+        .by_index(index)
+        .map_err(|_| ArchiveError::InvalidArchive)?;
     if entry.is_dir() || entry.size() == 0 || entry.size() > maximum_bytes {
         return Err(ArchiveError::EntryTooLarge);
     }
@@ -244,13 +249,58 @@ pub fn zip_entry_exists_file(path: &Path, entry_name: &str) -> Result<bool, Arch
     if !validate_archive_path(entry_name) {
         return Err(ArchiveError::UnsafePath);
     }
+    let mut archive = open_entry_archive(path)?;
+    Ok(decoded_entry_index(&mut archive, entry_name)?.is_some())
+}
+
+fn open_entry_archive(path: &Path) -> Result<ZipArchive<File>, ArchiveError> {
     let file = File::open(path).map_err(|_| ArchiveError::OpenArchive)?;
-    let mut archive = ZipArchive::new(file).map_err(|_| ArchiveError::InvalidArchive)?;
-    match archive.by_name(entry_name) {
-        Ok(entry) => Ok(!entry.is_dir()),
-        Err(zip::result::ZipError::FileNotFound) => Ok(false),
-        Err(_) => Err(ArchiveError::InvalidArchive),
+    if file
+        .metadata()
+        .map_err(|_| ArchiveError::OpenArchive)?
+        .len()
+        > MAX_ARCHIVE_BYTES
+    {
+        return Err(ArchiveError::CompressedTooLarge);
     }
+    let archive = ZipArchive::new(file).map_err(|_| ArchiveError::InvalidArchive)?;
+    if archive.len() > MAX_ARCHIVE_ENTRIES {
+        return Err(ArchiveError::TooManyEntries);
+    }
+    Ok(archive)
+}
+
+fn decoded_entry_index<R: Read + Seek>(
+    archive: &mut ZipArchive<R>,
+    entry_name: &str,
+) -> Result<Option<usize>, ArchiveError> {
+    // zip 8 indexes raw bytes, whereas manifests and the canonical digest use
+    // decoded names. Inspect metadata without decompressing unrelated entries;
+    // never select a last-wins result for a canonical-name collision.
+    let mut folded_match = false;
+    let mut selected = None;
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index_raw(index)
+            .map_err(|_| ArchiveError::InvalidArchive)?;
+        if entry.is_dir() || !entry.name().eq_ignore_ascii_case(entry_name) {
+            continue;
+        }
+        if folded_match || entry.enclosed_name().is_none() || !validate_archive_path(entry.name()) {
+            return Err(ArchiveError::UnsafePath);
+        }
+        folded_match = true;
+        if entry.is_symlink() {
+            return Err(ArchiveError::SymbolicLink);
+        }
+        if entry.encrypted() {
+            return Err(ArchiveError::Encrypted);
+        }
+        if entry.name() == entry_name {
+            selected = Some(index);
+        }
+    }
+    Ok(selected)
 }
 
 #[cfg(test)]
