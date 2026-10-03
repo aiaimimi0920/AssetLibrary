@@ -96,9 +96,15 @@ jobs:
         run: |
           mkdir -p .tmp/security
           image=ghcr.io/google/osv-scanner@sha256:8108ae94eadea5a02c9bec6e646909d5b790b44bd62d7f5b7f0b1d6d0ffc7734
-          version="$(docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges "$image" --version)"
+          set +e
+          docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner "$image" --version > release/evidence/osv-version.log 2>&1
+          version_status=$?
+          set -e
+          printf '%s\n' "$version_status" > release/evidence/osv-version.exit
+          test "$version_status" -eq 0
+          version="$(cat release/evidence/osv-version.log)"
           [[ "$version" =~ ^osv-scanner\ version:[[:space:]]*2\.5\.1([[:space:]]|$) ]]
-          common=(--rm --read-only --cap-drop=ALL --security-opt=no-new-privileges
+          common=(--rm --read-only --cap-drop=ALL --security-opt=no-new-privileges --entrypoint /osv-scanner
             --cpus=2 --memory=1g --tmpfs /tmp:rw,nosuid,nodev,size=128m
             -v "$PWD:/github/workspace:ro" -w /github/workspace
             -v "$PWD/release/evidence:/evidence")
@@ -109,13 +115,13 @@ jobs:
           set +e
           timeout --signal=TERM --kill-after=30s 600s docker run "${common[@]}" "$image" \
             scan source --all-packages --config=/github/workspace/osv-scanner.toml \
-            --format json --output-file /evidence/osv.json "${locks[@]}" > .tmp/security/osv-json.log 2>&1
+            --format json --output-file /evidence/osv.json "${locks[@]}" > release/evidence/osv-json.log 2>&1
           scanner_status=$?
           reporter_status=-1
           if [[ "$scanner_status" == 0 || "$scanner_status" == 1 ]]; then
             timeout --signal=TERM --kill-after=30s 600s docker run "${common[@]}" "$image" \
               scan source --all-packages --config=/github/workspace/osv-scanner.toml \
-              --format sarif --output-file /evidence/osv.sarif "${locks[@]}" > .tmp/security/osv-sarif.log 2>&1
+              --format sarif --output-file /evidence/osv.sarif "${locks[@]}" > release/evidence/osv-sarif.log 2>&1
             reporter_status=$?
           fi
           set -e

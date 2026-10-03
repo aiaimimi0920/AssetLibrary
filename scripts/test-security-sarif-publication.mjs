@@ -39,3 +39,10 @@ test("publication uses existing permission and scanner pins", () => {
   assert.doesNotMatch(workflow, /contents: write|packages: write|id-token:|pull_request_target/);
   assert.match(read("scripts/Test-CiPolicy.ps1"), /test-security-sarif-publication\.mjs/);
 });
+
+
+test("OSV invokes the binary explicitly and retains failure diagnostics", () => {
+  assert.match(workflow, /common=\(.*--entrypoint \/osv-scanner/);
+  assert.ok(workflow.includes("release/evidence/osv-json.log"));
+  assert.ok(workflow.includes("release/evidence/osv-sarif.log"));
+});
