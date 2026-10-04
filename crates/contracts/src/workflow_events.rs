@@ -24,6 +24,7 @@ pub enum CatalogInvalidationReason {
     ReleasePublished,
     ModerationAction,
     BlockLifted,
+    SigningKeyRevoked,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

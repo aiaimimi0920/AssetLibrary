@@ -98,6 +98,18 @@ jobs:
         run: >-
           cargo test -p assetlibrary-api --locked search_postgres_gate
           -- --ignored --nocapture
+      - name: Signing-key catalog invalidation PostgreSQL gate
+        env:
+          ASSETLIBRARY_KEY_TEST_DATABASE_URL: postgresql://sitemap_test:sitemap-ci-only@127.0.0.1:5432/assetlibrary_sitemap_test
+        run: >-
+          cargo test -p assetlibrary-api --locked signing_key_catalog_gate
+          -- --ignored --nocapture
+      - name: Edge-policy repository PostgreSQL gate
+        env:
+          ASSETLIBRARY_KEY_TEST_DATABASE_URL: postgresql://sitemap_test:sitemap-ci-only@127.0.0.1:5432/assetlibrary_sitemap_test
+        run: >-
+          cargo test -p assetlibrary-indexer-worker --locked edge_policy_repository_gate
+          -- --ignored --nocapture
       - name: Web quality gates
         env:
           REDOCLY_TELEMETRY: "off"

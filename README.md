@@ -143,9 +143,10 @@ or storage implementation.
 A [local same-artifact Art API-to-Edge gate](docs/operations/ART_ISOLATED_FLOW_VALIDATION.md)
 now exercises actual signed multipart upload, Scanner verification, independent
 review/publication, PostgreSQL search, the real Edge handler's downloaded bytes,
-and explicit policy reconciliation after key revocation. It uses isolated local
-storage and development identities; it is not production/cloud acceptance or
-automatic indexer propagation evidence.
+and automatic Outbox/NATS/indexer policy projection after key revocation. It also
+checks dependency-failure retry and old-provider mode rollback. See the optional
+[Edge-policy-only mode](docs/operations/INDEXER_EDGE_POLICY_MODE.md). It uses isolated
+local storage and development identities, not production/cloud acceptance.
 
 ## Repository layout
 

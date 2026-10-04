@@ -110,3 +110,11 @@ against the same pinned disposable PostgreSQL service as the sitemap gate.
 Resource measurements and managed-provider compatibility are separate acceptance
 work. Unit/integration passes do not establish a production RSS number, capacity,
 HA, live migration, provider compatibility or full Hook/Loom integration.
+
+## Optional Edge-only worker
+
+The [Edge-policy-only indexer mode](operations/INDEXER_EDGE_POLICY_MODE.md) retains
+automatic policy/revocation consumption without OpenSearch/Valkey configuration.
+It is explicit, does not change deployment defaults, and has separate processed
+markers/durables. Use its consumer-first upgrade and full-mode rebuild/rollback
+sequence; changing the API search provider alone does not switch the worker.

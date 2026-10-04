@@ -1,6 +1,6 @@
 //! Timeout behaviour of the OpenSearch client against a slow mock node.
 
-use crate::config::Config;
+use crate::config::search::SearchConfig;
 use crate::opensearch::OpenSearch;
 use axum::{
     Json, Router,
@@ -84,9 +84,7 @@ async fn start_mock(delay: Duration) -> (String, Arc<Mock>) {
 }
 
 fn client(base: &str, document_timeout: Duration, management_timeout: Duration) -> OpenSearch {
-    let config = Config {
-        database_url: String::new(),
-        nats_url: String::new(),
+    let config = SearchConfig {
         valkey_url: String::new(),
         opensearch_url: reqwest::Url::parse(base).unwrap(),
         opensearch_username: "admin".to_owned(),
@@ -94,8 +92,6 @@ fn client(base: &str, document_timeout: Duration, management_timeout: Duration) 
         opensearch_allow_invalid_certs: false,
         index_prefix: "assetlibrary-packages-v1".to_owned(),
         alias: "assetlibrary-packages".to_owned(),
-        consumer_name: "assetlibrary-indexer-v1".to_owned(),
-        edge_policy: None,
     };
     OpenSearch::with_timeouts(&config, document_timeout, management_timeout).unwrap()
 }

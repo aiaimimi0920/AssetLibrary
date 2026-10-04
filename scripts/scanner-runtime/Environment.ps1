@@ -1,4 +1,5 @@
 # Own only this run's containers and native workers; never load the repository .env.
+. "$PSScriptRoot/ProcessOutput.ps1"
 function Write-RunJson([string] $Name, $Value) {
     [IO.File]::WriteAllText((Join-Path $Run.Root $Name), ($Value | ConvertTo-Json -Depth 12), $Run.Utf8)
 }
@@ -9,6 +10,12 @@ function ConvertTo-RunArgument([string] $Value) {
 }
 
 function Invoke-RunDocker([string[]] $DockerArguments, [switch] $AllowFailure) {
+    # Record only operation metadata, never arguments (SQL/env may contain secrets).
+    $Run.DockerCounter++
+    $log = "$($Run.Root)/logs/docker-$($Run.DockerCounter)"
+    $record = [ordered]@{ operation = $DockerArguments[0]; status = 'starting'; exit_code = $null
+        stdout_completed = $false; stderr_completed = $false }
+    [IO.File]::WriteAllText("$log.json", ($record | ConvertTo-Json), $Run.Utf8)
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = (Get-Command rtk -CommandType Application).Source
     $start.Arguments = (@(@('proxy', 'docker') + $DockerArguments | ForEach-Object { ConvertTo-RunArgument $_ }) -join ' ')
@@ -18,7 +25,8 @@ function Invoke-RunDocker([string[]] $DockerArguments, [switch] $AllowFailure) {
     $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
     try {
         [void]$process.Start()
-        $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+        $stdout = [AssetLibraryRunOutput]::Read($process.StandardOutput)
+        $stderr = [AssetLibraryRunOutput]::Read($process.StandardError)
         if (-not $process.WaitForExit(45000)) {
             $docker = (Get-Command docker -CommandType Application).Source
             Get-CimInstance Win32_Process -Filter "ParentProcessId=$($process.Id)" | Where-Object {
@@ -28,13 +36,22 @@ function Invoke-RunDocker([string[]] $DockerArguments, [switch] $AllowFailure) {
             [void]$process.WaitForExit(5000)
             throw "Docker $($DockerArguments[0]) exceeded 45 seconds"
         }
-        if (-not $stdout.Wait(5000) -or -not $stderr.Wait(5000)) { throw 'Docker output did not close' }
+        $record.exit_code = $process.ExitCode
+        $record.stdout_completed = $stdout.Wait(5000)
+        $record.stderr_completed = $stderr.Wait(5000)
+        if (-not $record.stdout_completed -or -not $record.stderr_completed) {
+            throw "Docker $($record.operation) output did not close; exit=$($record.exit_code); stdout=$($record.stdout_completed); stderr=$($record.stderr_completed)"
+        }
         $code = $process.ExitCode
         $text = $stdout.Result + $stderr.Result
-    } finally { $process.Dispose() }
+        $record.status = 'completed'
+    } catch { $record.status = 'failed'; throw }
+    finally {
+        [IO.File]::WriteAllText("$log.json", ($record | ConvertTo-Json), $Run.Utf8)
+        $process.Dispose()
+    }
     foreach ($secret in $Run.Secrets) { $text = $text.Replace($secret, '[REDACTED]') }
-    $Run.DockerCounter++
-    [IO.File]::WriteAllText("$($Run.Root)/logs/docker-$($Run.DockerCounter).log", $text, $Run.Utf8)
+    [IO.File]::WriteAllText("$log.log", $text, $Run.Utf8)
     if ($code -ne 0 -and -not $AllowFailure) { throw "Docker $($DockerArguments[0]) failed: exit=$code; see run logs" }
     [pscustomobject]@{ Code = $code; Text = $text.Trim() }
 }
@@ -59,8 +76,9 @@ function Start-RunContainer([string] $Role, [string] $Image, [string[]] $ExtraAr
     $name = "$($Run.Id)-$Role"
     $exists = Invoke-RunDocker @('inspect', $name) -AllowFailure
     if ($exists.Code -eq 0) { throw 'Refusing to replace an existing container' }
+    $network = if ($Run.Network) { $Run.Network } else { $Run.Id }
     $arguments = @('run', '-d', '--pull=never', '--name', $name,
-        '--label', "assetlibrary.test.run=$($Run.Id)", '--network', $Run.Id, '--cpus=1')
+        '--label', "assetlibrary.test.run=$($Run.Id)", '--network', $network, '--cpus=1')
     # Register the unique name before starting: a timed-out client may still have
     # created the daemon-side container. Cleanup must check its ownership label.
     $container = [pscustomobject]@{ Role = $Role; Name = $name; Id = $name; Image = $Image }
@@ -96,7 +114,8 @@ function Start-RunWorker([string] $Label, [string] $Binary, [hashtable] $Setting
     [void]$process.Start()
     $worker = [pscustomobject]@{
         Label = $Label; Process = $process; Binary = $Binary
-        Stdout = $process.StandardOutput.ReadToEndAsync(); Stderr = $process.StandardError.ReadToEndAsync()
+        Stdout = [AssetLibraryRunOutput]::Read($process.StandardOutput)
+        Stderr = [AssetLibraryRunOutput]::Read($process.StandardError)
         Stopped = $false
     }
     $Run.Workers.Add($worker)

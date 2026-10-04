@@ -53,4 +53,13 @@ test("policy is initially empty and only bounded authenticated protocol writes p
   assert.equal((await request("/public/test?ticket=not-allowed")).status, 400);
   assert.equal((await request(policyPath, { method: "DELETE", headers })).status, 200);
   assert.equal((await request("/public/test")).status, 404);
+  assert.equal((await request("/test/policy-state")).status, 401);
+  assert.equal((await request("/test/policy-failure", { method: "POST", headers, body: "invalid" })).status, 400);
+  assert.equal((await request("/test/policy-failure", { method: "POST", headers, body: "true" })).status, 200);
+  assert.equal((await request(policyPath, { method: "PUT", headers, body: "not-applied" })).status, 503);
+  const failed = await (await request("/test/policy-state", { headers })).json();
+  assert.equal(failed.failures, 1); assert.deepEqual(failed.keys, []);
+  assert.equal((await request("/test/policy-failure", { method: "POST", headers, body: "false" })).status, 200);
+  assert.equal((await request(policyPath, { method: "PUT", headers, body: "recovered" })).status, 200);
+  assert.equal(await (await request("/public/test")).text(), "recovered");
 });

@@ -1,6 +1,17 @@
 use reqwest::Url;
 use std::{env, fmt};
 
+#[path = "mode.rs"]
+pub mod mode;
+#[path = "search_config.rs"]
+pub mod search;
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod tests;
+
+use mode::IndexerMode;
+use search::SearchConfig;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Environment {
     Development,
@@ -32,13 +43,8 @@ impl fmt::Debug for EdgePolicyConfig {
 pub struct Config {
     pub database_url: String,
     pub nats_url: String,
-    pub valkey_url: String,
-    pub opensearch_url: Url,
-    pub opensearch_username: String,
-    pub opensearch_password: String,
-    pub opensearch_allow_invalid_certs: bool,
-    pub index_prefix: String,
-    pub alias: String,
+    pub mode: IndexerMode,
+    pub search: Option<SearchConfig>,
     pub consumer_name: String,
     pub edge_policy: Option<EdgePolicyConfig>,
 }
@@ -49,16 +55,8 @@ impl fmt::Debug for Config {
             .debug_struct("Config")
             .field("database_url", &"[REDACTED_URL]")
             .field("nats_url", &"[REDACTED_URL]")
-            .field("valkey_url", &"[REDACTED_URL]")
-            .field("opensearch_url", &self.opensearch_url)
-            .field("opensearch_username", &self.opensearch_username)
-            .field("opensearch_password", &"[REDACTED_SECRET]")
-            .field(
-                "opensearch_allow_invalid_certs",
-                &self.opensearch_allow_invalid_certs,
-            )
-            .field("index_prefix", &self.index_prefix)
-            .field("alias", &self.alias)
+            .field("mode", &self.mode)
+            .field("search", &self.search)
             .field("consumer_name", &self.consumer_name)
             .field("edge_policy", &self.edge_policy)
             .finish()
@@ -67,8 +65,13 @@ impl fmt::Debug for Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, String> {
-        let environment = match env::var("ASSETLIBRARY_ENVIRONMENT")
-            .unwrap_or_else(|_| "development".to_owned())
+        Self::from_lookup(|name| env::var(name).ok())
+    }
+
+    pub fn from_lookup(get: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
+        let mode = IndexerMode::parse(get("ASSETLIBRARY_INDEXER_MODE"))?;
+        let environment = match get("ASSETLIBRARY_ENVIRONMENT")
+            .unwrap_or_else(|| "development".to_owned())
             .as_str()
         {
             "development" => Environment::Development,
@@ -76,32 +79,17 @@ impl Config {
             "production" => Environment::Production,
             value => return Err(format!("unsupported ASSETLIBRARY_ENVIRONMENT: {value}")),
         };
-        let opensearch_url = parse_origin(
-            "ASSETLIBRARY_OPENSEARCH_URL",
-            required("ASSETLIBRARY_OPENSEARCH_URL")?,
-        )?;
-        let allow_invalid = env::var("ASSETLIBRARY_OPENSEARCH_ALLOW_INVALID_CERTS")
-            .is_ok_and(|value| value == "true");
-        let loopback = matches!(opensearch_url.host_str(), Some("127.0.0.1" | "localhost"));
-        if opensearch_url.scheme() != "https" && !loopback {
-            return Err("OpenSearch must use HTTPS outside loopback development".to_owned());
-        }
-        if allow_invalid && !loopback {
-            return Err(
-                "invalid OpenSearch certificates may be accepted only on loopback".to_owned(),
-            );
-        }
         let edge_values = (
-            env::var("ASSETLIBRARY_EDGE_POLICY_ACCOUNT_ID").ok(),
-            env::var("ASSETLIBRARY_EDGE_POLICY_NAMESPACE_ID").ok(),
-            env::var("ASSETLIBRARY_EDGE_POLICY_API_TOKEN").ok(),
+            get("ASSETLIBRARY_EDGE_POLICY_ACCOUNT_ID"),
+            get("ASSETLIBRARY_EDGE_POLICY_NAMESPACE_ID"),
+            get("ASSETLIBRARY_EDGE_POLICY_API_TOKEN"),
         );
         let edge_policy = match edge_values {
             (Some(account_id), Some(namespace_id), Some(api_token)) => Some(EdgePolicyConfig {
                 api_base: parse_origin(
                     "ASSETLIBRARY_EDGE_POLICY_API_BASE",
-                    env::var("ASSETLIBRARY_EDGE_POLICY_API_BASE")
-                        .unwrap_or_else(|_| "https://api.cloudflare.com/client/v4".to_owned()),
+                    get("ASSETLIBRARY_EDGE_POLICY_API_BASE")
+                        .unwrap_or_else(|| "https://api.cloudflare.com/client/v4".to_owned()),
                 )?,
                 account_id: identifier("edge policy account ID", account_id)?,
                 namespace_id: identifier("edge policy namespace ID", namespace_id)?,
@@ -115,15 +103,15 @@ impl Config {
                 );
             }
         };
-        if environment != Environment::Development && edge_policy.is_none() {
-            return Err("edge policy configuration is required outside development".to_owned());
+        if (environment != Environment::Development || mode == IndexerMode::EdgePolicy)
+            && edge_policy.is_none()
+        {
+            return Err("edge policy configuration is required for edge-policy mode and outside development".to_owned());
         }
+        let nats_url = required(&get, "NATS_URL")?;
         if environment != Environment::Development {
-            if !required("NATS_URL")?.starts_with("tls://") {
+            if !nats_url.starts_with("tls://") {
                 return Err("NATS must use TLS outside development".to_owned());
-            }
-            if !required("ASSETLIBRARY_VALKEY_URL")?.starts_with("rediss://") {
-                return Err("Valkey must use TLS outside development".to_owned());
             }
             if edge_policy
                 .as_ref()
@@ -132,37 +120,26 @@ impl Config {
                 return Err("edge policy API must use HTTPS outside development".to_owned());
             }
         }
+        let search = match mode {
+            IndexerMode::SearchEdge => Some(SearchConfig::from_lookup(environment, &get)?),
+            IndexerMode::EdgePolicy => None,
+        };
         Ok(Self {
-            database_url: required("DATABASE_URL")?,
-            nats_url: required("NATS_URL")?,
-            valkey_url: required("ASSETLIBRARY_VALKEY_URL")?,
-            opensearch_url,
-            opensearch_username: required("ASSETLIBRARY_OPENSEARCH_USERNAME")?,
-            opensearch_password: required("ASSETLIBRARY_OPENSEARCH_PASSWORD")?,
-            opensearch_allow_invalid_certs: allow_invalid,
-            index_prefix: safe_name(
-                "index prefix",
-                env::var("ASSETLIBRARY_SEARCH_INDEX_PREFIX")
-                    .unwrap_or_else(|_| "assetlibrary-packages-v1".to_owned()),
-            )?,
-            alias: safe_name(
-                "index alias",
-                env::var("ASSETLIBRARY_SEARCH_ALIAS")
-                    .unwrap_or_else(|_| "assetlibrary-packages".to_owned()),
-            )?,
-            consumer_name: safe_name(
-                "consumer name",
-                env::var("ASSETLIBRARY_INDEXER_CONSUMER")
-                    .unwrap_or_else(|_| "assetlibrary-indexer-v1".to_owned()),
+            database_url: required(&get, "DATABASE_URL")?,
+            nats_url,
+            mode,
+            search,
+            consumer_name: mode.consumer(
+                get("ASSETLIBRARY_INDEXER_CONSUMER")
+                    .unwrap_or_else(|| "assetlibrary-indexer-v1".to_owned()),
             )?,
             edge_policy,
         })
     }
 }
 
-fn required(name: &str) -> Result<String, String> {
-    env::var(name)
-        .ok()
+fn required(get: &impl Fn(&str) -> Option<String>, name: &str) -> Result<String, String> {
+    get(name)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| format!("{name} is required"))
 }

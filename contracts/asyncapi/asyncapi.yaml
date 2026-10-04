@@ -203,7 +203,7 @@ components:
           required: [package_id, reason]
           properties:
             package_id: { type: string, format: uuid }
-            reason: { type: string, enum: [release_published, moderation_action, block_lifted] }
+            reason: { type: string, enum: [release_published, moderation_action, block_lifted, signing_key_revoked] }
     PolicyChangedPayload:
       unevaluatedProperties: false
       allOf:

@@ -12,6 +12,7 @@ mod observability;
 mod public_releases;
 mod public_routes;
 mod publisher;
+mod publisher_key_invalidation;
 mod publisher_mutations;
 mod publisher_package_mutations;
 mod publisher_queries;
