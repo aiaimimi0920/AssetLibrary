@@ -7,6 +7,10 @@ use sqlx::{FromRow, PgPool, Postgres, Transaction};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
 
+#[cfg(test)]
+#[path = "repository_tests.rs"]
+mod tests;
+
 #[derive(FromRow)]
 struct DocumentRow {
     package_id: Uuid,
@@ -80,18 +84,28 @@ impl Repository {
         .await
     }
 
-    pub async fn was_processed(&self, event_id: Uuid) -> Result<bool, sqlx::Error> {
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM projection_events WHERE projection='search-edge-v1' AND event_id=$1)")
-            .bind(event_id).fetch_one(&self.pool).await
+    pub async fn was_processed(
+        &self,
+        projection: &str,
+        event_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM projection_events WHERE projection=$1 AND event_id=$2)",
+        )
+        .bind(projection)
+        .bind(event_id)
+        .fetch_one(&self.pool)
+        .await
     }
 
     pub async fn mark_processed(
         &self,
+        projection: &str,
         event_id: Uuid,
         package_id: Uuid,
     ) -> Result<(), sqlx::Error> {
-        sqlx::query("INSERT INTO projection_events(projection,event_id,aggregate_id) VALUES ('search-edge-v1',$1,$2) ON CONFLICT DO NOTHING")
-            .bind(event_id).bind(package_id).execute(&self.pool).await.map(|_| ())
+        sqlx::query("INSERT INTO projection_events(projection,event_id,aggregate_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING")
+            .bind(projection).bind(event_id).bind(package_id).execute(&self.pool).await.map(|_| ())
     }
 
     pub async fn active_revocations(&self, package_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
@@ -108,6 +122,32 @@ impl Repository {
         .bind(package_id)
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn revoked_signing_keys(
+        &self,
+        package_id: Uuid,
+        after: Option<&str>,
+    ) -> Result<Vec<(String, Uuid)>, sqlx::Error> {
+        sqlx::query_as(
+            "SELECT k.key_id,k.publisher_id FROM publisher_signing_keys k JOIN packages p ON p.publisher_id=k.publisher_id \
+             WHERE p.id=$1 AND k.status='revoked' AND ($2::text IS NULL OR k.key_id COLLATE \"C\">$2) \
+             AND EXISTS (SELECT 1 FROM releases r JOIN artifacts a ON a.release_id=r.id \
+                         WHERE r.package_id=p.id AND a.signature->>'keyId'=k.key_id) \
+             ORDER BY k.key_id COLLATE \"C\" LIMIT 200",
+        )
+        .bind(package_id).bind(after).fetch_all(&self.pool).await
+    }
+
+    pub async fn is_irreversible_key_revocation(
+        &self,
+        package_id: Uuid,
+        target: &str,
+    ) -> Result<bool, sqlx::Error> {
+        sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM publisher_signing_keys k JOIN packages p ON p.publisher_id=k.publisher_id \
+             WHERE p.id=$1 AND k.status='revoked' AND 'revoked:signing_key:'||k.publisher_id::text||':'||k.key_id=$2)",
+        ).bind(package_id).bind(target).fetch_one(&self.pool).await
     }
 
     pub async fn edge_state(&self, package_id: Uuid) -> Result<EdgeState, sqlx::Error> {

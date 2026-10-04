@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::time::Duration;
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::config::search::SearchConfig;
 
 /// Document reads and writes are small and retried by the JetStream consumer,
 /// so they keep a short deadline.
@@ -25,12 +25,12 @@ pub struct OpenSearch {
 }
 
 impl OpenSearch {
-    pub fn new(config: &Config) -> Result<Self, reqwest::Error> {
+    pub fn new(config: &SearchConfig) -> Result<Self, reqwest::Error> {
         Self::with_timeouts(config, DOCUMENT_TIMEOUT, INDEX_MANAGEMENT_TIMEOUT)
     }
 
     pub(crate) fn with_timeouts(
-        config: &Config,
+        config: &SearchConfig,
         document_timeout: Duration,
         management_timeout: Duration,
     ) -> Result<Self, reqwest::Error> {

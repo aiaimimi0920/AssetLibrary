@@ -1,6 +1,6 @@
 # Art 本地同包 API-to-Edge 验收
 
-## 实际通过的闭环
+## 首轮实际通过的闭环（显式 reconcile 历史基线）
 
 2026-10-04 UTC，Windows x64 release API、Scanner、Outbox，配合本轮独立
 PostgreSQL、NATS JetStream、MinIO 和共享 loopback ClamAV，完成同一个签名 Art
@@ -110,3 +110,14 @@ Cloudflare R2/KV/Queue/WAF 和 CDN cache、托管 PostgreSQL/TLS/故障恢复、
 
 这是本地集成验收，不是删掉 NATS/indexer/Valkey 的依据，也不选定托管商/部署
 地点或授权创建付费资源。App Update 和 production eligibility 继续关闭。
+
+## 后续自动传播批次
+
+当前入口已改为生产 indexer 自动消费，不再运行测试 reconcile example。
+新增 Edge-only 模式、真实 policy 故障重投、API key-revoke catalog 事件、
+永久 signing-key deny 和未过期旧 ticket 拒绝，详见
+[INDEXER_EDGE_POLICY_MODE](INDEXER_EDGE_POLICY_MODE.md)。可选旧模式回退另启动
+独立 OpenSearch/Valkey 并检查同事件双 marker、rebuild、旧 provider API 和撤销。
+以上历史 run、旧版本包及未验边界不被覆盖；新批次的 receipt 单独绑定实际源码。
+新批次 `al-art-20261004074041-26eed2`（`run-08`）已通过自动发布、故障自然重投、
+自动撤销与完整模式回退；详细事实和 pipe 调度故障保留记录见上述新文档。

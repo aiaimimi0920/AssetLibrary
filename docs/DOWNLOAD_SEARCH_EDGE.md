@@ -111,6 +111,12 @@ not remove the indexer or any Edge authorization/revocation work below.
 
 ## Default OpenSearch projection
 
+An optional [Edge-policy-only indexer mode](operations/INDEXER_EDGE_POLICY_MODE.md)
+retains automatic authorization/revocation while PostgreSQL serves search, without
+initializing OpenSearch or Valkey. The existing default and rebuild remain below.
+Follow that document's consumer-first upgrade and mode rollback sequence; old
+binaries do not understand the new signing-key invalidation reason.
+
 The indexer consumes `assetlibrary.catalog.invalidated.v1` from one durable
 JetStream consumer. Event payloads are signals only: every projection is loaded
 again from PostgreSQL and validated against the exact publication binding,

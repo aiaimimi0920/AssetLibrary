@@ -218,6 +218,8 @@ pub async fn revoke(
         }),
     )
     .await?;
+    crate::publisher_key_invalidation::emit_revocation(&mut tx, principal, publisher_id, key_id)
+        .await?;
     idempotency::finish(&mut tx, principal, operation, key, &digest, &signing_key).await?;
     tx.commit().await.map_err(|_| WorkflowError::Database)?;
     Ok(signing_key)

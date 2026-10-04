@@ -1,5 +1,5 @@
 # Load the actual Edge implementation, and feed its policy port through the real
-# indexer example. No copied publication SQL, public allowlist or anonymous S3.
+# NATS indexer. No copied publication SQL, public allowlist or anonymous S3.
 function Start-ArtEdge {
     $Run.Node = (Get-Command node -CommandType Application | Select-Object -First 1).Source
     # TypeScript 7's Node launcher spawns a native compiler. Own the resolved EXE
@@ -31,21 +31,6 @@ function Start-ArtEdge {
         catch { $false }
     } 15
     $Run.EdgeOrigin = [IO.File]::ReadAllText($settings.ART_EDGE_ENDPOINT_FILE)
-}
-
-function Invoke-ArtReconcile([string] $Label, [bool] $Eligible) {
-    $settings = @{ DATABASE_URL = $Run.Common.DATABASE_URL; ART_ISOLATED_TEST = 'true'
-        ART_POLICY_ORIGIN = $Run.EdgeOrigin; ART_POLICY_TOKEN = $Run.PolicyToken; ART_PACKAGE_ID = $Run.PackageId }
-    $worker = Start-RunWorker "reconcile-$Label" "$($Run.Repo)/target/release/examples/reconcile_local_policy.exe" $settings
-    if (-not $worker.Process.WaitForExit(25000)) { throw 'Local policy reconcile exceeded deadline' }
-    $code = $worker.Process.ExitCode
-    if (-not $worker.Stdout.Wait(5000)) { throw 'Local policy reconcile output did not close' }
-    $text = $worker.Stdout.GetAwaiter().GetResult()
-    Stop-RunWorker $worker
-    if ($code -ne 0) { throw "Local policy reconcile failed: $Label" }
-    $projection = $text | ConvertFrom-Json
-    if ($projection.eligible -ne $Eligible -or $projection.package_id -ne $Run.PackageId) { throw 'Unexpected policy eligibility' }
-    Write-RunJson "reconcile-$Label.json" $projection
 }
 
 function Test-ArtEdgeDownload($Fixture) {

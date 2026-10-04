@@ -5,18 +5,16 @@ import { fileURLToPath } from "node:url";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createPublishedBucket } from "./s3-bucket.mjs";
-
-const policyPrefix = `/accounts/${"a".repeat(32)}/storage/kv/namespaces/${"b".repeat(32)}/values/`;
-const policyKey = /^(public:[a-f0-9]{64}|revoked:(publisher|package|release|artifact|signing_key|digest):[A-Za-z0-9:-]{1,250})$/;
+import { createPolicyPort } from "./policy-port.mjs";
 
 // Only authenticated Cloudflare-compatible writes populate this initially empty
 // policy port. The harness uses the production indexer reconcile, not allowlists.
 export function createEdgeServer(settings, worker) {
   if (!/^[a-f0-9]{48}$/.test(settings.policyToken)) throw new Error("Invalid test policy token");
-  const policy = new Map();
+  const port = createPolicyPort(settings.policyToken);
   let active = 0;
   const env = {
-    PUBLISHED_BUCKET: settings.bucket, POLICY: { get: async (key) => policy.get(key) ?? null },
+    PUBLISHED_BUCKET: settings.bucket, POLICY: { get: async (key) => port.policy.get(key) ?? null },
     TICKET_SECRET: settings.ticketSecret, TICKET_ISSUER: "isolated-art", TICKET_AUDIENCE: "isolated-edge",
   };
   const server = createServer(async (incoming, outgoing) => {
@@ -29,28 +27,7 @@ export function createEdgeServer(settings, worker) {
       if (url.pathname === "/healthz" && incoming.method === "GET") {
         outgoing.writeHead(200).end("ready"); return;
       }
-      if (url.pathname.startsWith(policyPrefix)) {
-        if (incoming.headers.authorization !== `Bearer ${settings.policyToken}`) {
-          outgoing.writeHead(401).end(); return;
-        }
-        const key = decodeURIComponent(url.pathname.slice(policyPrefix.length));
-        if (!policyKey.test(key) || !["PUT", "DELETE"].includes(incoming.method)) {
-          outgoing.writeHead(400).end(); return;
-        }
-        if (incoming.method === "DELETE") policy.delete(key);
-        else {
-          const chunks = [];
-          let size = 0;
-          for await (const chunk of incoming) {
-            size += chunk.length;
-            if (size > 8192) { outgoing.writeHead(413).end(); return; }
-            chunks.push(chunk);
-          }
-          if (!policy.has(key) && policy.size >= 32) { outgoing.writeHead(507).end(); return; }
-          policy.set(key, Buffer.concat(chunks).toString("utf8"));
-        }
-        outgoing.writeHead(200, { "content-type": "application/json" }).end('{"success":true}'); return;
-      }
+      if (await port.handle(url, incoming, outgoing)) return;
       if (!["GET", "HEAD", "OPTIONS"].includes(incoming.method)) {
         outgoing.writeHead(405).end(); return;
       }

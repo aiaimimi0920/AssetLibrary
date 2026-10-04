@@ -55,6 +55,29 @@ impl EdgePolicy {
             .collect::<BTreeSet<_>>();
         let old_revocations = old.revocation_keys.into_iter().collect::<BTreeSet<_>>();
 
+        // Signing-key revocation is irreversible. These monotonic deny keys are
+        // paged separately, never added to the reversible blocklist snapshot
+        // (which has a 1000-key bound), and never removed by reconciliation.
+        let mut after = None;
+        loop {
+            let keys = repository
+                .revoked_signing_keys(package_id, after.as_deref())
+                .await
+                .map_err(database)?;
+            if keys.is_empty() {
+                break;
+            }
+            for (key, publisher) in &keys {
+                self.put(
+                    &format!("revoked:signing_key:{publisher}:{key}"),
+                    "1",
+                    "text/plain",
+                )
+                .await?;
+            }
+            after = keys.last().map(|value| value.0.clone());
+        }
+
         for key in desired_revocations.difference(&old_revocations) {
             self.put(key, "1", "text/plain").await?;
         }
@@ -77,6 +100,14 @@ impl EdgePolicy {
             }
         }
         for key in old_revocations.difference(&desired_revocations) {
+            if key.starts_with("revoked:signing_key:")
+                && repository
+                    .is_irreversible_key_revocation(package_id, key)
+                    .await
+                    .map_err(database)?
+            {
+                continue;
+            }
             self.delete(key).await?;
         }
         let keys = desired_revocations.into_iter().collect::<Vec<_>>();

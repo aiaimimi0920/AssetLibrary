@@ -70,7 +70,7 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 | 拓扑与容量 | 大规模 Helm/Compose、P8/P9 证据规则已存在 | 小单实例 profile 未交付；配置 requests 不等于 RSS |
 | Hook/Loom | 本仓库有客户端/CLI 与更新基础合同 | EXE 登录与跨仓库包分发/主机激活端到端证据尚未完成 |
 | 生产就绪 | 有本地门禁、部分云烟测和文档证据 | 不等于托管架构已上线；新拓扑完整验收仍缺失 |
-| Art 同包闭环 | [本地 API-to-Edge 验收](docs/operations/ART_ISOLATED_FLOW_VALIDATION.md)通过真实上传、扫描、独立审核发布、PG 搜索、原包下载和显式 reconcile 后撤销 | 开发身份、Node/MinIO ports，不代表账号/Cloudflare/自动 indexer 传播或部署验收 |
+| Art 同包闭环 | [历史 API-to-Edge 验收](docs/operations/ART_ISOLATED_FLOW_VALIDATION.md)保留；新 [Edge-only 自动投影与旧模式回退](docs/operations/INDEXER_EDGE_POLICY_MODE.md)通过真实上传、扫描、独立审核发布、PG 搜索、故障自然重投、原包下载及自动撤销 | 开发身份、Node/MinIO ports；未过期旧票据拒绝和完整模式 rebuild/撤销已本地验证，不代表账号/Cloudflare、容量或部署验收 |
 
 详细已实现能力和历史验收边界仍见 [README](README.md) 及相应操作手册。
 不能用历史本地通过记录代替新代码、当前提交或生产环境证据。
