@@ -61,6 +61,11 @@ local ClamAV service: fail closed while ClamAV is unavailable, retry after
 recovery, immutable-address promotion, duplicate-event acknowledgement without
 new scan evidence, invalid ZIP quarantine and the next successful scan.
 
+The [Windows resource baseline](SCANNER_RESOURCE_BASELINE.md) measures the local
+child with fixed harmless fixtures. Releasing the validated SBOM before reading
+provenance reduces the measured large-JSON peak working set without changing
+inspection results; it is not a general memory limit or whole-stack RSS result.
+
 ## Remaining limits
 
 This adds termination of the local parser process, not a complete OS sandbox,

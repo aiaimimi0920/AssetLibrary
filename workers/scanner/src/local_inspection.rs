@@ -97,6 +97,9 @@ pub fn inspect_local(path: &Path, request: &InspectionRequest) -> InspectionResu
     if sbom.get("bomFormat").and_then(Value::as_str) != Some("CycloneDX") {
         return Err(SbomInvalid);
     }
+    // Only its digest survives verification; do not retain two attestation trees
+    // while parsing the next potentially 8 MiB document.
+    drop(sbom);
     let (provenance, provenance_digest) =
         read_json_attestation(path, "provenance/build-provenance.json")?;
     if !provenance.is_object() {
