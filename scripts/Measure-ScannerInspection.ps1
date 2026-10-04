@@ -67,8 +67,11 @@ try {
     $report.status = 'failed'; $report.error = $_.Exception.Message
     throw
 } finally {
-    $report.samples = @($samples)
-    [IO.File]::WriteAllText("$root/resource-result.json", ($report | ConvertTo-Json -Depth 12), $utf8)
-    $env:TEMP = $oldTemp; $env:TMP = $oldTmp
+    try {
+        $report.samples = @($samples)
+        [IO.File]::WriteAllText("$root/resource-result.json", ($report | ConvertTo-Json -Depth 12), $utf8)
+    } finally {
+        $env:TEMP = $oldTemp; $env:TMP = $oldTmp
+    }
 }
 Write-Output "Scanner inspection measurements passed: $root"

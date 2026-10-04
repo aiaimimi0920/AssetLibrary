@@ -41,7 +41,6 @@ function Invoke-MeasuredInspector([string] $Binary, [string] $Directory) {
         $handle = $process.Handle
         $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
         if (-not $process.WaitForExit(30000)) {
-            $process.Kill(); [void]$process.WaitForExit(5000)
             throw 'Inspector measurement exceeded 30 seconds'
         }
         $watch.Stop()
@@ -54,7 +53,15 @@ function Invoke-MeasuredInspector([string] $Binary, [string] $Directory) {
             peak_query_after_exit = $true
         }
     } finally {
-        if ($started -and -not $process.HasExited) { $process.Kill(); [void]$process.WaitForExit(5000) }
-        $process.Dispose()
+        try {
+            if ($started -and -not $process.HasExited) {
+                try { $process.Kill() }
+                catch { if (-not $process.HasExited) { throw } }
+                if (-not $process.WaitForExit(5000)) { throw 'Inspector cleanup did not exit' }
+            }
+        } finally {
+            # Even a status-query or termination failure must release the handle.
+            $process.Dispose()
+        }
     }
 }

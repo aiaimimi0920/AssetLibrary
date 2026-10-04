@@ -43,10 +43,19 @@ rtk proxy cargo build --locked --release -p assetlibrary-scanner-worker --exampl
 .\scripts\Measure-ScannerInspection.ps1 `
   -EvidenceDirectory 'C:\Users\Public\nas_home\AI\GameEditor\linshi\scanner-resource-new-run' `
   -Repetitions 3
+rtk proxy cargo build --locked --release -p assetlibrary-scanner-worker --example build_signed_fixture
+.\scripts\scanner-runtime\Test-ResourceCleanup.ps1 `
+  -EvidenceDirectory 'C:\Users\Public\nas_home\AI\GameEditor\linshi\scanner-cleanup-new-run'
 ```
 
 目录必须全新且位于指定 `linshi` 内；运行次数限制为 1–5，检查进程最多 30 秒，
 超时后终止并等待退出。环境清空后只传递 Windows `SystemRoot`；不连接真实依赖。
+终止后的等待未确认退出时测量失败；即使状态查询或终止失败也释放进程 handle。
+报告写入失败仍恢复调用会话的 `TEMP`/`TMP`。这不保证 OS 拒绝终止时进程已退出。
+聚焦清理脚本实际注入 31 秒睡眠子进程和只读报告文件，验证 30 秒超时后的退出、
+12 次缺失 EXE 的失败路径、写入失败后的环境恢复，以及随后正常签名 ZIP 的检查。
+进程 handle 释放由嵌套 `finally` 保证并经过源码交叉核验；不把整个 PowerShell 的
+handle 总数变化当作单个检查进程的泄漏证明。
 `-ScannerBinary` 和 `-FixtureBinary` 可显式选择另一版本用于同机对比；报告记录两者
 SHA-256。测试数据和结果保留，不删除已有目录。该脚本不是 OS 配额或父进程崩溃保护。
 
