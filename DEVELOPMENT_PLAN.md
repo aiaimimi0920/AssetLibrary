@@ -67,7 +67,7 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 | 文本搜索 | 默认 OpenSearch + Valkey；已有可选 PG provider | [PG 搜索合同](docs/POSTGRES_SEARCH.md)需逐提交验证；默认部署依赖未删 |
 | 任务/撤销 | PostgreSQL outbox → NATS → worker/indexer → Edge 投影 | 保留现状；可靠队列精简是后续独立设计与验收 |
 | 扫描 | 流式读入、隔离检查、恶意扫描；[检查任务生命周期](docs/operations/SCANNER_LIFECYCLE.md)包含子进程超时终止/回收、串行准入与有界协议；[本地真实依赖验收](docs/operations/SCANNER_DEPENDENCY_VALIDATION.md)通过故障重试、晋升、幂等与异常包隔离；[资源基线](docs/operations/SCANNER_RESOURCE_BASELINE.md)实测 Windows 检查进程，提前释放 SBOM 后特定大 JSON 夹具峰值工作集下降 41.65% | 任意归档/JSON 的最坏峰值、整栈资源、OS 限制/父进程崩溃回收、Linux worker、其他依赖故障及托管/生产环境仍需验证 |
-| 拓扑与容量 | 大规模 Helm/Compose、P8/P9 证据规则已存在 | 小单实例 profile 未交付；配置 requests 不等于 RSS |
+| 拓扑与容量 | 大规模 Helm/Compose、P8/P9 证据规则已存在；[PG + Edge-only 分组件基线](docs/operations/SMALL_CANDIDATE_RESOURCE_BASELINE.md)已实测空闲、一次小包扫描和两客户端查询 | 小单实例 profile 未交付；Scanner child/ClamAV/VM/磁盘峰值及生产容量预算未测；配置 requests 不等于 RSS |
 | Hook/Loom | 本仓库有客户端/CLI 与更新基础合同 | EXE 登录与跨仓库包分发/主机激活端到端证据尚未完成 |
 | 生产就绪 | 有本地门禁、部分云烟测和文档证据 | 不等于托管架构已上线；新拓扑完整验收仍缺失 |
 | Art 同包闭环 | [历史 API-to-Edge 验收](docs/operations/ART_ISOLATED_FLOW_VALIDATION.md)保留；新 [Edge-only 自动投影与旧模式回退](docs/operations/INDEXER_EDGE_POLICY_MODE.md)通过真实上传、扫描、独立审核发布、PG 搜索、故障自然重投、原包下载及自动撤销 | 开发身份、Node/MinIO ports；未过期旧票据拒绝和完整模式 rebuild/撤销已本地验证，不代表账号/Cloudflare、容量或部署验收 |
@@ -131,6 +131,10 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 
 容量输入见 [SLO_CAPACITY](docs/SLO_CAPACITY.md)。先测小规模候选组合的空闲、
 1–2 个并发控制请求、单个扫描和排队恢复；下载带宽另按包体大小、次数和重试估计。
+
+首份 [候选分组件基线](docs/operations/SMALL_CANDIDATE_RESOURCE_BASELINE.md)已通过本地
+同包安全闭环，记录 Windows 工作集/private bytes、累计 CPU 与 Docker CLI 显示值。
+这不是 RSS 全栈峰值或小规模 profile 验收；未测组件和完整恢复/容量负载仍待完成。
 
 扫描只用无害合成夹具，覆盖正常 ZIP、边界内多条目、受限 JSON、可安全拒绝的异常归档，
 以及超时后工作是否仍存活。记录提交、工具链、夹具参数/摘要、并发、峰值 RSS、
