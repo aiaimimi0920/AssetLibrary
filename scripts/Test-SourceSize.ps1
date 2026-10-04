@@ -1,7 +1,7 @@
 param([string] $JsonOutput)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$extensions = @('.rs', '.ts', '.tsx', '.js', '.mjs', '.css', '.ps1', '.tf', '.yaml', '.yml')
+$extensions = @('.rs', '.ts', '.tsx', '.js', '.mjs', '.css', '.cs', '.ps1', '.tf', '.yaml', '.yml')
 $ignoredDirectories = @('node_modules', 'target', '.next', '.terraform', 'coverage', 'dist', '.git')
 $sourceRoots = @('apps', 'crates', 'services', 'workers', 'packages', 'scripts', 'deploy', '.github')
 $violations = @()

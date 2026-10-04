@@ -121,3 +121,8 @@ Cloudflare R2/KV/Queue/WAF 和 CDN cache、托管 PostgreSQL/TLS/故障恢复、
 以上历史 run、旧版本包及未验边界不被覆盖；新批次的 receipt 单独绑定实际源码。
 新批次 `al-art-20261004074041-26eed2`（`run-08`）已通过自动发布、故障自然重投、
 自动撤销与完整模式回退；详细事实和 pipe 调度故障保留记录见上述新文档。
+
+另可传 `-MeasureResources` 观测 PG + Edge-only 候选组合；不得与 rollback 参数
+混用。实测方法、分组件结果和未测范围见
+[SMALL_CANDIDATE_RESOURCE_BASELINE](SMALL_CANDIDATE_RESOURCE_BASELINE.md)。
+这不更改默认部署，也不把本地安全闭环升级为生产容量或预算验收。

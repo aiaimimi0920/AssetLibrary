@@ -5,10 +5,12 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern('^sha256:[0-9a-f]{64}$')][string] $MinioImage,
     [ValidateRange(1,65535)][int] $ClamAvPort = 3310,
     [ValidatePattern('^sha256:[0-9a-f]{64}$')][string] $OpenSearchImage,
-    [ValidatePattern('^sha256:[0-9a-f]{64}$')][string] $ValkeyImage
+    [ValidatePattern('^sha256:[0-9a-f]{64}$')][string] $ValkeyImage,
+    [switch] $MeasureResources
 )
 $ErrorActionPreference = 'Stop'
 if ([bool]$OpenSearchImage -ne [bool]$ValkeyImage) { throw 'Optional rollback requires both image IDs' }
+if ($MeasureResources -and $OpenSearchImage) { throw 'Resource observation cannot include rollback dependencies' }
 $repo = Split-Path -Parent $PSScriptRoot
 $root = [IO.Path]::GetFullPath($EvidenceDirectory).TrimEnd('\', '/')
 $allowed = 'C:\Users\Public\nas_home\AI\GameEditor\linshi\'
@@ -21,12 +23,14 @@ $script:Run = @{
     Secrets = @(); Commands = @{ pg = @(); nats = @('--jetstream','--store_dir=/data','--http_port=8222'); minio = @('server','/data') }
 }
 foreach ($module in @('scanner-runtime/Environment.ps1','scanner-runtime/Fixture.ps1','scanner-runtime/Stack.ps1',
-    'art-runtime/Workflow.ps1','art-runtime/Edge.ps1','art-runtime/Indexer.ps1','art-runtime/Rollback.ps1','art-runtime/Restricted.ps1')) { . "$PSScriptRoot/$module" }
+    'art-runtime/Workflow.ps1','art-runtime/Edge.ps1','art-runtime/Indexer.ps1','art-runtime/Rollback.ps1','art-runtime/Restricted.ps1',
+    'art-runtime/Resources.ps1')) { . "$PSScriptRoot/$module" }
 foreach ($directory in @('', 'logs', 'tmp', 'scanner-temp', 'fixtures', 'postgres', 'nats', 'minio')) {
     [void][IO.Directory]::CreateDirectory((Join-Path $root $directory))
 }
 $result = [ordered]@{ status = 'running'; run_id = $Run.Id; production_ready = $false
-    real_account_or_cloud_tested = $false; automatic_indexer_propagation_tested = $false; rollback_tested = $false }
+    real_account_or_cloud_tested = $false; automatic_indexer_propagation_tested = $false; rollback_tested = $false
+    resource_observation_requested = [bool]$MeasureResources; resource_observation_passed = $false }
 try {
     Start-RunStack $PostgresImage $NatsImage $MinioImage $ClamAvPort
     Initialize-RunSchema -MigrationsOnly
@@ -56,19 +60,22 @@ try {
         try { (Invoke-WebRequest -UseBasicParsing -Uri "$($Run.ApiOrigin)/readyz" -TimeoutSec 2).StatusCode -eq 200 }
         catch { $false }
     } 15
-    New-ArtUploadedFixture $fixture
-    Assert-ArtEdgeDenied "$($Run.EdgeOrigin)/public/sha256/$($fixture.canonical_digest)/neuro-starter-art-1.0.0-dev.zip"
     $scanner = $api.Clone()
     $scanner.ASSETLIBRARY_SCANNER_TEMP_ROOT = "$root/scanner-temp"; $scanner.ASSETLIBRARY_SCANNER_CONSUMER = $Run.Id
     $scanner.ASSETLIBRARY_SCAN_TIMEOUT_SECONDS = '20'; $scanner.ASSETLIBRARY_CLAMAV_ADDRESS = "127.0.0.1:$ClamAvPort"
     Start-RunWorker 'scanner' "$repo/target/release/assetlibrary-scanner-worker.exe" $scanner | Out-Null
     Start-RunWorker 'outbox' "$repo/target/release/assetlibrary-outbox-worker.exe" $Run.Common | Out-Null
+    Wait-RunCondition 'Scanner durable readiness' { $null -ne (Get-ArtIndexerConsumer $Run.Id) } 15
+    if ($MeasureResources) { Start-ArtResourceObservation }
+    New-ArtUploadedFixture $fixture
+    Assert-ArtEdgeDenied "$($Run.EdgeOrigin)/public/sha256/$($fixture.canonical_digest)/neuro-starter-art-1.0.0-dev.zip"
     Wait-RunArtifact $Run.Artifact 'verified'
     $verified = Get-RunArtifactEvidence $Run.Artifact
     if (-not $verified.verification_complete -or $verified.raw_sha256 -ne $fixture.digest -or
         $verified.canonical_sha256 -ne $fixture.canonical_digest -or $verified.verified_events -ne 1 -or
         $verified.session_status -ne 'verified') { throw 'Scanner evidence does not match uploaded artifact' }
     Write-RunJson 'verification.json' $verified
+    if ($MeasureResources) { Complete-ArtScanObservation }
     if ((Get-ArtSearch).items.Count -ne 0) { throw 'Unpublished artifact appeared in PG search' }
     Assert-ArtEdgeDenied "$($Run.EdgeOrigin)/public/sha256/$($fixture.canonical_digest)/neuro-starter-art-1.0.0-dev.zip"
     Set-ArtPolicyFailure $true
@@ -83,6 +90,7 @@ try {
     Wait-ArtProjection 'published' $true $publicationEvent
     Test-ArtEdgeDownload $fixture
     Test-ArtRestrictedDownload $fixture
+    if ($MeasureResources) { Test-ArtTwoClientQueries }
     if ($OpenSearchImage) { Test-ArtIndexerRollback $OpenSearchImage $ValkeyImage $publicationEvent }
     $revoked = Invoke-ArtRequest 'POST' "/v1/me/publishers/$($Run.PublisherId)/signing-keys/local-test-key/revoke" 'art-publisher' @{
         reason = 'Isolated Art revocation test'
@@ -124,8 +132,15 @@ try {
     $result.status = 'failed'; $result.error = $_.Exception.Message
     throw
 } finally {
+    $resourceError = $null
+    try {
+        Stop-ArtResourceObservation ($result.status -eq 'passed')
+        $result.resource_observation_passed = [bool]$MeasureResources -and $result.status -eq 'passed'
+    }
+    catch { $result.status = 'failed'; $result.resource_error = $_.Exception.Message; $resourceError = $_ }
     try { Stop-RunEnvironment; $result.cleanup_passed = $true }
     catch { $result.status = 'failed'; $result.cleanup_passed = $false; $result.cleanup_error = $_.Exception.Message; throw }
     finally { Write-RunJson 'runtime-result.json' $result }
+    if ($resourceError) { throw $resourceError }
 }
 Write-Output "Isolated Art API-to-Edge runtime passed: $root"

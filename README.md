@@ -24,8 +24,11 @@ architecture change.
 
 This is a target, not a completed migration: the current runtime still uses
 OpenSearch/Valkey search and NATS workers. An [optional PostgreSQL public-search provider](docs/POSTGRES_SEARCH.md) is
-available while retaining the old provider/default and Edge revocation path. Small deployment profiles and measured resource results
-remain pending. App Update production admission remains closed.
+available while retaining the old provider/default and Edge revocation path. A local
+[PG + Edge-only component resource baseline](docs/operations/SMALL_CANDIDATE_RESOURCE_BASELINE.md)
+now covers idle, one small scan and two query clients. Small deployment profiles,
+whole-stack peaks and production capacity/budgets remain pending. App Update
+production admission remains closed.
 
 ## Current implementation status
 
