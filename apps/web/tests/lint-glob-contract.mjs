@@ -21,7 +21,7 @@ test("the scoped replacement removes braces without changing other consumers", (
   assert.equal(implementation.name, "tinyglobby");
   assert.equal(implementation.version, "0.2.17");
   const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.pnpm.overrides["@next/eslint-plugin-next@16.3.6>fast-glob"], "npm:tinyglobby@0.2.17");
+  assert.equal(manifest.pnpm.overrides["@next/eslint-plugin-next@16.3.7>fast-glob"], "npm:tinyglobby@0.2.17");
   const lock = readFileSync(new URL("../pnpm-lock.yaml", import.meta.url), "utf8");
   assert.doesNotMatch(lock, /^  (?:braces|micromatch|fast-glob)@/m);
 });
