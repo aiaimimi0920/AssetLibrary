@@ -84,6 +84,7 @@ jobs:
         run: |
           python scripts/development_quality.py rustfmt --output artifacts/quality/format -- cargo fmt --all -- --check
           cargo test --workspace --locked
+          cargo test -p assetlibrary-indexer-worker --locked --example reconcile_local_policy
           node scripts/test-ed25519-webcrypto.mjs
       - name: Public sitemap PostgreSQL projection gate
         env:
@@ -146,6 +147,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm typecheck
           pnpm test
+          node --test ../../scripts/art-runtime/edge-adapter.test.mjs
           pnpm exec wrangler deploy --dry-run --outdir dist
       - name: Repository policy gates
         shell: pwsh
