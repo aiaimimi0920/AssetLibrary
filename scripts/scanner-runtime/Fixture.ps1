@@ -4,11 +4,12 @@ function Invoke-RunSql([string] $Sql) {
         '-d', 'assetlibrary', '-v', 'ON_ERROR_STOP=1', '-A', '-t', '-c', $Sql)).Text
 }
 
-function Initialize-RunSchema {
+function Initialize-RunSchema([switch] $MigrationsOnly) {
     foreach ($migration in (Get-ChildItem -LiteralPath "$($Run.Repo)/migrations" -Filter '*.sql' | Sort-Object Name)) {
         Invoke-RunDocker @('exec', $Run.Postgres, 'psql', '-X', '-q', '-U', 'assetlibrary',
             '-d', 'assetlibrary', '-v', 'ON_ERROR_STOP=1', '-f', "/migrations/$($migration.Name)") | Out-Null
     }
+    if ($MigrationsOnly) { return }
     $sql = @'
 INSERT INTO publishers (id,slug,display_name,status)
 VALUES ('018f47d2-4a75-7fa1-a12b-9a1f19d46ea1','neuro-fixture-publisher','Isolated Scanner Fixture','active');
@@ -62,10 +63,10 @@ jsonb_build_object('event_id','$event','occurred_at',now(),'schema_version','1.0
     Invoke-RunSql $sql | Out-Null
 }
 
-function Wait-RunArtifact($Artifact, [string] $Status) {
+function Wait-RunArtifact($Artifact, [string] $Status, [int] $Seconds = 60) {
     Wait-RunCondition "$($Artifact.Id) becomes $Status" {
         (Invoke-RunSql "SELECT status FROM artifacts WHERE id='$($Artifact.Id)'") -eq $Status
-    }
+    } $Seconds
 }
 
 function Get-RunArtifactEvidence($Artifact) {

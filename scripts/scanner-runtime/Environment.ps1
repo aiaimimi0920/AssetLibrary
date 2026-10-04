@@ -77,9 +77,10 @@ function Get-RunPort([string] $Container, [int] $Port) {
     [int]$Matches[1]
 }
 
-function Start-RunWorker([string] $Label, [string] $Binary, [hashtable] $Settings) {
+function Start-RunWorker([string] $Label, [string] $Binary, [hashtable] $Settings, [string[]] $Arguments = @()) {
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = $Binary
+    $start.Arguments = (@($Arguments | ForEach-Object { ConvertTo-RunArgument $_ }) -join ' ')
     $start.WorkingDirectory = $Run.Root
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
@@ -124,6 +125,18 @@ function Stop-RunWorker($Worker) {
     $Worker.Stopped = $true
 }
 
+function Invoke-RunTool([string] $Label, [string] $Binary, [string[]] $Arguments, [int] $Seconds = 60) {
+    $worker = Start-RunWorker $Label $Binary @{} $Arguments
+    try {
+        if (-not $worker.Process.WaitForExit($Seconds * 1000)) { throw "Run tool exceeded deadline: $Label" }
+        $code = $worker.Process.ExitCode
+        if (-not $worker.Stdout.Wait(5000)) { throw "Run tool output did not close: $Label" }
+        $output = $worker.Stdout.GetAwaiter().GetResult()
+        if ($code -ne 0) { throw "Run tool failed: $Label; exit=$code; see run logs" }
+        $output
+    } finally { Stop-RunWorker $worker }
+}
+
 function Stop-RunEnvironment {
     $errors = @()
     foreach ($worker in $Run.Workers) {
@@ -133,7 +146,9 @@ function Stop-RunEnvironment {
         try {
             $label = Invoke-RunDocker @('inspect', '--format', '{{index .Config.Labels "assetlibrary.test.run"}}', $container.Id)
             if ($label.Text -ne $Run.Id) { throw 'Container ownership label changed' }
-            Invoke-RunDocker @('logs', '--tail', '200', $container.Id) | Out-Null
+            # Once ownership is confirmed, diagnostic failure must not skip stop.
+            try { Invoke-RunDocker @('logs', '--tail', '200', $container.Id) | Out-Null }
+            catch { $errors += $_.Exception.Message }
             Invoke-RunDocker @('stop', '--time', '5', $container.Id) | Out-Null
             $state = Invoke-RunDocker @('inspect', '--format', '{{.State.Running}}', $container.Id)
             if ($state.Text -ne 'false') { throw 'Owned container is still running' }
