@@ -2,7 +2,7 @@
 
 The Web lockfile no longer contains `braces` 3.0.3, affected by
 GHSA-vfj7-8cjw-p6xm (CVE-2026-93687). No advisory is ignored and no lint rule is
-disabled. `pnpm` replaces only `@next/eslint-plugin-next@16.3.6>fast-glob` with
+disabled. `pnpm` replaces only `@next/eslint-plugin-next@16.3.7>fast-glob` with
 the existing, integrity-pinned `tinyglobby@0.2.17` implementation.
 
 This is not a general fast-glob drop-in replacement. The pinned Next plugin has
