@@ -1,5 +1,8 @@
 mod config;
 mod event;
+mod inspection_executor;
+mod inspection_process;
+mod local_inspection;
 mod malware;
 mod pipeline;
 mod repository;
@@ -219,8 +222,19 @@ fn retry_delay(delivery: i64) -> Duration {
     Duration::from_secs(2u64.pow(u32::try_from(delivery.clamp(1, 5)).unwrap_or(5)))
 }
 
+fn main() -> Result<(), DynError> {
+    let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+    if arguments.len() == 1 && arguments[0] == "--inspect-local" {
+        return inspection_process::run_child_entry().map_err(Into::into);
+    }
+    if !arguments.is_empty() {
+        return Err(std::io::Error::other("unsupported scanner arguments").into());
+    }
+    run_worker()
+}
+
 #[tokio::main]
-async fn main() -> Result<(), DynError> {
+async fn run_worker() -> Result<(), DynError> {
     let _telemetry = assetlibrary_telemetry::init(
         "assetlibrary-scanner-worker",
         assetlibrary_telemetry::metrics_endpoint_from_env()?,
@@ -275,7 +289,12 @@ async fn main() -> Result<(), DynError> {
     loop {
         tokio::select! {
             _ = tokio::signal::ctrl_c() => break,
-            next = messages.next() => match next {
+            next = async {
+                // Cancellation must kill/reap the previous inspector before
+                // another artifact is claimed or its temporary files are used.
+                pipeline.wait_for_idle().await;
+                messages.next().await
+            } => match next {
                 Some(Ok(message)) => {
                     let handled = Box::pin(handle_message(
                         message,
@@ -293,6 +312,7 @@ async fn main() -> Result<(), DynError> {
             }
         }
     }
+    pipeline.wait_for_idle().await;
     Ok(())
 }
 
