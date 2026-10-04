@@ -2,7 +2,7 @@ use assetlibrary_supply_chain::{canonical_zip_digest, hex_digest, sha256_digest}
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json::json;
-use std::{env, fs, io::Cursor, io::Write, path::Path};
+use std::{fs, io::Cursor, io::Write, path::Path};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
 fn archive(entries: &[(&str, Vec<u8>)]) -> Vec<u8> {
@@ -18,11 +18,16 @@ fn archive(entries: &[(&str, Vec<u8>)]) -> Vec<u8> {
     output.into_inner()
 }
 
+#[cfg(not(test))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = env::args_os()
+    let output = std::env::args_os()
         .nth(1)
         .ok_or("usage: build_signed_fixture <output.zip>")?;
-    let output = Path::new(&output);
+    println!("{}", write_fixture(Path::new(&output))?);
+    Ok(())
+}
+
+pub fn write_fixture(output: &Path) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let manifest = json!({
         "id": "neuro-starter-art",
         "name": "Neuro Starter Art",
@@ -89,14 +94,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let signed = archive(&signed_entries);
     fs::write(output, &signed)?;
-    println!(
-        "{}",
-        serde_json::to_string(&json!({
+    Ok(json!({
             "digest": hex_digest(&sha256_digest(&signed)),
             "canonical_digest": canonical_hex,
             "public_key": hex_digest(&signing_key.verifying_key().to_bytes()),
             "size_bytes": signed.len()
-        }))?
-    );
-    Ok(())
+    }))
 }

@@ -2,7 +2,7 @@
 
 状态：已批准的新目标；运行时迁移尚未完成
 
-更新：2026-10-02。实现基线：`37536ff5717a092730111005f92f8b697370270f`。
+更新：2026-10-04。计划实现基线：`37536ff5717a092730111005f92f8b697370270f`；Scanner 本地验证基于 `3be9d9a2f96e3ed948732acdce04664c11dc7d35` 加未提交增量，精确源码与二进制由版本包清单绑定。
 
 ## 1. 当前决策与优先级
 
@@ -66,7 +66,7 @@ Edge 授权/撤销投影；NATS 连接 outbox、扫描和索引消费；Valkey �
 | 目录列表 | 已从 PostgreSQL 读取并过滤公开可发布对象 | 保持完整授权和撤销过滤 |
 | 文本搜索 | 默认 OpenSearch + Valkey；已有可选 PG provider | [PG 搜索合同](docs/POSTGRES_SEARCH.md)需逐提交验证；默认部署依赖未删 |
 | 任务/撤销 | PostgreSQL outbox → NATS → worker/indexer → Edge 投影 | 保留现状；可靠队列精简是后续独立设计与验收 |
-| 扫描 | 流式读入、隔离检查、恶意扫描等已有实现 | ZIP 中央目录/JSON 峰值、阻塞任务超时后存活及重叠仍需验证 |
+| 扫描 | 流式读入、隔离检查、恶意扫描；[检查任务生命周期](docs/operations/SCANNER_LIFECYCLE.md)已增加本地检查子进程的超时终止/回收、串行准入与有界协议；[本地真实依赖验收](docs/operations/SCANNER_DEPENDENCY_VALIDATION.md)已通过 ClamAV 不可用后的重试、对象晋升、重复事件 ACK 与异常 ZIP 隔离 | ZIP 中央目录/JSON 峰值、OS 资源限制/父进程崩溃回收、Linux worker、其他依赖故障及托管/生产环境仍需验证 |
 | 拓扑与容量 | 大规模 Helm/Compose、P8/P9 证据规则已存在 | 小单实例 profile 未交付；配置 requests 不等于 RSS |
 | Hook/Loom | 本仓库有客户端/CLI 与更新基础合同 | EXE 登录与跨仓库包分发/主机激活端到端证据尚未完成 |
 | 生产就绪 | 有本地门禁、部分云烟测和文档证据 | 不等于托管架构已上线；新拓扑完整验收仍缺失 |
