@@ -4,7 +4,7 @@ import { publishVersion } from "../publications/mutations";
 import { createVersion } from "./create";
 import { decideVersion } from "./decisions";
 import { mayReadReview, type ReviewConfig, reviewers } from "./policy";
-import { listVersions } from "./queries";
+import { listReviews, listVersions } from "./queries";
 import { loadVersion, versionView } from "./records";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -16,6 +16,10 @@ export async function versionRoutes(request: Request, env: VersionEnv, principal
   const parts = new URL(request.url).pathname.split("/");
   const method = request.method;
   if (parts[1] !== "v1") return null;
+  if (parts[2] === "reviews") {
+    if (parts.length !== 3 || method !== "GET") throw new HttpError(404, "NOT_FOUND");
+    return listReviews(env.DB, env, principal, new URL(request.url));
+  }
   if (
     parts[2] === "resources" &&
     parts.length === 5 &&

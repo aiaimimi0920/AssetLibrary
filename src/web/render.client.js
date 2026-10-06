@@ -106,9 +106,30 @@ export function workspace(state, handlers) {
   }
 }
 
+export function reviewQueue(state, select) {
+  const container = element("reviews");
+  container.replaceChildren();
+  element("reviews-state").textContent = state.reviewStatus;
+  for (const version of state.reviews) {
+    const row = text("div", "", "row");
+    row.append(text("p", `${version.snapshot.title} · ${version.label}`, "status"));
+    row.append(text("p", `提交者：${version.owner} · 版本 ID：${version.id}`, "muted"));
+    row.append(
+      text(
+        "p",
+        version.bindingCurrent ? "待独立审核" : "绑定已变化，不能批准，可查看后拒绝",
+        "muted",
+      ),
+    );
+    row.append(action("查看并审核", () => select(version.id)));
+    container.append(row);
+  }
+}
+
 export function clearView(state) {
   resources(state, () => {});
   workspace(state, {});
+  reviewQueue(state, () => {});
   element("session-state").textContent = "未连接身份";
   element("review-id").value = "";
   element("review-reason").value = "";

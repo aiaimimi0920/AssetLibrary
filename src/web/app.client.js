@@ -15,6 +15,7 @@ import {
   notice,
   resources,
   restoreFocus,
+  reviewQueue,
   workspace,
 } from "./render.client.js";
 import { confirmUploadClosed, uploadPackage } from "./upload.client.js";
@@ -28,6 +29,8 @@ function empty() {
     versions: [],
     inspections: {},
     reviewed: null,
+    reviews: [],
+    reviewStatus: "尚未读取审核待办。",
     cursors: {},
   };
 }
@@ -39,7 +42,7 @@ function controls() {
   for (const button of document.querySelectorAll("[data-protected]"))
     button.disabled = !!job || !connected();
   for (const button of document.querySelectorAll("[data-public]")) button.disabled = !!job;
-  for (const name of ["resources", "uploads", "versions"])
+  for (const name of ["resources", "uploads", "versions", "reviews"])
     element(`more-${name}`).disabled = !!job || !connected() || !state.cursors[name];
   for (const form of ["upload-form", "version-form"])
     formControls(
@@ -130,11 +133,39 @@ function select(id) {
   }, "已读取当前资源。");
 }
 async function readVersion(id, signal) {
+  state.reviewed = null;
+  element("review-detail").textContent = "正在读取当前版本事实…";
+  controls();
   const version = await api(`/v1/versions/${id}`, { signal });
   state.reviewed = version;
   element("review-id").value = id;
   facts("review-detail", version);
   controls();
+}
+async function listReviews(signal, after = "") {
+  const current = state;
+  // 失败或取消时不保留可能已失权的旧待办，也不能把失败伪装成空队列。
+  state.reviews = [];
+  state.cursors.reviews = null;
+  state.reviewStatus = "正在读取审核待办…";
+  reviewQueue(state, handlers.readVersion);
+  try {
+    const page = await api(`/v1/reviews?limit=20${after ? `&after=${after}` : ""}`, { signal });
+    state.reviews = page.items;
+    state.cursors.reviews = page.nextCursor;
+    state.reviewStatus = page.items.length
+      ? `本页 ${page.items.length} 项待办；进入详情后重新读取当前事实。`
+      : "当前页没有可审核的待办；刷新从第一页重新查询。";
+  } catch (error) {
+    if (state !== current || signal.aborted || !connected()) throw error;
+    state.reviewStatus = `审核待办读取失败：${error.message}`;
+    throw error;
+  } finally {
+    if (state === current) {
+      if (signal.aborted && connected()) state.reviewStatus = "读取已停止，请重新读取审核待办。";
+      reviewQueue(state, handlers.readVersion);
+    }
+  }
 }
 const handlers = {
   inspection: (id) =>
@@ -225,6 +256,12 @@ button(
   "已读取下一页资源。",
 );
 button("refresh-workspace", refreshWorkspace, "当前资源已刷新。");
+button("refresh-reviews", (signal) => listReviews(signal), "已读取当前审核待办。");
+button(
+  "more-reviews",
+  (signal) => listReviews(signal, state.cursors.reviews),
+  "已读取下一页审核待办。",
+);
 for (const name of ["uploads", "versions"])
   button(
     `more-${name}`,
@@ -309,6 +346,9 @@ form(
       signal,
     });
     await readVersion(version.id, signal);
+    state.reviews = state.reviews.filter((item) => item.id !== version.id);
+    state.reviewStatus = "审核决定已记录，已移除当前待办；刷新可获取其他最新变化。";
+    reviewQueue(state, handlers.readVersion);
   },
   "独立审核决定已记录；批准不自动开放发布。",
 );

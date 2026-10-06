@@ -33,6 +33,7 @@
         <p class="muted">凭据仅在本页内存中使用；不保存到浏览器存储，不提供模拟登录。</p>
         <nav class="section-links" aria-label="工作区章节">
           <a href="#resource-heading">上传与版本</a>
+          <a href="#review-heading">独立审核待办</a>
           <a href="#distribution-heading">分发目录与资源库</a>
           <a href="#publication-heading">发布与下载授权</a>
         </nav>
@@ -149,11 +150,15 @@
         </section>
         <section aria-labelledby="review-heading">
           <p class="kicker">03 / 独立审核</p>
-          <h3 id="review-heading">按版本 ID 查看与审核</h3>
+          <h3 id="review-heading">独立审核待办</h3>
           <p class="muted">
-            将版本 ID 交给配置名单中的另一位审核者。切换身份会清空本页数据。owner
-            不能自审；审核不代表实际预览或新的扫描证明。
+            配置名单中的审核者可直接读取他人的待审核版本，也可按版本 ID 查看。
+            切换身份会清空本页数据。owner 不能自审；审核不代表实际预览或新的扫描证明。
           </p>
+          <button id="refresh-reviews" data-protected type="button" disabled>读取审核待办</button>
+          <p id="reviews-state" class="muted" role="status">尚未读取审核待办。</p>
+          <div id="reviews" class="rows"></div>
+          <button id="more-reviews" data-protected type="button" disabled>下一页审核待办</button>
           <form id="read-version-form" class="toolbar">
             <label for="review-id">版本 ID</label><input id="review-id" required maxlength="36">
             <button data-protected type="submit" disabled>读取版本</button>

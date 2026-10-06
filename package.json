@@ -1,6 +1,6 @@
 {
   "name": "@neuro/assetlibrary",
-  "version": "0.3.0-dev.23",
+  "version": "0.3.0-dev.24",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",

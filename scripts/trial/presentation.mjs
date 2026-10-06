@@ -42,7 +42,7 @@ export async function trialPage(source) {
     <section aria-labelledby="trial-heading">
       <h2 id="trial-heading">本地全流程体验 · 非生产环境</h2>
       <p class="status">虚构身份 / 合成 AV / 假设部署准入。ZIP、PNG、摘要、业务权限、D1/R2 和下载字节真实执行；不是恶意内容安全证明。</p>
-      <p>10001 创建并上传 → 创建版本 → 10002 按版本 ID 审核 → 10001 发布并授权 trial:10003 → 10003 下载 → 10001 撤销或下架。</p>
+      <p>10001 创建并上传 → 创建版本 → 10002 读取审核待办并审核 → 10001 发布并授权 trial:10003 → 10003 下载 → 10001 撤销或下架。</p>
       <div class="toolbar"><a href="/__trial/sample.zip" download="two-png.zip">下载双 PNG 示例包</a><button id="trial-tick" type="button">立即执行检查队列</button><button id="trial-stop" type="button">停止本地体验（保留数据）</button></div>
       <p id="trial-tick-state" class="muted" role="status">后台每 2 秒处理一次有界队列；上传后可查询检查。生产阻断字段仍保留，仅本地体验允许发布。</p>
     </section>`,
