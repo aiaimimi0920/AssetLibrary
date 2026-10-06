@@ -1,5 +1,7 @@
 # AssetLibrary 新项目开发规则
 
+新增 [小型软件包完整运行时重开](docs/P6_SOFTWARE_RUNTIME_RESTART.md) 验证：Capability / 应用包在原 D1/R2 目录重开后保留包体、检查、审核、发布和授权事实；撤销后旧票据不因恢复授权复活，下架终态保持。仅测试和证据扩展，`.26` 生产代码/Schema/依赖及云门禁未改；这是受控本地重开，不是云灾备或生产就绪。
+
 ## 当前方向与仓库边界
 
 最新 `.26` 已实现 [Capability / 小型应用包闭环](docs/P3_SOFTWARE_PACKAGES.md)：两类受限 ZIP 清单/实际文件/大小/摘要与资源策略绑定，复用 AV、版本、独立审核和本地授权分发。新增 `pack:software`，Web 三类型选择、匹配策略与 trial 示例；完整本地测试 281 项通过。单文件 1 MiB、整包 8 MiB 预算不扩大；不执行载荷，不冒称 Loom 签名/安装或大型应用包支持。`dev` / `db:local` 改用 `../../linshi/assetlibrary-software-local-v1`；旧本地与云库保留，不将新 Worker 直接指向旧 Schema。正式账号、原生安全/网络边界及生产准入仍延期，不改云资源。

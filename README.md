@@ -1,5 +1,7 @@
 # AssetLibrary
 
+新增 [小型软件包完整运行时重开](docs/P6_SOFTWARE_RUNTIME_RESTART.md) 验证：Capability / 应用包在原 D1/R2 目录重开后保留包体、检查、审核、发布和授权事实；撤销后旧票据不因恢复授权复活，下架终态保持。仅测试和证据扩展，`.26` 生产代码/Schema/依赖及云门禁未改；这是受控本地重开，不是云灾备或生产就绪。
+
 最新 `0.3.0-dev.26` 接通 [Capability / 小型应用包](docs/P3_SOFTWARE_PACKAGES.md)：`pack:software` → 私有上传 → 类型绑定的 ZIP/清单/实际文件大小及 SHA-256 检查 → 内部 AV → 不可变版本和独立审核 → 本地授权下载。网页可选择三类资源并约束匹配策略，`pnpm trial` 提供两种新的无害示例。整包最多 8 MiB、单载荷最多 1 MiB；这不是 Loom 安装/签名合同，也不支持大型应用包。正式账号与生产安全/网络准入仍延期，未部署云资源；验证与交付证据见该文档。
 
 当前活动项目已新增 [GitHub CI](docs/CI.md)，覆盖格式、类型、行数、Worker 本地测试、活动依赖审计与增量秘密扫描；`main` 的 [验证运行](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 已通过两个 job。旧 workflow 仍只在 `old/` 中；CI 不部署 Worker，也不更改生产准入。
