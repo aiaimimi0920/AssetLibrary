@@ -9,9 +9,16 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
     for (const [url, type] of [
       ["/", "text/html"],
       ["/style.css", "text/css"],
-      ...["app", "api", "render", "upload", "distribution", "distribution-render", "download"].map(
-        (name) => [`/${name}.client.js`, "text/javascript"],
-      ),
+      ...[
+        "app",
+        "api",
+        "render",
+        "upload",
+        "distribution",
+        "distribution-render",
+        "download",
+        "resource",
+      ].map((name) => [`/${name}.client.js`, "text/javascript"]),
     ]) {
       const response = await f.mf.dispatchFetch(`http://localhost${url}`);
       assert.equal(response.status, 200);

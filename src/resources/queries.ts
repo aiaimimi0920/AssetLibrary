@@ -15,6 +15,24 @@ export async function getResource(db: D1Database, principal: string, id: string)
   return row ? JSON.parse(row.body) : null;
 }
 
+/** owner 查询指定主体的目录权限和同一快照 revision，不泄露其他成员。 */
+export async function getMember(db: D1Database, owner: string, id: string, member: string) {
+  const row = await db
+    .prepare(`SELECT r.revision, EXISTS (SELECT 1 FROM resource_members m
+      WHERE m.resource_id = r.id AND m.principal = ?) AS active
+      FROM resources r WHERE r.id = ? AND r.owner = ? AND r.state = 'draft'`)
+    .bind(member, id, owner)
+    .first<{ revision: number; active: number }>();
+  return row
+    ? {
+        resourceId: id,
+        principal: member,
+        active: row.active === 1,
+        resourceRevision: row.revision,
+      }
+    : null;
+}
+
 export async function listResources(
   db: D1Database,
   principal: string,

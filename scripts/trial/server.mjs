@@ -19,9 +19,16 @@ const forwarded = [
 const assets = new Set([
   "/",
   "/style.css",
-  ...["app", "api", "render", "upload", "distribution", "distribution-render", "download"].map(
-    (name) => `/${name}.client.js`,
-  ),
+  ...[
+    "app",
+    "api",
+    "render",
+    "upload",
+    "distribution",
+    "distribution-render",
+    "download",
+    "resource",
+  ].map((name) => `/${name}.client.js`),
 ]);
 
 function limitedBody(request, maximum) {

@@ -68,6 +68,22 @@
             <span id="resource-state" class="muted">未选择</span>
           </div>
           <pre id="resource-detail" class="facts">请选择左侧资源。</pre>
+          <h4>资源管理（仅 owner）</h4>
+          <form id="resource-edit-form" class="toolbar">
+            <label for="resource-title">资源标题</label><input id="resource-title" maxlength="200" required disabled>
+            <button id="resource-save" data-protected type="submit" disabled>保存标题</button>
+          </form>
+          <button id="resource-close" class="danger" data-protected type="button" disabled>关闭资源（保留历史）</button>
+          <p class="muted">改名、目录权限变更和关闭都会改变资源 revision，使既有版本绑定失效。请在上传审核前设置好目录权限；已发布内容的新下载也会受影响。</p>
+          <form id="member-read-form" class="toolbar">
+            <label for="member-principal">目录读成员 PrincipalRef</label><input id="member-principal" maxlength="200" required disabled>
+            <button data-protected type="submit" disabled>查询目录读权限</button>
+          </form>
+          <pre id="member-detail" class="facts">输入主体并查询目录读权限；此权限不允许上传、审核或下载包体。</pre>
+          <div class="toolbar">
+            <button id="member-grant" data-protected type="button" disabled>授予目录读权限</button>
+            <button id="member-revoke" class="danger" data-protected type="button" disabled>撤销目录读权限</button>
+          </div>
           <form id="upload-form">
             <label for="package-file">多文件 Art ZIP（1–32 张静态 PNG，最多 8 MiB）</label>
             <input id="package-file" type="file" accept=".zip,application/zip" required>

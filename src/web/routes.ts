@@ -5,6 +5,7 @@ import distributionRender from "./distribution-render.client.js";
 import download from "./download.client.js";
 import page from "./index.html";
 import render from "./render.client.js";
+import resource from "./resource.client.js";
 import style from "./style.css";
 import upload from "./upload.client.js";
 
@@ -13,6 +14,7 @@ const assets: Record<string, [string, string]> = {
   "/app.client.js": [app, "text/javascript"],
   "/api.client.js": [api, "text/javascript"],
   "/render.client.js": [render, "text/javascript"],
+  "/resource.client.js": [resource, "text/javascript"],
   "/upload.client.js": [upload, "text/javascript"],
   "/distribution.client.js": [distribution, "text/javascript"],
   "/distribution-render.client.js": [distributionRender, "text/javascript"],

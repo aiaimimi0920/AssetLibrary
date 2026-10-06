@@ -131,6 +131,7 @@ export function clearView(state) {
   workspace(state, {});
   reviewQueue(state, () => {});
   element("session-state").textContent = "未连接身份";
+  element("new-title").value = "";
   element("review-id").value = "";
   element("review-reason").value = "";
   element("package-file").value = "";

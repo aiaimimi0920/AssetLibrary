@@ -97,12 +97,12 @@ export async function build(nativeDirectory) {
   const artifacts = {};
   const webModules = (await readdir(output))
     .filter((file) =>
-      /^[0-9a-f]{40}-(?:index\.html|style\.css|(?:app|api|render|upload|distribution|distribution-render|download)\.client\.js)$/.test(
+      /^[0-9a-f]{40}-(?:index\.html|style\.css|(?:app|api|render|upload|distribution|distribution-render|download|resource)\.client\.js)$/.test(
         file,
       ),
     )
     .sort();
-  if (webModules.length !== 9) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
+  if (webModules.length !== 10) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
   for (const file of [
     "index.js",
     "index.js.map",
@@ -126,7 +126,7 @@ export async function build(nativeDirectory) {
         format: 1,
         version: JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version,
         createdAt: new Date().toISOString(),
-        stage: "P5-independent-review-queue-candidate",
+        stage: "P5-resource-management-candidate",
         cloudDeployed: false,
         modules: Object.fromEntries(webModules.map((name) => [name, "text"])),
         sources,

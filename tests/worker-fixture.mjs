@@ -17,7 +17,7 @@ export async function textModules(bundle) {
       contents: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     };
   }
-  if (Object.keys(modules).length !== 9) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
+  if (Object.keys(modules).length !== 10) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
   return modules;
 }
 

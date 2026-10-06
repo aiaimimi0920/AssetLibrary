@@ -18,6 +18,7 @@ import {
   reviewQueue,
   workspace,
 } from "./render.client.js";
+import { initResourceManagement } from "./resource.client.js";
 import { confirmUploadClosed, uploadPackage } from "./upload.client.js";
 
 function empty() {
@@ -37,6 +38,7 @@ function empty() {
 let state = empty();
 let job = null;
 let distribution;
+let resourceManagement;
 
 function controls() {
   for (const button of document.querySelectorAll("[data-protected]"))
@@ -53,6 +55,7 @@ function controls() {
   element("identity-form").querySelector("button").disabled = !!job;
   element("stop").disabled = !job;
   distribution?.controls(!!job, connected());
+  resourceManagement?.controls(!!job, connected());
 }
 function formControls(id, disabled) {
   for (const control of element(id).querySelectorAll("input,select,textarea,button"))
@@ -97,6 +100,7 @@ function button(id, task, message) {
 function display() {
   resources(state, select);
   workspace(state, handlers);
+  resourceManagement?.show(state.resource, state.principal);
   controls();
 }
 async function listResources(signal, after = "") {
@@ -116,7 +120,19 @@ async function list(name, signal, after = "") {
 }
 async function refreshWorkspace(signal) {
   if (!state.resource) throw new Error("SELECT_RESOURCE_REQUIRED");
-  state.resource = await api(`/v1/resources/${state.resource.id}`, { signal });
+  try {
+    state.resource = await api(`/v1/resources/${state.resource.id}`, { signal });
+  } catch (error) {
+    if (error.status === 404) {
+      state.resource = null;
+      state.uploads = [];
+      state.versions = [];
+      state.cursors.uploads = null;
+      state.cursors.versions = null;
+      display();
+    }
+    throw error;
+  }
   state.inspections = {};
   if (state.resource.owner === state.principal)
     await Promise.all([list("uploads", signal), list("versions", signal)]);
@@ -217,6 +233,7 @@ form(
     state = empty();
     clearView(state);
     distribution.reset();
+    resourceManagement.reset();
     try {
       const identity = await api("/v1/me", { signal });
       state.principal = identity.principal;
@@ -227,6 +244,7 @@ form(
       state = empty();
       clearView(state);
       distribution.reset();
+      resourceManagement.reset();
       throw error;
     }
   },
@@ -241,6 +259,7 @@ element("disconnect").addEventListener("click", () => {
   element("confirmation").close("cancel");
   clearView(state);
   distribution.reset();
+  resourceManagement.reset();
   controls();
   notice("身份和当前视图已清除；服务器数据未删除。");
 });
@@ -353,4 +372,25 @@ form(
   "独立审核决定已记录；批准不自动开放发布。",
 );
 distribution = initDistribution({ run, button, form, refreshControls: controls });
+resourceManagement = initResourceManagement({
+  form,
+  button,
+  refreshControls: controls,
+  async changed(signal, result) {
+    const closed = result.state === "deleted";
+    state.reviewed = null;
+    element("review-id").value = "";
+    element("review-detail").textContent = "资源已变更，请重新读取版本。";
+    distribution.reset();
+    state.resource = closed ? null : result;
+    state.uploads = [];
+    state.versions = [];
+    state.inspections = {};
+    state.cursors.uploads = null;
+    state.cursors.versions = null;
+    display();
+    await listResources(signal);
+    if (!closed) await refreshWorkspace(signal);
+  },
+});
 controls();

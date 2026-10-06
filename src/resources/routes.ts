@@ -1,6 +1,6 @@
 import { exactFields, HttpError, json, principalRef, readJson, revision, title } from "../http";
 import { type Mutation, mutate } from "./mutations";
-import { getResource, listResources } from "./queries";
+import { getMember, getResource, listResources } from "./queries";
 
 const resourceId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -48,7 +48,7 @@ export async function resourceRoutes(request: Request, db: D1Database, principal
     } else if (
       parts.length === 6 &&
       parts[4] === "members" &&
-      (method === "PUT" || method === "DELETE")
+      ["GET", "PUT", "DELETE"].includes(method)
     ) {
       let member: string;
       try {
@@ -57,6 +57,12 @@ export async function resourceRoutes(request: Request, db: D1Database, principal
         throw new HttpError(400, "INVALID_PRINCIPAL");
       }
       if (member === principal) throw new HttpError(400, "OWNER_MEMBERSHIP_IMMUTABLE");
+      if (method === "GET") {
+        if (url.search) throw new HttpError(400, "INVALID_QUERY");
+        const membership = await getMember(db, principal, id, member);
+        if (!membership) throw new HttpError(404, "NOT_FOUND");
+        return json(membership);
+      }
       const body = await readJson(request);
       exactFields(body, ["revision"]);
       input = {
