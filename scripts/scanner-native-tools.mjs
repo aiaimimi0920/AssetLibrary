@@ -11,7 +11,7 @@ export const nativeRevision = "fa59fca15872bb8a914ba4c68188bcc8a502cbdf";
 export const nativeBase =
   "clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0";
 
-/** 固定 argv，不使用 shell；日志、网络和编译等待均有上界，不继承 Git hook/credential 配置。 */
+/** 固定 argv，不使用 shell 或开发机 RTK 包装；日志、网络和编译等待均有上界。 */
 export async function nativeCommand(args, output, name, timeout = 90000) {
   assert(/^[a-z0-9-]+$/.test(name), "NATIVE_LOG_NAME_INVALID");
   const options = {
@@ -29,7 +29,7 @@ export async function nativeCommand(args, output, name, timeout = 90000) {
   console.log(`Native step: ${name}`);
   try {
     return await new Promise((resolve, reject) => {
-      const child = spawn("rtk", ["proxy", ...args], options);
+      const child = spawn(args[0], args.slice(1), options);
       const chunks = [];
       let bytes = 0;
       let failure;
@@ -38,7 +38,7 @@ export async function nativeCommand(args, output, name, timeout = 90000) {
         failure = reason;
         // Windows 的 kill 不回收后代：只终止本次已知 PID 的进程树，不扫其他任务。
         if (child.pid && process.platform === "win32")
-          spawnSync("rtk", ["proxy", "taskkill.exe", "/PID", String(child.pid), "/T", "/F"], {
+          spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
             timeout: 10000,
             stdio: "ignore",
           });

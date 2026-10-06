@@ -4,6 +4,8 @@
 
 `verify` 使用固定 Node 22.23.1、pnpm 10.33.0 和锁文件执行 `pnpm check`、`pnpm typecheck`、`pnpm sizecheck`、`pnpm test` 及 `pnpm audit --audit-level=low`。`pnpm test` 会先对主 Worker 和扫描 Worker 做 `wrangler deploy --dry-run --containers-rollout none`，再运行现有完整测试；不启动 Docker 或真实部署。依赖审计只覆盖当前活动锁文件，不能据此关闭 GitHub 针对整个仓库显示的历史告警。
 
+首次云端 `verify` 暴露了 3 项原生工具测试对开发机 `rtk` 包装器的隐式依赖；命令现直接用固定 argv 和 `spawn` 启动，保留原有日志上限、超时及 Windows 所属进程树清理。Windows 和 Linux 的该组聚焦测试均已通过，不靠跳过测试补绿。
+
 `secret_scan` 沿用旧策略已固定摘要的 Gitleaks 8.30.1，但不把归档旧债伪装成新代码失败：
 
 - 扫描当前 Git 跟踪的全部活动文件，排除静态参考 `old/**`，不会扫描未纳入 Git 的本地凭据、缓存或运行数据。
