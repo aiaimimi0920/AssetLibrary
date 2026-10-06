@@ -143,7 +143,12 @@
           <p id="library-state" class="muted" role="status"></p>
           <div id="library" class="rows"></div>
           <button id="more-library" data-protected type="button" disabled>下一页下载资源库</button>
-          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB 资源 ZIP。停止会丢弃未完成字节，再次下载重新申请授权；保存不等于安装或执行。</p>
+          <p id="download-state" class="muted" role="status" aria-live="polite">没有未完成下载。</p>
+          <div class="toolbar">
+            <button id="resume-download" data-protected type="button" disabled>继续下载</button>
+            <button id="discard-download" type="button" disabled>放弃未完成下载</button>
+          </div>
+          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB 资源 ZIP。传输中断只在当前页保留完整分段，可手动继续并重新申请授权；最多尝试三次，不自动重试。停止、切换身份或放弃会丢弃未完成字节；保存不等于安装或执行。</p>
         </section>
         <section aria-labelledby="publication-heading">
           <p class="kicker">05 / PUBLISHER OPERATIONS</p>

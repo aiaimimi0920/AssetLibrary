@@ -28,6 +28,7 @@ const assets = new Set([
     "distribution",
     "distribution-render",
     "download",
+    "resume-download",
     "resource",
   ].map((name) => `/${name}.client.js`),
 ]);

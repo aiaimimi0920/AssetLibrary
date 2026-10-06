@@ -54,7 +54,7 @@ function controls() {
     );
   formControls("review-form", !!job || !connected() || state.reviewed?.state !== "pending_review");
   element("identity-form").querySelector("button").disabled = !!job;
-  element("stop").disabled = !job;
+  element("stop").disabled = !job && !distribution?.pendingDownload();
   distribution?.controls(!!job, connected());
   resourceManagement?.controls(!!job, connected());
 }
@@ -267,6 +267,7 @@ element("disconnect").addEventListener("click", () => {
 element("stop").addEventListener("click", () => {
   job?.abort();
   stopRequests();
+  controls();
   element("confirmation").close("cancel");
 });
 button("refresh-resources", (signal) => listResources(signal), "资源目录已刷新。");

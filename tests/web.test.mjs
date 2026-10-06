@@ -17,6 +17,7 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
         "distribution",
         "distribution-render",
         "download",
+        "resume-download",
         "resource",
       ].map((name) => [`/${name}.client.js`, "text/javascript"]),
     ]) {

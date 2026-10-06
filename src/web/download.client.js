@@ -55,7 +55,7 @@ export async function readPackage(response, signal, publication, progress = () =
   }
 }
 
-export async function fetchPackage(publication, signal, progress) {
+export function validatePublication(publication) {
   if (
     !uuid.test(publication.id) ||
     !uuid.test(publication.versionId) ||
@@ -65,6 +65,10 @@ export async function fetchPackage(publication, signal, progress) {
     !/^[0-9a-f]{64}$/.test(publication.sha256)
   )
     throw new Error("INVALID_DOWNLOAD_METADATA");
+}
+
+export async function requestDownloadTicket(publication, signal) {
+  validatePublication(publication);
   const ticket = await api(`/v1/publications/${publication.id}/tickets`, {
     method: "POST",
     body: {},
@@ -77,7 +81,12 @@ export async function fetchPackage(publication, signal, progress) {
     !/^[0-9a-f]{64}$/.test(ticket.ticket)
   )
     throw new Error("DOWNLOAD_TICKET_INVALID");
-  return withResponse(path, { ticket: ticket.ticket, signal }, (response, controlled) =>
+  return { path, ticket: ticket.ticket };
+}
+
+export async function fetchPackage(publication, signal, progress) {
+  const { path, ticket } = await requestDownloadTicket(publication, signal);
+  return withResponse(path, { ticket, signal }, (response, controlled) =>
     readPackage(response, controlled, publication, progress),
   );
 }

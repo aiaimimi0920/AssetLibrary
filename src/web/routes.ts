@@ -6,6 +6,7 @@ import download from "./download.client.js";
 import page from "./index.html";
 import render from "./render.client.js";
 import resource from "./resource.client.js";
+import resumeDownload from "./resume-download.client.js";
 import style from "./style.css";
 import upload from "./upload.client.js";
 
@@ -19,6 +20,7 @@ const assets: Record<string, [string, string]> = {
   "/distribution.client.js": [distribution, "text/javascript"],
   "/distribution-render.client.js": [distributionRender, "text/javascript"],
   "/download.client.js": [download, "text/javascript"],
+  "/resume-download.client.js": [resumeDownload, "text/javascript"],
   "/style.css": [style, "text/css"],
 };
 

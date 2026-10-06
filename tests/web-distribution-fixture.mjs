@@ -57,6 +57,12 @@ export async function distributionUi() {
     ["render", render],
     ["distribution-render", display],
     ["download", download],
+    [
+      "resume-download",
+      dataModule(
+        `export const createDownloadTransfer = () => ({ snapshot: () => null, clear: () => {}, fetch: async () => ({blob: null, versionId: null}) });`,
+      ),
+    ],
   ])
     source = source.replace(`from "./${file}.client.js"`, `from ${JSON.stringify(url)}`);
   const { initDistribution } = await import(dataModule(source));

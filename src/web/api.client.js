@@ -2,6 +2,12 @@ let credential = "";
 let generation = 0;
 const controllers = new Set();
 const keys = new Map();
+const stopObservers = new Set();
+
+export function observeRequestStops(observer) {
+  stopObservers.add(observer);
+  return () => stopObservers.delete(observer);
+}
 
 /** 身份不持久化；切换身份主动中止旧请求，旧响应不得进入新主体的视图。 */
 export function setCredential(value) {
@@ -14,6 +20,7 @@ export function connected() {
   return credential.length > 0;
 }
 export function stopRequests() {
+  for (const observer of stopObservers) observer();
   for (const controller of controllers) controller.abort();
 }
 
@@ -59,7 +66,7 @@ export async function withResponse(
     throw new Error("INVALID_API_PATH");
   if (publicRead && (method !== "GET" || !/^\/v1\/catalog(?:\?|\/[0-9a-f-]{36}$|$)/.test(path)))
     throw new Error("INVALID_PUBLIC_API_PATH");
-  // ?????????? Range???????????????? header?
+  // 只为私有包体开放单段 Range，不允许调用方覆盖认证或注入任意 header。
   if (range !== undefined || ifRange !== undefined) {
     const match = typeof range === "string" && /^bytes=([0-9]+)-([0-9]+)$/.exec(range);
     const start = match ? Number(match[1]) : -1;

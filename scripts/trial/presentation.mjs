@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { replaceOnce } from "./bundle.mjs";
 
 export async function trialPage(source) {
+  source = source.replaceAll("\r\n", "\n");
   let page = replaceOnce(
     source,
     '<script type="module" src="/app.client.js"></script>',

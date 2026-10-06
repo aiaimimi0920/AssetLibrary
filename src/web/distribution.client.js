@@ -1,7 +1,9 @@
 import { api } from "./api.client.js";
 import { distributionList, management } from "./distribution-render.client.js";
-import { fetchPackage, savePackage } from "./download.client.js";
-import { confirmAction, element, facts, notice } from "./render.client.js";
+import { savePackage } from "./download.client.js";
+import { confirmAction, element, facts } from "./render.client.js";
+
+import { createDownloadTransfer } from "./resume-download.client.js";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -9,8 +11,17 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 export function initDistribution({ run, button, form, refreshControls }) {
   let managed = null;
   let grant = null;
+  const transfer = createDownloadTransfer((value) => {
+    element("download-state").textContent = value
+      ? `${value.offset} / ${value.total} bytes 已完整接收${value.resumable ? "；可手动继续，或放弃。" : "；正在下载并校验。"}`
+      : "没有未完成下载。";
+    refreshControls();
+  });
   const cursors = { catalog: null, library: null };
   function controls(busy, connected) {
+    const pending = transfer.snapshot();
+    element("resume-download").disabled = busy || !connected || !pending?.resumable;
+    element("discard-download").disabled = busy || !pending;
     element("publication-id").disabled = busy || !connected;
     element("more-catalog").disabled = busy || !cursors.catalog;
     element("more-library").disabled = busy || !connected || !cursors.library;
@@ -28,6 +39,7 @@ export function initDistribution({ run, button, form, refreshControls }) {
     element("grant-revoke").disabled = busy || !connected || !managed || grant?.state !== "active";
   }
   function reset() {
+    transfer.clear();
     managed = null;
     grant = null;
     for (const name of ["catalog", "library"]) {
@@ -116,12 +128,20 @@ export function initDistribution({ run, button, form, refreshControls }) {
     management(managed, grant);
   }
   async function download(publication, signal) {
-    const blob = await fetchPackage(publication, signal, (done, total) =>
-      notice(`正在下载并校验：${done} / ${total} bytes`),
-    );
+    const result = await transfer.fetch(publication, signal);
     signal.throwIfAborted();
-    savePackage(blob, publication.versionId);
+    savePackage(result.blob, result.versionId);
   }
+  button(
+    "resume-download",
+    async (signal) => {
+      const result = await transfer.fetch(null, signal, true);
+      signal.throwIfAborted();
+      savePackage(result.blob, result.versionId);
+    },
+    "包体长度及 SHA-256 已核对，已交给浏览器保存。",
+  );
+  button("discard-download", () => transfer.clear(), "未完成下载字节已丢弃。");
   const handlers = {
     detail: (id) =>
       run(async (signal) => {
@@ -197,5 +217,11 @@ export function initDistribution({ run, button, form, refreshControls }) {
     "下架操作结束；当前发布状态以查询结果为准。",
   );
   reset();
-  return { reset, controls, manage };
+  return {
+    reset,
+    controls,
+    manage,
+    clearDownload: transfer.clear,
+    pendingDownload: () => !!transfer.snapshot(),
+  };
 }
