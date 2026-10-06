@@ -13,3 +13,11 @@
 - 报告只留在 Runner 临时目录且使用 `--redact=100`；发现内容直接失败，不上传原始秘密。
 
 本地受控核验中，完整历史扫描发现 118 项旧记录（116 项旧加密测试夹具、2 项旧部署示例），因此**不能宣称历史无秘密告警**；当前活动跟踪文件快照和上一资源管理提交增量均为零发现。此策略不删除或篡改历史，也不放宽未来提交。[GitHub 运行 37448919866](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 的 `verify` 和 `secret_scan` 已通过，所含完整测试、活动依赖审计和两项秘密检查均为 `success`。分支保护与 required checks 尚未核实；CI 通过不等于 P3–P6 生产验收。
+
+## 2026-10-06 增量扫描基线与分支保护核验
+
+新增 `scripts/ci-secret-range.mjs`：push / pull_request 的基线必须是实际可解析、属于 HEAD 祖先的 40 位提交 SHA；缺失、全零、不可解析或非祖先均明确失败，不再悄悄回退到 HEAD^ 而漏扫多提交推送。手动 workflow_dispatch 明确只扫描当前提交（SHA^!），活动跟踪文件扫描仍独立执行；不是完整历史无秘密证明。初次创建分支或非快进改写历史不会自动取得基线豁免，需要另行审查，不能用手动单提交成功替代推送增量检查。secret_scan 同样固定 Node 22.23.1，不依赖 Runner 偶然预装版本。
+
+五项聚焦通过，包括真实临时 Git 三提交仓库证明完整扫描区间包含两次新增提交、不可解析基线 CLI 非零退出。新增脚本有界 argv、10 秒 Git 超时与 64 KiB 输出限制；不输出扫描内容、凭据或任意环境变量。生产业务源码、依赖锁和云门禁不变。
+
+只读 GitHub 核验：`GET /repos/aiaimimi0920/AssetLibrary/branches/main` 返回 `protected:false`、`protection.enabled:false`、required checks 的 contexts/checks 为空且 enforcement_level 为 off；`GET /repos/aiaimimi0920/AssetLibrary/rulesets` 返回空数组。专用 `/branches/main/protection` 返回 403 `Resource not accessible by integration`，不能据此读到完整管理员配置。以上表明当前可见分支摘要没有强制门禁，不把 CI 通过冒充 required checks 已启用；未修改分支保护、rulesets 或 App 权限。后续管理设置需对应授权和可用管理权限。
