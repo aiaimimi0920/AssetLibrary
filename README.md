@@ -1,5 +1,7 @@
 # AssetLibrary
 
+最新 `0.3.0-dev.26` 接通 [Capability / 小型应用包](docs/P3_SOFTWARE_PACKAGES.md)：`pack:software` → 私有上传 → 类型绑定的 ZIP/清单/实际文件大小及 SHA-256 检查 → 内部 AV → 不可变版本和独立审核 → 本地授权下载。网页可选择三类资源并约束匹配策略，`pnpm trial` 提供两种新的无害示例。整包最多 8 MiB、单载荷最多 1 MiB；这不是 Loom 安装/签名合同，也不支持大型应用包。正式账号与生产安全/网络准入仍延期，未部署云资源；验证与交付证据见该文档。
+
 当前活动项目已新增 [GitHub CI](docs/CI.md)，覆盖格式、类型、行数、Worker 本地测试、活动依赖审计与增量秘密扫描；`main` 的 [验证运行](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 已通过两个 job。旧 workflow 仍只在 `old/` 中；CI 不部署 Worker，也不更改生产准入。
 
 最新 `0.3.0-dev.25` 增加[资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md)：owner 可在“当前资源”改名、关闭、查询并变更指定主体的目录读权限，不再需要手工调用 API。改名和授权会使既有版本绑定失效；目录读权限不等于包体下载授权。`rtk proxy pnpm trial` 可在本地用 10001/10003 演练，正式账号、云部署和生产准入没有因此改变。
@@ -96,7 +98,7 @@ rtk pnpm install --frozen-lockfile --store-dir C:/Users/Public/nas_home/AI/GameE
 rtk pnpm test
 ```
 
-测试自行生成临时签名身份，在本地 workerd/D1/R2 完成真实 API 闭环，结束时关闭自己创建的运行时。没有部署可用的认证或故障旁路。`rtk pnpm build` 当前生成包含主/扫描 Worker、九个 Web Text 模块和 scanner runtime 的唯一候选到 `linshi/assetlibrary-p3-*`，标记 `P5-local-trial-and-streaming-web-candidate`；主/扫描 Worker 仅做 dry-run 打包，显式禁止隐式 Container 构建，不需要运行 Docker，不是旧 Rust EXE。`rtk pnpm test:scanner` 独立构建并验证无网络本地扫描容器，结束清理所属容器且保留镜像与证据。`rtk pnpm pack:art <input-directory>` 生成唯一 Art ZIP 候选，不自动上传或取得安全通过资格。
+测试自行生成临时签名身份，在本地 workerd/D1/R2 完成真实 API 闭环，结束时关闭自己创建的运行时。没有部署可用的认证或故障旁路。`rtk pnpm build` 当前生成包含主/扫描 Worker、十个 Web Text 模块和 scanner runtime 的唯一候选到 `linshi/assetlibrary-p3-*`，标记 `P3-software-packages-local-candidate`；主/扫描 Worker 仅做 dry-run 打包，显式禁止隐式 Container 构建，不需要运行 Docker，不是旧 Rust EXE。`rtk pnpm test:scanner` 独立构建并验证无网络本地扫描容器，结束清理所属容器且保留镜像与证据。`rtk pnpm pack:art <input-directory>` 生成唯一 Art ZIP 候选；软件使用 `rtk pnpm pack:software <input-directory>`。两者都不自动上传或取得安全通过资格。新的 `dev` / `db:local` 使用独占开发路径 `../../linshi/assetlibrary-software-local-v1`，不会更新或清空旧 Schema 数据。
 
 按最新工作顺序，`.19` 公钥轮换、`.20` 运行观测/故障隔离及 `.21` 上传终态恢复已完成本地切片；`.22` 已补完整运行时重启和获准的同包隔离 Cloudflare 恢复/合成身份切片，真实外部账号和完整 P5/P6 退出条件仍开放。以下 **P3.3 生产安全准入** 项保留为生产前待办：原生组件漏洞归属、新镜像完整扫描、新引擎回归与签名时效、新镜像隔离云验收、签名实际切换回滚及资源/网络隔离验证。不手写一份未验证 SBOM 或隐去源码告警补足证明。`.22` 未切换 scanner 镜像，不能替代新镜像的云验证，也不解除生产门禁；当前没有实际成功生产发布或下载，不把合成测试、扫描 clean、格式通过和人工批准等同于生产可分发。不要执行旧 Cargo/Web 命令来代表新项目。
 

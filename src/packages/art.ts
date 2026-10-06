@@ -1,42 +1,23 @@
 import { ContentRejected, inspectPng } from "../inspections/png";
+import { manifestFields, readManifest } from "./manifest";
 import { entryBytes, parseZip } from "./zip";
 
-function fields(value: unknown, allowed: string[]): Record<string, unknown> {
+function manifest(bytes: Uint8Array, count: number) {
+  const body = readManifest(bytes, ["schema", "files"]);
   if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    Object.keys(value).length !== allowed.length ||
-    allowed.some((key) => !Object.hasOwn(value, key))
+    body.schema !== "neuro-art-package-v1" ||
+    !Array.isArray(body.files) ||
+    body.files.length !== count
   )
     throw new ContentRejected("PACKAGE_MANIFEST_INVALID");
-  return value as Record<string, unknown>;
-}
-
-function manifest(bytes: Uint8Array, count: number) {
-  try {
-    if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) throw new Error();
-    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
-    const body = fields(JSON.parse(text), ["schema", "files"]);
-    // 紧凑规范 JSON 消除重复键、数字/转义歧义，不让不同消费者解释成不同清单。
-    if (text !== JSON.stringify(body) && text !== `${JSON.stringify(body)}\n`)
-      throw new ContentRejected("PACKAGE_MANIFEST_NONCANONICAL");
-    if (
-      body.schema !== "neuro-art-package-v1" ||
-      !Array.isArray(body.files) ||
-      body.files.length !== count
-    )
-      throw new Error();
-    return body.files.map((file) => fields(file, ["path", "size", "sha256", "mediaType"]));
-  } catch (error) {
-    if (error instanceof ContentRejected) throw error;
-    throw new ContentRejected("PACKAGE_MANIFEST_INVALID");
-  }
+  return body.files.map((file) => manifestFields(file, ["path", "size", "sha256", "mediaType"]));
 }
 
 /** 一次只解包和检查一个条目，不写入文件系统，不执行任何包内内容。 */
 export async function inspectArtPackage(bytes: Uint8Array) {
   const entries = parseZip(bytes);
+  if (entries.slice(1).some((entry) => !entry.path.toLowerCase().endsWith(".png")))
+    throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
   const first = entries[0];
   if (!first) throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
   const files = manifest(await entryBytes(first), entries.length - 1);

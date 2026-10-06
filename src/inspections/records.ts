@@ -1,7 +1,7 @@
 import { HttpError } from "../http";
+import { inspectionKind, policyKindSql } from "./policy";
 
-export const policy = "art-png-rgba8-v1";
-export const packagePolicy = "art-zip-manifest-v1";
+export { packagePolicy, policy } from "./policy";
 export const maxObjectSize = 1024 * 1024;
 export const maxArchiveSize = 8 * 1024 * 1024;
 export type InspectionState =
@@ -41,14 +41,14 @@ export interface InspectionRow {
 // 此谓词在写入事务内使用；不能用早先的 GET 代替最终准入条件。
 export const currentBinding = `EXISTS (SELECT 1 FROM uploads u JOIN resources r ON r.id = u.resource_id
   WHERE u.id = inspections.upload_id AND u.state = 'quarantined' AND r.state = 'draft'
-  AND r.kind = 'art' AND u.revision = inspections.upload_revision
+  AND r.kind = ${policyKindSql("inspections.policy")} AND u.revision = inspections.upload_revision
   AND u.expected_size = inspections.expected_size AND u.sha256 = inspections.sha256
   AND u.etag = inspections.etag)`;
 
 export function bindingCurrent(row: InspectionRow): boolean {
   return (
     row.resource_state === "draft" &&
-    row.resource_kind === "art" &&
+    row.resource_kind === inspectionKind(row.policy) &&
     row.upload_state === "quarantined" &&
     row.current_upload_revision === row.upload_revision &&
     row.current_size === row.expected_size &&

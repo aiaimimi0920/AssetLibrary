@@ -1,5 +1,4 @@
 import { HttpError, json } from "../http";
-import { scanPolicy } from "../scanner/facts";
 import { currentSnapshot, loadVersion } from "../versions/records";
 import { versionSafety } from "../versions/safety";
 import {
@@ -40,7 +39,7 @@ export async function publishVersion(db: D1Database, id: string, actor: string, 
         operation,
         id,
         revision,
-        scanPolicy,
+        version.inspection_policy,
         actor,
         version.inspection_result,
         safety.scan.expiresAt,

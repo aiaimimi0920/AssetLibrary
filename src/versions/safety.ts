@@ -1,10 +1,5 @@
-import {
-  cloudScanBlocker,
-  parseScanFact,
-  type ScanFact,
-  scanCurrent,
-  scanPolicy,
-} from "../scanner/facts";
+import { inspectionKind, isScanPolicy } from "../inspections/policy";
+import { cloudScanBlocker, parseScanFact, type ScanFact, scanCurrent } from "../scanner/facts";
 import { missingContentCheck } from "./policy";
 import type { VersionRow } from "./records";
 
@@ -18,7 +13,8 @@ export function versionSafety(row: VersionRow) {
     /* 畸形历史事实失败关闭，不影响历史批准状态的查询。 */
   }
   const available =
-    row.inspection_policy === scanPolicy &&
+    isScanPolicy(row.inspection_policy) &&
+    row.kind === inspectionKind(row.inspection_policy) &&
     scan?.verdict === "clean" &&
     scan.sha256 === row.sha256 &&
     scan.size === row.expected_size;
@@ -29,7 +25,7 @@ export function versionSafety(row: VersionRow) {
     cloudValidated: false,
     blocker: current
       ? cloudScanBlocker
-      : row.inspection_policy === scanPolicy
+      : isScanPolicy(row.inspection_policy)
         ? "CONTENT_SCAN_EXPIRED_OR_INVALIDATED"
         : missingContentCheck,
   };

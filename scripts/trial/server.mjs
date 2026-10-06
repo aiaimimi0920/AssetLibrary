@@ -2,6 +2,7 @@ import http from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { packageBytes } from "../../tests/art-package-fixture.mjs";
+import { softwareBytes } from "../../tests/software-package-fixture.mjs";
 import { trialClient, trialPage } from "./presentation.mjs";
 import { identities } from "./runtime.mjs";
 
@@ -47,7 +48,13 @@ function limitedBody(request, maximum) {
 /** 仅监听回环；Host/Origin/Fetch Metadata 限制阻止外部网页借用本地无注册入口。 */
 export async function serveTrial(runtime, { port = 0, onStop } = {}) {
   const client = await trialClient();
-  const sample = packageBytes();
+  const samples = new Map([
+    ["/__trial/sample.zip", { name: "two-png.zip", bytes: packageBytes() }],
+    ...["capability", "application"].map((kind) => [
+      `/__trial/${kind}.zip`,
+      { name: `${kind}.zip`, bytes: softwareBytes(kind) },
+    ]),
+  ]);
   const active = new Set();
   let origin;
   const server = http.createServer(async (request, reply) => {
@@ -83,9 +90,10 @@ export async function serveTrial(runtime, { port = 0, onStop } = {}) {
       const url = new URL(request.url, origin);
       if (url.pathname === "/__trial/client.js" && request.method === "GET")
         return send(200, client, "text/javascript; charset=utf-8");
-      if (url.pathname === "/__trial/sample.zip" && request.method === "GET") {
-        reply.setHeader("content-disposition", 'attachment; filename="two-png.zip"');
-        return send(200, sample, "application/zip");
+      if (samples.has(url.pathname) && request.method === "GET") {
+        const sample = samples.get(url.pathname);
+        reply.setHeader("content-disposition", `attachment; filename="${sample.name}"`);
+        return send(200, sample.bytes, "application/zip");
       }
       if (["/__trial/login", "/__trial/tick", "/__trial/stop"].includes(url.pathname)) {
         if (

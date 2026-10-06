@@ -3,7 +3,7 @@ import { api, withResponse } from "./api.client.js";
 const maxSize = 8 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-/** 仅浏览器在 Art 上限内汇集字节以做 WebCrypto 摘要；Worker 仍流式返回。 */
+/** 仅浏览器在包体上限内汇集字节以做 WebCrypto 摘要；Worker 仍流式返回。 */
 export async function readPackage(response, signal, publication, progress = () => {}) {
   // workerd 的未知长度响应可使用 chunked；有声明时严格核对，无声明时仍逐块计数及验摘要。
   const length = response.headers.get("content-length");
@@ -88,7 +88,7 @@ export function savePackage(blob, versionId) {
   const link = document.createElement("a");
   try {
     link.href = url;
-    link.download = `art-${versionId}.zip`;
+    link.download = `package-${versionId}.zip`;
     document.body.append(link);
     link.click();
   } finally {

@@ -1,15 +1,11 @@
 import { inspectArtPackage } from "../packages/art";
-import { scanArchive, scanPolicy } from "../scanner/client";
+import { inspectSoftwarePackage } from "../packages/software";
+import { scanArchive } from "../scanner/client";
 import { objectMatches } from "../uploads/reconcile";
 import { loadUpload, objectKey, type UploadEnv } from "../uploads/records";
 import { ContentRejected, inspectPng } from "./png";
-import {
-  type InspectionRow,
-  maxArchiveSize,
-  maxObjectSize,
-  packagePolicy,
-  policy,
-} from "./records";
+import { inspectionKind, isScanPolicy } from "./policy";
+import { type InspectionRow, maxArchiveSize, maxObjectSize, policy } from "./records";
 
 /** 仅检查明确策略的受限对象；该缓冲是检查任务，不是元数据或下载路径。 */
 async function readLimited(body: ReadableStream<Uint8Array>, expected: number, limit: number) {
@@ -42,7 +38,8 @@ async function readLimited(body: ReadableStream<Uint8Array>, expected: number, l
 
 export async function inspectObject(env: UploadEnv, row: InspectionRow) {
   const started = performance.now();
-  if (row.policy !== policy && row.policy !== packagePolicy && row.policy !== scanPolicy)
+  const kind = inspectionKind(row.policy);
+  if (!kind || kind !== row.resource_kind)
     throw new ContentRejected("INSPECTION_POLICY_UNAVAILABLE");
   const limit = row.policy === policy ? maxObjectSize : maxArchiveSize;
   if (row.expected_size < 1 || row.expected_size > limit)
@@ -66,8 +63,13 @@ export async function inspectObject(env: UploadEnv, row: InspectionRow) {
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
   if (sha256 !== row.sha256) throw new ContentRejected("OBJECT_DIGEST_MISMATCH");
-  const result = row.policy === policy ? await inspectPng(bytes) : await inspectArtPackage(bytes);
-  const scan = row.policy === scanPolicy ? await scanArchive(env, bytes, sha256) : undefined;
+  const result =
+    row.policy === policy
+      ? await inspectPng(bytes)
+      : kind === "art"
+        ? await inspectArtPackage(bytes)
+        : await inspectSoftwarePackage(bytes, kind);
+  const scan = isScanPolicy(row.policy) ? await scanArchive(env, bytes, sha256) : undefined;
   return {
     ...result,
     ...(scan ? { scan } : {}),

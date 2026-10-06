@@ -1,5 +1,6 @@
 import { HttpError } from "../http";
-import { parseScanFact, scanCurrent, scanPolicy } from "../scanner/facts";
+import { scanPoliciesSql } from "../inspections/policy";
+import { parseScanFact, scanCurrent } from "../scanner/facts";
 import { currentSnapshot } from "../versions/records";
 
 export interface PublicationRow {
@@ -17,6 +18,7 @@ export interface PublicationRow {
   label: string;
   title: string;
   kind: string;
+  inspection_policy: string;
   upload_id: string;
   expected_size: number;
   sha256: string;
@@ -27,9 +29,9 @@ export interface PublicationRow {
 // 所有分发查询复用当前绑定，不用缓存/副本或历史发布状态替代撤销检查。
 export const publicationSelect = `SELECT p.*, r.owner, versions.resource_id,
   versions.label, versions.title, versions.kind, versions.upload_id,
-  versions.expected_size, versions.sha256, versions.etag,
+  versions.expected_size, versions.sha256, versions.etag, versions.inspection_policy,
   CASE WHEN versions.state = 'approved' AND versions.revision = p.version_revision
-    AND versions.inspection_policy = 'art-zip-clamav-v1'
+    AND versions.inspection_policy IN (${scanPoliciesSql})
     AND checked.result = p.scan_result AND ${currentSnapshot} THEN 1 ELSE 0 END AS binding_current
   FROM publications p JOIN versions ON versions.id = p.version_id
   JOIN resources r ON r.id = versions.resource_id
@@ -71,7 +73,7 @@ export function publicationView(row: PublicationRow) {
     revision: row.revision,
     bindingCurrent: row.binding_current === 1,
     scanCurrent: publicationScan(row) !== null,
-    policy: scanPolicy,
+    policy: row.inspection_policy,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -57,7 +57,7 @@ test("真实 Worker/D1/R2：不可变版本、独立批准、发布拒绝及撤�
   );
 });
 
-test("未完成、排队、拒绝或失效 inspection 不能绑定版本；其他资源类型失败关闭", async () => {
+test("未完成、排队、拒绝或失效 inspection 不能绑定版本；软件包也必须先完成对应检查", async () => {
   const upload = await prepared(f);
   assert.equal((await createVersion(f, upload)).body.error, "VERSION_BINDING_NOT_READY");
   await start(f, upload);
@@ -71,7 +71,7 @@ test("未完成、排队、拒绝或失效 inspection 不能绑定版本；其�
   assert.equal((await createVersion(f, rejected)).status, 409);
   for (const kind of ["capability", "application"]) {
     const other = await prepared(f, png(), kind);
-    assert.equal((await createVersion(f, other)).body.error, "VERSION_POLICY_UNAVAILABLE");
+    assert.equal((await createVersion(f, other)).body.error, "VERSION_BINDING_NOT_READY");
   }
   const count = await f.db
     .prepare("SELECT count(*) AS n FROM versions WHERE upload_id IN (?, ?)")

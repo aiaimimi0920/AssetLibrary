@@ -100,7 +100,7 @@ export function parseZip(bytes: Uint8Array): ZipEntry[] {
     )
       throw new ContentRejected("ZIP_PATH_COLLISION");
     paths.add(folded);
-    if (index === 0 ? path !== "manifest.json" : !path.toLowerCase().endsWith(".png"))
+    if (index === 0 && path !== "manifest.json")
       throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
     const limit = index === 0 ? 32768 : 1048576;
     total += size;

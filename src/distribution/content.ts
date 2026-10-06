@@ -59,7 +59,7 @@ export async function downloadContent(
   }
   const headers = new Headers({
     "Content-Type": "application/zip",
-    "Content-Disposition": `attachment; filename="art-${row.version_id}.zip"`,
+    "Content-Disposition": `attachment; filename="package-${row.version_id}.zip"`,
     "Content-Length": String(range?.length ?? row.expected_size),
     "Cache-Control": "private, no-store",
     "Accept-Ranges": "bytes",

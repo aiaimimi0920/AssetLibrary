@@ -1,4 +1,4 @@
-export const scanPolicy = "art-zip-clamav-v1";
+export { scanPolicy } from "../inspections/policy";
 export const cloudScanBlocker = "SCANNER_CLOUD_NOT_VALIDATED";
 export interface ScanFact {
   protocol: "neuro-clamav-v1";

@@ -1,6 +1,6 @@
 import { exactFields, HttpError, json, readJson } from "../http";
-import { scanPolicy } from "../scanner/client";
 import { loadOwned, type UploadEnv } from "../uploads/records";
+import { inspectionKind } from "./policy";
 import {
   findInspection,
   inspectionEvent,
@@ -8,7 +8,6 @@ import {
   loadInspection,
   maxArchiveSize,
   maxObjectSize,
-  packagePolicy,
   policy,
 } from "./records";
 
@@ -29,15 +28,11 @@ export async function inspectionRoutes(
   const body = await readJson(request);
   exactFields(body, ["policy"]);
   const requestedPolicy = body.policy === undefined ? policy : body.policy;
-  if (
-    requestedPolicy !== policy &&
-    requestedPolicy !== packagePolicy &&
-    requestedPolicy !== scanPolicy
-  )
-    throw new HttpError(422, "INSPECTION_POLICY_UNAVAILABLE");
+  const kind = inspectionKind(requestedPolicy);
+  if (!kind) throw new HttpError(422, "INSPECTION_POLICY_UNAVAILABLE");
   if (upload.state !== "quarantined" || upload.resource_state !== "draft")
     throw new HttpError(409, "INSPECTION_NOT_ELIGIBLE");
-  if (upload.resource_kind !== "art") throw new HttpError(422, "INSPECTION_POLICY_UNAVAILABLE");
+  if (upload.resource_kind !== kind) throw new HttpError(422, "INSPECTION_POLICY_UNAVAILABLE");
   const limit = requestedPolicy === policy ? maxObjectSize : maxArchiveSize;
   if (upload.expected_size > limit) {
     const prior = await findInspection(env.DB, upload.id);
@@ -53,7 +48,7 @@ export async function inspectionRoutes(
       sha256, etag, state, revision, attempts, lease_until, next_attempt_at, created_at, updated_at, last_operation)
       SELECT ?, u.id, ?, u.revision, u.expected_size, u.sha256, u.etag, 'queued', 1, 0, 0, ?, ?, ?, ?
       FROM uploads u JOIN resources r ON r.id = u.resource_id WHERE u.id = ? AND u.owner = ?
-      AND u.state = 'quarantined' AND u.etag IS NOT NULL AND r.state = 'draft' AND r.kind = 'art'
+      AND u.state = 'quarantined' AND u.etag IS NOT NULL AND r.state = 'draft' AND r.kind = ?
       AND u.expected_size <= ? ON CONFLICT(upload_id) DO NOTHING`).bind(
       id,
       requestedPolicy,
@@ -63,6 +58,7 @@ export async function inspectionRoutes(
       operation,
       upload.id,
       principal,
+      kind,
       limit,
     ),
     inspectionEvent(env.DB, operation, id, principal, now),

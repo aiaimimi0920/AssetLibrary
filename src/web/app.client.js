@@ -19,7 +19,7 @@ import {
   workspace,
 } from "./render.client.js";
 import { initResourceManagement } from "./resource.client.js";
-import { confirmUploadClosed, uploadPackage } from "./upload.client.js";
+import { confirmUploadClosed, syncUploadForm, uploadPackage } from "./upload.client.js";
 
 function empty() {
   return {
@@ -41,6 +41,7 @@ let distribution;
 let resourceManagement;
 
 function controls() {
+  syncUploadForm(state.resource);
   for (const button of document.querySelectorAll("[data-protected]"))
     button.disabled = !!job || !connected();
   for (const button of document.querySelectorAll("[data-public]")) button.disabled = !!job;
@@ -293,7 +294,7 @@ for (const name of ["uploads", "versions"])
 form(
   "create-form",
   async (signal) => {
-    const body = { kind: "art", title: element("new-title").value };
+    const body = { kind: element("new-kind").value, title: element("new-title").value };
     const operation = operationKey("create", body);
     state.resource = await api("/v1/resources", {
       method: "POST",
@@ -305,7 +306,7 @@ form(
     await listResources(signal);
     await refreshWorkspace(signal);
   },
-  "Art 资源已创建。",
+  "资源已创建。",
 );
 form(
   "upload-form",

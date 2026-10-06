@@ -45,6 +45,7 @@ test("清除身份时不保留上一主体的资源标题草稿", () => {
   try {
     globalThis.document = { getElementById: node, createElement: () => ({}) };
     node("new-title").value = "上一主体的私有标题";
+    node("new-kind").value = "application";
     clearView({
       principal: "",
       resources: [],
@@ -55,6 +56,7 @@ test("清除身份时不保留上一主体的资源标题草稿", () => {
       versions: [],
     });
     assert.equal(node("new-title").value, "");
+    assert.equal(node("new-kind").value, "art");
   } finally {
     if (original === undefined) delete globalThis.document;
     else globalThis.document = original;

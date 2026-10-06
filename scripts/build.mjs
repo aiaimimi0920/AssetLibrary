@@ -126,7 +126,7 @@ export async function build(nativeDirectory) {
         format: 1,
         version: JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version,
         createdAt: new Date().toISOString(),
-        stage: "P5-resource-management-candidate",
+        stage: "P3-software-packages-local-candidate",
         cloudDeployed: false,
         modules: Object.fromEntries(webModules.map((name) => [name, "text"])),
         sources,

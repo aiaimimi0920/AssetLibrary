@@ -81,7 +81,7 @@ test("票据只进 header，二进制请求同源、无 cookie；长度和 SHA-2
   }
 });
 
-test("畸形票据、外部路径和大于 Art 上限的元数据在读取包体前拒绝", async () => {
+test("畸形票据、外部路径和大于包体上限的元数据在读取包体前拒绝", async () => {
   const { api, download } = await browserModules();
   api.setCredential("synthetic");
   const original = globalThis.fetch;
@@ -111,6 +111,64 @@ test("畸形票据、外部路径和大于 Art 上限的元数据在读取包体
   } finally {
     api.stopRequests();
     globalThis.fetch = original;
+  }
+});
+
+test("保存使用中性包名；非法版本不创建 URL，点击成功或失败都回收临时资源", async (t) => {
+  const { download } = await browserModules();
+  const original = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const blob = new Blob([bytes], { type: "application/zip" });
+  const versionId = randomUUID();
+  const events = [];
+  const timers = [];
+  let failClick = false;
+  const link = {
+    click() {
+      events.push("click");
+      if (failClick) throw new Error("SAVE_CLICK_FAILED");
+    },
+    remove() {
+      events.push("remove");
+    },
+  };
+  globalThis.document = {
+    createElement(tag) {
+      assert.equal(tag, "a");
+      return link;
+    },
+    body: { append: (element) => assert.equal(element, link) },
+  };
+  t.mock.method(URL, "createObjectURL", (value) => {
+    assert.equal(value, blob);
+    events.push("create");
+    return "blob:package-test";
+  });
+  t.mock.method(URL, "revokeObjectURL", (url) => {
+    assert.equal(url, "blob:package-test");
+    events.push("revoke");
+  });
+  t.mock.method(globalThis, "setTimeout", (callback, delay) => {
+    assert.equal(delay, 1000);
+    timers.push(callback);
+  });
+  try {
+    assert.throws(() => download.savePackage(blob, "../invalid"), /INVALID_DOWNLOAD_METADATA/);
+    assert.deepEqual(events, []);
+    for (failClick of [false, true]) {
+      events.length = 0;
+      if (failClick)
+        assert.throws(() => download.savePackage(blob, versionId), /SAVE_CLICK_FAILED/);
+      else download.savePackage(blob, versionId);
+      assert.equal(link.download, `package-${versionId}.zip`);
+      assert.equal(link.href, "blob:package-test");
+      assert.deepEqual(events, ["create", "click", "remove"]);
+      assert.equal(timers.length, 1);
+      timers.shift()();
+      assert.deepEqual(events, ["create", "click", "remove", "revoke"]);
+    }
+  } finally {
+    if (original) Object.defineProperty(globalThis, "document", original);
+    else delete globalThis.document;
   }
 });
 

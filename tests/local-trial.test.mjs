@@ -89,112 +89,122 @@ test("虚构编号通过原 RS256 验证；本地入口拒绝任意主体、外�
   assert.match(page, /__trial\/sample.zip/);
 });
 
-test("从空库经 HTTP 完整上传、实际格式检查、独立审核、发布、字节下载、撤销及下架", async () => {
-  const bytes = Buffer.from(
-    await (await fetch(`${server.origin}/__trial/sample.zip`)).arrayBuffer(),
-  );
-  const sha256 = createHash("sha256").update(bytes).digest("hex");
-  const created = await api("POST", "/v1/resources", { kind: "art", title: "本地体验完整闭环" });
-  assert.equal(created.status, 201);
-  const resource = created.body;
-  const reserved = await api("POST", `/v1/resources/${resource.id}/uploads`, {
-    size: bytes.length,
-    sha256,
+for (const kind of ["art", "capability", "application"])
+  test(`${kind} 经 HTTP 完整上传、实际格式检查、独立审核、发布、字节下载、撤销及下架`, async () => {
+    const bytes = Buffer.from(
+      await (
+        await fetch(`${server.origin}/__trial/${kind === "art" ? "sample" : kind}.zip`)
+      ).arrayBuffer(),
+    );
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const created = await api("POST", "/v1/resources", { kind, title: `${kind} 本地体验完整闭环` });
+    assert.equal(created.status, 201);
+    const resource = created.body;
+    const reserved = await api("POST", `/v1/resources/${resource.id}/uploads`, {
+      size: bytes.length,
+      sha256,
+    });
+    assert.equal(reserved.status, 201);
+    const upload = reserved.body;
+    const put = await fetch(`${server.origin}/v1/uploads/${upload.id}/content`, {
+      method: "PUT",
+      headers: {
+        authorization: `Bearer ${tokens.get("10001")}`,
+        "content-type": "application/octet-stream",
+      },
+      body: bytes,
+    });
+    assert.equal(put.status, 200, await put.text());
+    assert.equal((await api("POST", `/v1/uploads/${upload.id}/complete`, {})).status, 200);
+    assert.equal(
+      (
+        await api("POST", `/v1/uploads/${upload.id}/inspection`, {
+          policy: `${kind}-zip-clamav-v1`,
+        })
+      ).status,
+      201,
+    );
+    assert.equal((await local("tick", {})).status, 200);
+    const checked = await api("GET", `/v1/uploads/${upload.id}/inspection`);
+    assert.equal(checked.body.state, "passed", JSON.stringify(checked.body));
+    const version = await api("POST", `/v1/resources/${resource.id}/versions`, {
+      label: "v1",
+      uploadId: upload.id,
+      resourceRevision: 1,
+    });
+    assert.equal(version.status, 201);
+    const id = version.body.id;
+    assert.equal((await api("POST", `/v1/versions/${id}/publish`, { revision: 1 })).status, 409);
+    assert.equal(
+      (
+        await api("POST", `/v1/versions/${id}/review`, {
+          revision: 1,
+          decision: "approved",
+          reason: "拒绝自审",
+        })
+      ).status,
+      404,
+    );
+    const review = await api(
+      "POST",
+      `/v1/versions/${id}/review`,
+      { revision: 1, decision: "approved", reason: "本地虚构身份独立审核" },
+      "10002",
+    );
+    assert.equal(review.status, 200);
+    const published = await api("POST", `/v1/versions/${id}/publish`, {
+      revision: review.body.revision,
+    });
+    assert.equal(published.status, 201, JSON.stringify(published));
+    const publication = published.body;
+    const route = `/v1/publications/${publication.id}`;
+    assert.equal((await api("POST", `${route}/tickets`, {}, "10003")).status, 404);
+    assert.equal(
+      (await api("PUT", `${route}/grants/trial:10003`, { revision: 0 }, "10004")).status,
+      404,
+    );
+    const granted = await api("PUT", `${route}/grants/trial:10003`, { revision: 0 });
+    assert.equal(granted.status, 200);
+    const catalog = await api("GET", "/v1/catalog");
+    assert.ok(catalog.body.items.some((item) => item.id === publication.id));
+    const ticket = await api("POST", `${route}/tickets`, {}, "10003");
+    assert.equal(ticket.status, 201);
+    const headers = {
+      authorization: `Bearer ${tokens.get("10003")}`,
+      "x-download-ticket": ticket.body.ticket,
+    };
+    const content = await fetch(`${server.origin}${route}/content`, { headers });
+    assert.equal(content.status, 200);
+    assert.equal(
+      content.headers.get("content-disposition"),
+      `attachment; filename="package-${id}.zip"`,
+    );
+    // 使用真实 HTTP 响应驱动实际浏览器解码器，不用 Node Response 的 header 掩盖 workerd 传输。
+    const saved = await readPackage(content, new AbortController().signal, publication);
+    assert.deepEqual(Buffer.from(await saved.arrayBuffer()), bytes);
+    const range = await fetch(`${server.origin}${route}/content`, {
+      headers: { ...headers, range: "bytes=0-15" },
+    });
+    assert.equal(range.status, 206);
+    assert.deepEqual(Buffer.from(await range.arrayBuffer()), bytes.subarray(0, 16));
+    assert.equal(
+      (await api("DELETE", `${route}/grants/trial:10003`, { revision: granted.body.revision }))
+        .status,
+      200,
+    );
+    const revoked = await fetch(`${server.origin}${route}/content`, {
+      headers: { ...headers, range: "bytes=16-" },
+    });
+    assert.equal(revoked.status, 404);
+    await revoked.arrayBuffer();
+    assert.equal((await api("POST", `${route}/tickets`, {}, "10003")).status, 404);
+    assert.equal(
+      (await api("POST", `${route}/unlist`, { revision: publication.revision })).status,
+      200,
+    );
+    assert.equal((await api("POST", `${route}/tickets`, {})).status, 404);
+    assert.equal((await api("GET", `/v1/catalog/${publication.id}`)).status, 404);
   });
-  assert.equal(reserved.status, 201);
-  const upload = reserved.body;
-  const put = await fetch(`${server.origin}/v1/uploads/${upload.id}/content`, {
-    method: "PUT",
-    headers: {
-      authorization: `Bearer ${tokens.get("10001")}`,
-      "content-type": "application/octet-stream",
-    },
-    body: bytes,
-  });
-  assert.equal(put.status, 200, await put.text());
-  assert.equal((await api("POST", `/v1/uploads/${upload.id}/complete`, {})).status, 200);
-  assert.equal(
-    (await api("POST", `/v1/uploads/${upload.id}/inspection`, { policy: "art-zip-clamav-v1" }))
-      .status,
-    201,
-  );
-  assert.equal((await local("tick", {})).status, 200);
-  const checked = await api("GET", `/v1/uploads/${upload.id}/inspection`);
-  assert.equal(checked.body.state, "passed", JSON.stringify(checked.body));
-  const version = await api("POST", `/v1/resources/${resource.id}/versions`, {
-    label: "v1",
-    uploadId: upload.id,
-    resourceRevision: 1,
-  });
-  assert.equal(version.status, 201);
-  const id = version.body.id;
-  assert.equal((await api("POST", `/v1/versions/${id}/publish`, { revision: 1 })).status, 409);
-  assert.equal(
-    (
-      await api("POST", `/v1/versions/${id}/review`, {
-        revision: 1,
-        decision: "approved",
-        reason: "拒绝自审",
-      })
-    ).status,
-    404,
-  );
-  const review = await api(
-    "POST",
-    `/v1/versions/${id}/review`,
-    { revision: 1, decision: "approved", reason: "本地虚构身份独立审核" },
-    "10002",
-  );
-  assert.equal(review.status, 200);
-  const published = await api("POST", `/v1/versions/${id}/publish`, {
-    revision: review.body.revision,
-  });
-  assert.equal(published.status, 201, JSON.stringify(published));
-  const publication = published.body;
-  const route = `/v1/publications/${publication.id}`;
-  assert.equal((await api("POST", `${route}/tickets`, {}, "10003")).status, 404);
-  assert.equal(
-    (await api("PUT", `${route}/grants/trial:10003`, { revision: 0 }, "10004")).status,
-    404,
-  );
-  const granted = await api("PUT", `${route}/grants/trial:10003`, { revision: 0 });
-  assert.equal(granted.status, 200);
-  const catalog = await api("GET", "/v1/catalog");
-  assert.ok(catalog.body.items.some((item) => item.id === publication.id));
-  const ticket = await api("POST", `${route}/tickets`, {}, "10003");
-  assert.equal(ticket.status, 201);
-  const headers = {
-    authorization: `Bearer ${tokens.get("10003")}`,
-    "x-download-ticket": ticket.body.ticket,
-  };
-  const content = await fetch(`${server.origin}${route}/content`, { headers });
-  assert.equal(content.status, 200);
-  // 使用真实 HTTP 响应驱动实际浏览器解码器，不用 Node Response 的 header 掩盖 workerd 传输。
-  const saved = await readPackage(content, new AbortController().signal, publication);
-  assert.deepEqual(Buffer.from(await saved.arrayBuffer()), bytes);
-  const range = await fetch(`${server.origin}${route}/content`, {
-    headers: { ...headers, range: "bytes=0-15" },
-  });
-  assert.equal(range.status, 206);
-  assert.deepEqual(Buffer.from(await range.arrayBuffer()), bytes.subarray(0, 16));
-  assert.equal(
-    (await api("DELETE", `${route}/grants/trial:10003`, { revision: granted.body.revision }))
-      .status,
-    200,
-  );
-  const revoked = await fetch(`${server.origin}${route}/content`, {
-    headers: { ...headers, range: "bytes=16-" },
-  });
-  assert.equal(revoked.status, 404);
-  await revoked.arrayBuffer();
-  assert.equal((await api("POST", `${route}/tickets`, {}, "10003")).status, 404);
-  assert.equal(
-    (await api("POST", `${route}/unlist`, { revision: publication.revision })).status,
-    200,
-  );
-  assert.equal((await api("POST", `${route}/tickets`, {})).status, 404);
-  assert.equal((await api("GET", `/v1/catalog/${publication.id}`)).status, 404);
-});
 
 test("模拟 AV 不允许畸形 ZIP 发布；仍由真实格式检查失败关闭", async () => {
   const bytes = Buffer.from("not a ZIP");

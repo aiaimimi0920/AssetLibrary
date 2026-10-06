@@ -9,7 +9,7 @@ async function interruptedUpload(t) {
   });
   const { api, upload } = await browserModules();
   api.setCredential("synthetic-token");
-  const resource = { id: crypto.randomUUID() };
+  const resource = { id: crypto.randomUUID(), kind: "art" };
   const file = new File(["bounded test bytes"], "test.zip");
   const rows = new Map();
   const reservations = [];

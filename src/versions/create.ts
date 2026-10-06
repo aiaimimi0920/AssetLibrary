@@ -1,6 +1,5 @@
 import { HttpError, json } from "../http";
-import { packagePolicy, policy } from "../inspections/records";
-import { scanPolicy } from "../scanner/client";
+import { policyKindSql } from "../inspections/policy";
 import { type VersionRow, versionEvent, versionSelect, versionView } from "./records";
 
 export interface NewVersion {
@@ -18,7 +17,8 @@ export async function createVersion(db: D1Database, actor: string, input: NewVer
     .bind(input.resourceId, actor)
     .first<{ kind: string }>();
   if (!resource) throw new HttpError(404, "NOT_FOUND");
-  if (resource.kind !== "art") throw new HttpError(422, "VERSION_POLICY_UNAVAILABLE");
+  if (!["art", "capability", "application"].includes(resource.kind))
+    throw new HttpError(422, "VERSION_POLICY_UNAVAILABLE");
   const upload = await db
     .prepare(`SELECT id FROM uploads WHERE id = ? AND resource_id = ? AND owner = ?`)
     .bind(input.uploadId, input.resourceId, actor)
@@ -35,9 +35,9 @@ export async function createVersion(db: D1Database, actor: string, input: NewVer
       SELECT ?, r.id, ?, r.revision, r.title, r.kind, u.id, u.revision, u.expected_size, u.sha256,
       u.etag, i.id, i.revision, i.policy, 'pending_review', 1, ?, ?, ?
       FROM resources r JOIN uploads u ON u.resource_id = r.id JOIN inspections i ON i.upload_id = u.id
-      WHERE r.id = ? AND r.owner = ? AND r.state = 'draft' AND r.kind = 'art' AND r.revision = ?
+      WHERE r.id = ? AND r.owner = ? AND r.state = 'draft' AND r.revision = ?
       AND u.id = ? AND u.owner = r.owner AND u.state = 'quarantined' AND i.state = 'passed'
-      AND i.policy IN (?, ?, ?) AND i.upload_revision = u.revision AND i.expected_size = u.expected_size
+      AND r.kind = ${policyKindSql("i.policy")} AND i.upload_revision = u.revision AND i.expected_size = u.expected_size
       AND i.sha256 = u.sha256 AND i.etag = u.etag AND json_extract(i.result, '$.sha256') = u.sha256
       ON CONFLICT(resource_id, label) DO NOTHING`)
       .bind(
@@ -50,9 +50,6 @@ export async function createVersion(db: D1Database, actor: string, input: NewVer
         actor,
         input.resourceRevision,
         input.uploadId,
-        policy,
-        packagePolicy,
-        scanPolicy,
       ),
     versionEvent(db, id, operation, actor, "created", null, now),
     db

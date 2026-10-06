@@ -1,4 +1,5 @@
 import { HttpError } from "../http";
+import { policyKindSql } from "../inspections/policy";
 import { versionSafety } from "./safety";
 
 export interface VersionRow {
@@ -42,6 +43,7 @@ export const currentSnapshot = `EXISTS (SELECT 1 FROM resources r
   AND u.expected_size = versions.expected_size AND u.sha256 = versions.sha256 AND u.etag = versions.etag
   AND i.id = versions.inspection_id AND i.state = 'passed' AND i.revision = versions.inspection_revision
   AND i.policy = versions.inspection_policy AND i.upload_revision = u.revision
+  AND r.kind = ${policyKindSql("i.policy")}
   AND i.expected_size = u.expected_size AND i.sha256 = u.sha256 AND i.etag = u.etag
   AND json_extract(i.result, '$.sha256') = u.sha256)`;
 

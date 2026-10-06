@@ -1,6 +1,8 @@
 # AssetLibrary：Cloudflare 从零重建开发计划
 
-新版 [GitHub CI](docs/CI.md) 已在 `main` 的 [运行 37448919866](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 通过 `verify` 与 `secret_scan`：只运行当前 Worker 项目的现有门禁，秘密扫描覆盖活动跟踪文件及新提交（包括 `old/**` 的新改动），不把旧归档的既有发现标成新通过。分支保护仍须单独核验；Capability/应用包包体闭环仍是下一业务开发项。
+最新 `.26`：[Capability / 小型应用包](docs/P3_SOFTWARE_PACKAGES.md) 已完成资源库侧传输封装、`pack:software`、类型/策略/逐文件校验、版本/审核和本地授权分发接线。Web 与 trial 可选三种资源；完整本地回归 281 项通过。仅支持 1–32 个非空载荷、每个最多 1 MiB、整包最多 8 MiB，不等于 Loom 安装/签名验证或大型应用分发。新开发库路径与旧 Schema 隔离，未迁移/重建或部署云库。正式账号、原生组件/网络安全和完整 P3–P6 生产退出仍未完成；本轮按恢复的提交推送授权独立交付，不放宽生产门禁。
+
+新版 [GitHub CI](docs/CI.md) 已在 `main` 的 [运行 37448919866](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 通过 `verify` 与 `secret_scan`：只运行当前 Worker 项目的现有门禁，秘密扫描覆盖活动跟踪文件及新提交（包括 `old/**` 的新改动），不把旧归档的既有发现标成新通过。分支保护仍须单独核验；该运行是 `.25` 基线，不冒充 `.26` 的远端结果。
 
 最新 `.25`：[资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md) 补齐 owner 改名、关闭、指定主体目录读权限查询/授予/撤销的 Web 路径，复用资源 revision、幂等、审计和版本绑定门禁；身份切换清除管理状态及新资源标题草稿。本地独占体验验证不等于云或生产验收。下一独立业务缺口包括新版 GitHub CI 和 Capability/应用包包体校验与分发；账号系统按用户要求继续延期，原生安全与网络边界延期项不伪装完成。
 

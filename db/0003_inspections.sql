@@ -2,7 +2,8 @@
 CREATE TABLE inspections (
   id TEXT PRIMARY KEY,
   upload_id TEXT NOT NULL UNIQUE REFERENCES uploads(id),
-  policy TEXT NOT NULL CHECK(policy IN ('art-png-rgba8-v1', 'art-zip-manifest-v1', 'art-zip-clamav-v1')),
+  policy TEXT NOT NULL CHECK(policy IN ('art-png-rgba8-v1', 'art-zip-manifest-v1', 'art-zip-clamav-v1',
+    'capability-zip-clamav-v1', 'application-zip-clamav-v1')),
   upload_revision INTEGER NOT NULL,
   expected_size INTEGER NOT NULL CHECK(expected_size BETWEEN 1 AND 8388608),
   sha256 TEXT NOT NULL CHECK(length(sha256) = 64),
@@ -19,7 +20,12 @@ CREATE TABLE inspections (
   updated_at INTEGER NOT NULL,
   last_operation TEXT NOT NULL,
   CHECK(policy <> 'art-png-rgba8-v1' OR expected_size <= 1048576),
-  CHECK(state <> 'passed' OR policy <> 'art-zip-clamav-v1' OR (result IS NOT NULL AND COALESCE(
+  CHECK(state <> 'passed' OR policy NOT IN ('capability-zip-clamav-v1', 'application-zip-clamav-v1')
+    OR (result IS NOT NULL AND COALESCE(json_extract(result, '$.schema') = 'neuro-software-package-v1'
+      AND json_extract(result, '$.kind') = CASE policy WHEN 'capability-zip-clamav-v1' THEN 'capability'
+      WHEN 'application-zip-clamav-v1' THEN 'application' END, 0))),
+  CHECK(state <> 'passed' OR policy NOT IN ('art-zip-clamav-v1', 'capability-zip-clamav-v1', 'application-zip-clamav-v1')
+    OR (result IS NOT NULL AND COALESCE(
     json_extract(result, '$.scan.verdict') = 'clean' AND json_extract(result, '$.scan.sha256') = sha256
     AND json_extract(result, '$.scan.size') = expected_size AND json_extract(result, '$.scan.engineVersion') = '1.5.4'
     AND json_extract(result, '$.scan.completedAt') < json_extract(result, '$.scan.expiresAt'), 0)))

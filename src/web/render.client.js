@@ -35,7 +35,7 @@ export function resources(state, select) {
   if (!state.resources.length) container.append(text("p", "没有可读的活动资源。", "muted"));
   for (const resource of state.resources) {
     const button = action(
-      `${resource.title} · ${resource.owner === state.principal ? "owner" : "只读成员"}`,
+      `${resource.title} · ${resource.kind} · ${resource.owner === state.principal ? "owner" : "只读成员"}`,
       () => select(resource.id),
       "resource-row",
     );
@@ -48,7 +48,7 @@ export function workspace(state, handlers) {
   const resource = state.resource;
   const owned = resource?.owner === state.principal;
   element("resource-state").textContent = resource
-    ? `${resource.title} · revision ${resource.revision}`
+    ? `${resource.title} · ${resource.kind} · revision ${resource.revision}`
     : "未选择";
   facts("resource-detail", resource ?? "请选择左侧资源。");
   element("uploads").replaceChildren();
@@ -132,6 +132,7 @@ export function clearView(state) {
   reviewQueue(state, () => {});
   element("session-state").textContent = "未连接身份";
   element("new-title").value = "";
+  element("new-kind").value = "art";
   element("review-id").value = "";
   element("review-reason").value = "";
   element("package-file").value = "";

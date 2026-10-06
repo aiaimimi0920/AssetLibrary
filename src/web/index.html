@@ -16,7 +16,7 @@
       <aside>
         <p class="kicker">01 / 私有工作区</p>
         <h1>资源库</h1>
-        <p class="muted">Art 包上传、检查与版本审核。对象保持私有，尚未开放生产发布或下载。</p>
+        <p class="muted">Art、Capability 与小型应用包的上传、检查和版本审核。对象保持私有，尚未开放生产发布或下载。</p>
         <form id="identity-form">
           <label for="credential">外部身份 Bearer JWT</label>
           <input
@@ -49,7 +49,7 @@
       <main>
         <div class="heading">
           <div>
-            <p class="kicker">02 / ART WORKBENCH</p>
+            <p class="kicker">02 / RESOURCE WORKBENCH</p>
             <h2>私有资源工作台</h2>
           </div>
           <button id="stop" type="button" disabled>停止当前请求</button>
@@ -58,9 +58,15 @@
           连接外部身份后开始。原生组件安全风险与网络边界验收暂缓，现有发布门禁保持不变。
         </p>
         <form id="create-form" class="toolbar">
+          <label for="new-kind">资源类型</label>
+          <select id="new-kind">
+            <option value="art">Art 素材</option>
+            <option value="capability">Capability</option>
+            <option value="application">应用包</option>
+          </select>
           <label for="new-title">新资源标题</label>
           <input id="new-title" maxlength="200" required placeholder="例如：角色动作素材">
-          <button class="primary" data-protected type="submit" disabled>创建 Art 资源</button>
+          <button class="primary" data-protected type="submit" disabled>创建资源</button>
         </form>
         <section aria-labelledby="resource-heading">
           <div class="toolbar">
@@ -85,7 +91,7 @@
             <button id="member-revoke" class="danger" data-protected type="button" disabled>撤销目录读权限</button>
           </div>
           <form id="upload-form">
-            <label for="package-file">多文件 Art ZIP（1–32 张静态 PNG，最多 8 MiB）</label>
+            <label id="package-label" for="package-file">请选择资源后上传匹配类型的 ZIP。</label>
             <input id="package-file" type="file" accept=".zip,application/zip" required>
             <div class="toolbar">
               <label for="inspection-policy">检查策略</label>
@@ -97,8 +103,8 @@
             </div>
           </form>
           <p class="muted">
-            使用 pack:art 生成带 manifest
-            的包。检查由后台定时任务执行；失败不会降级为格式通过。停止请求不等于服务器取消上传，请在列表中显式取消。
+            Art 使用 pack:art，Capability / 应用包使用 pack:software 生成带 manifest 的受限包；资源库封装不等于宿主安装格式或签名验证。
+            检查由后台定时任务执行；失败不会降级为格式通过。停止请求不等于服务器取消上传，请在列表中显式取消。
           </p>
           <div class="toolbar">
             <h3>上传与检查</h3>
@@ -137,7 +143,7 @@
           <p id="library-state" class="muted" role="status"></p>
           <div id="library" class="rows"></div>
           <button id="more-library" data-protected type="button" disabled>下一页下载资源库</button>
-          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB Art ZIP。停止会丢弃未完成字节，再次下载重新申请授权。</p>
+          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB 资源 ZIP。停止会丢弃未完成字节，再次下载重新申请授权；保存不等于安装或执行。</p>
         </section>
         <section aria-labelledby="publication-heading">
           <p class="kicker">05 / PUBLISHER OPERATIONS</p>

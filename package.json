@@ -1,6 +1,6 @@
 {
   "name": "@neuro/assetlibrary",
-  "version": "0.3.0-dev.25",
+  "version": "0.3.0-dev.26",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",
@@ -9,10 +9,11 @@
   },
   "scripts": {
     "trial": "node scripts/local-trial.mjs",
-    "dev": "wrangler dev --local --persist-to ../../linshi/assetlibrary-p33b-local",
-    "db:local": "wrangler d1 migrations apply DB --local --persist-to ../../linshi/assetlibrary-p33b-local",
+    "dev": "wrangler dev --local --persist-to ../../linshi/assetlibrary-software-local-v1",
+    "db:local": "wrangler d1 migrations apply DB --local --persist-to ../../linshi/assetlibrary-software-local-v1",
     "scanner:dev": "wrangler dev --config scanner/wrangler.jsonc --local --persist-to ../../linshi/assetlibrary-scanner-local",
     "pack:art": "node scripts/pack-art.mjs",
+    "pack:software": "node scripts/pack-software.mjs",
     "check": "biome check src tests scripts scanner package.json tsconfig.json biome.json wrangler.jsonc",
     "format": "biome check --write src tests scripts scanner package.json tsconfig.json biome.json wrangler.jsonc",
     "typecheck": "tsc --noEmit",

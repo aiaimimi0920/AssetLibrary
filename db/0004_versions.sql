@@ -5,7 +5,7 @@ CREATE TABLE versions (
   label TEXT NOT NULL CHECK(length(label) BETWEEN 1 AND 64),
   resource_revision INTEGER NOT NULL CHECK(resource_revision > 0),
   title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 200),
-  kind TEXT NOT NULL CHECK(kind = 'art'),
+  kind TEXT NOT NULL CHECK(kind IN ('art', 'capability', 'application')),
   upload_id TEXT NOT NULL REFERENCES uploads(id),
   upload_revision INTEGER NOT NULL CHECK(upload_revision > 0),
   expected_size INTEGER NOT NULL CHECK(expected_size BETWEEN 1 AND 8388608),
@@ -13,7 +13,8 @@ CREATE TABLE versions (
   etag TEXT NOT NULL,
   inspection_id TEXT NOT NULL REFERENCES inspections(id),
   inspection_revision INTEGER NOT NULL CHECK(inspection_revision > 0),
-  inspection_policy TEXT NOT NULL CHECK(inspection_policy IN ('art-png-rgba8-v1', 'art-zip-manifest-v1', 'art-zip-clamav-v1')),
+  inspection_policy TEXT NOT NULL CHECK(inspection_policy IN ('art-png-rgba8-v1', 'art-zip-manifest-v1', 'art-zip-clamav-v1',
+    'capability-zip-clamav-v1', 'application-zip-clamav-v1')),
   state TEXT NOT NULL CHECK(state IN ('pending_review', 'approved', 'rejected', 'withdrawn')),
   revision INTEGER NOT NULL CHECK(revision BETWEEN 1 AND 2147483647),
   reviewer TEXT CHECK(reviewer IS NULL OR length(reviewer) BETWEEN 1 AND 200),
@@ -24,6 +25,9 @@ CREATE TABLE versions (
   updated_at INTEGER NOT NULL,
   last_operation TEXT NOT NULL,
   UNIQUE(resource_id, label),
+  CHECK((kind = 'art' AND inspection_policy IN ('art-png-rgba8-v1', 'art-zip-manifest-v1', 'art-zip-clamav-v1'))
+    OR (kind = 'capability' AND inspection_policy = 'capability-zip-clamav-v1')
+    OR (kind = 'application' AND inspection_policy = 'application-zip-clamav-v1')),
   CHECK(inspection_policy <> 'art-png-rgba8-v1' OR expected_size <= 1048576),
   CHECK((reviewer IS NULL AND review_decision IS NULL AND review_reason IS NULL AND reviewed_at IS NULL)
     OR (reviewer IS NOT NULL AND review_decision IS NOT NULL AND review_reason IS NOT NULL AND reviewed_at IS NOT NULL)),
