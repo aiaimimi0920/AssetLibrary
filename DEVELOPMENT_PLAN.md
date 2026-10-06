@@ -1,6 +1,6 @@
 # AssetLibrary：Cloudflare 从零重建开发计划
 
-新版 [GitHub CI](docs/CI.md) 已建立候选：只运行当前 Worker 项目的现有门禁，秘密扫描覆盖活动跟踪文件及新提交（包括 `old/**` 的新改动），不把旧归档的既有发现标成新通过；分支保护和云端执行结论仍须单独核验。Capability/应用包包体闭环仍是下一业务开发项。
+新版 [GitHub CI](docs/CI.md) 已在 `main` 的 [运行 37448919866](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 通过 `verify` 与 `secret_scan`：只运行当前 Worker 项目的现有门禁，秘密扫描覆盖活动跟踪文件及新提交（包括 `old/**` 的新改动），不把旧归档的既有发现标成新通过。分支保护仍须单独核验；Capability/应用包包体闭环仍是下一业务开发项。
 
 最新 `.25`：[资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md) 补齐 owner 改名、关闭、指定主体目录读权限查询/授予/撤销的 Web 路径，复用资源 revision、幂等、审计和版本绑定门禁；身份切换清除管理状态及新资源标题草稿。本地独占体验验证不等于云或生产验收。下一独立业务缺口包括新版 GitHub CI 和 Capability/应用包包体校验与分发；账号系统按用户要求继续延期，原生安全与网络边界延期项不伪装完成。
 

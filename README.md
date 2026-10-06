@@ -1,6 +1,6 @@
 # AssetLibrary
 
-当前活动项目已新增 [GitHub CI](docs/CI.md) 候选，覆盖格式、类型、行数、Worker 本地测试、活动依赖审计与增量秘密扫描；旧 workflow 仍只在 `old/` 中，不代表新项目已通过云端检查。CI 不部署 Worker，也不更改生产准入。
+当前活动项目已新增 [GitHub CI](docs/CI.md)，覆盖格式、类型、行数、Worker 本地测试、活动依赖审计与增量秘密扫描；`main` 的 [验证运行](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 已通过两个 job。旧 workflow 仍只在 `old/` 中；CI 不部署 Worker，也不更改生产准入。
 
 最新 `0.3.0-dev.25` 增加[资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md)：owner 可在“当前资源”改名、关闭、查询并变更指定主体的目录读权限，不再需要手工调用 API。改名和授权会使既有版本绑定失效；目录读权限不等于包体下载授权。`rtk proxy pnpm trial` 可在本地用 10001/10003 演练，正式账号、云部署和生产准入没有因此改变。
 

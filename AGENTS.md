@@ -2,7 +2,7 @@
 
 ## 当前方向与仓库边界
 
-新版 [GitHub CI](docs/CI.md) 已建立候选，仅验证活动 Worker 项目及当前提交的秘密变化；不执行 `old/` 工作流，不部署云资源。GitHub 实际运行和分支保护须独立核验，不能用本地通过冒充远端绿色。
+新版 [GitHub CI](docs/CI.md) 已在 `main` 的 [运行 37448919866](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/37448919866) 通过 `verify` 与 `secret_scan`，仅验证活动 Worker 项目及当前提交的秘密变化；不执行 `old/` 工作流，不部署云资源。分支保护仍须独立核验，不能把 CI 通过冒充生产验收。
 
 最新 `.25` 补齐 [资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md)：owner 可从当前资源改名、关闭、查询并授予/撤销指定主体的目录读权限；读取绑定当前资源 revision，变更仍走原有幂等/CAS/审计，成员不能取得管理或包体下载权限。身份切换清除资源管理状态和资源标题草稿。已在独占本地体验中验证，账号系统、云部署和生产准入保持原边界；新版 CI 和 Capability/应用包包体闭环仍是后续独立任务。
 
