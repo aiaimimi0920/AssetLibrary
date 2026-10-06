@@ -1,0 +1,35 @@
+{
+  "name": "neuro-assetlibrary",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["enable_request_signal"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "redact_query_string": true,
+    "logs": { "invocation_logs": false },
+    "traces": { "enabled": false }
+  },
+  "rules": [
+    { "type": "Text", "globs": ["**/*.html", "**/*.css", "**/*.client.js"], "fallthrough": false }
+  ],
+  "services": [
+    {
+      "binding": "SCANNER",
+      "service": "neuro-assetlibrary-scanner",
+      "entrypoint": "ScannerService"
+    }
+  ],
+  "r2_buckets": [{ "binding": "QUARANTINE", "bucket_name": "assetlibrary-quarantine-local" }],
+  "triggers": { "crons": ["* * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "assetlibrary-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "db"
+    }
+  ]
+}

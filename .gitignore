@@ -1,24 +1,10 @@
-target/
+# 本地凭据和私钥；归档目录也必须继续受保护。
 .env
 .env.*
 !.env.example
-node_modules/
-.pnpm-store/
-.next/
-out/
-dist/
-coverage/
-playwright-report/
-test-results/
-*.tsbuildinfo
-__pycache__/
-.memsearch/
-*.log
-.DS_Store
-.vscode/
-.idea/
-
-# Local credentials and private key material.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 *.pem
 *.key
 *.p12
@@ -26,19 +12,37 @@ __pycache__/
 credentials*.json
 secrets*.json
 
-# Local object-store and database data.
-deploy/local/data/
+# 当前和历史工具链的本地缓存及产物。
+node_modules/
+.pnpm-store/
+.wrangler/
+.next/
+target/
+dist/
+out/
+coverage/
+playwright-report/
+.playwright-cli/
+test-results/
+__pycache__/
+.memsearch/
+*.tsbuildinfo
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# 基础设施状态和本地数据，绝不成为源码归档或发布输入。
 **/.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
 backend.hcl
+old/deploy/local/data/
+old/release/evidence/
+old/release/downloads/
+old/release/candidate/
+old/promotion/evidence/
+old/promotion/verification-report.json
 
-# Generated release evidence; release/README.md remains tracked policy.
-release/evidence/
-release/downloads/
-release/candidate/
-
-# Collected promotion evidence is external/secret-redacted runtime output.
-promotion/evidence/
-promotion/verification-report.json
+# old 的历史源码仍需可被 Git 发现；不得加入 old/ 整目录忽略。

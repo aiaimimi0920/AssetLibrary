@@ -1,39 +1,65 @@
-# Development standard
+# AssetLibrary 新项目工程规范
 
-Production code, tests, scripts, and configuration must have one clear owner
-and bounded responsibility. Aim for roughly 150 effective lines per new source
-file; 100-250 is preferred, 251-500 requires a single cohesive responsibility,
-and a new file above 700 effective lines is rejected.
+## 1. 适用范围
 
-Each change must review input bounds, authorization, secrets, blocking paths,
-resource and task cleanup, concurrency, retries, cancellation, and algorithmic
-complexity. State transitions and external side effects require focused tests.
+本规范适用于当前 TypeScript + Cloudflare Workers/D1/R2 项目的手写生产代码、测试、脚本、样式和可执行配置。架构与阶段以根目录 `DEVELOPMENT_PLAN.md` 为准。
 
-Completion requires the applicable formatter, focused tests, workspace compile
-or type check, contract checks, security checks, and `git diff --check`.
-Deployment work also requires rendered manifest validation, runtime probes, and
-rollback evidence. Source-only success is not product readiness.
+`old/` 是不执行、不发布的静态历史归档，不是本次重构结果或代码债务清偿。新源码检查使用活动源码白名单并排除 `old/**`；实际复用的旧代码按新代码重新验证。
 
-## Current product and architecture baseline
+纯 Markdown 文档不执行源码行数门禁。确定性工具生成、禁止手改的归档内容清单是证据数据，不是手写运行实现；不得以此排除业务源码。
 
-Follow [the development plan](../DEVELOPMENT_PLAN.md) and
-[ADR-009](ADR/ADR-009-managed-postgres-small-scale.md). Managed PostgreSQL and a
-small single-instance control plane are the target; the current dependency
-stack remains until reversible replacements pass their gates. Do not expand
-scope to paid provisioning, real credentials/data migration, or deployment.
+## 2. 模块边界和行数
 
-- Keep authentication, resource authorization and optional quota separate.
-  Quota is not a selected billing model; future counters require explicit
-  concurrency and idempotency semantics.
-- Only the backend queries PostgreSQL. No client database credentials, arbitrary
-  SQL passthrough, unbounded result sets or whole-package loading for search.
-- Keep upload processing asynchronous, isolated and bounded. Preserve signature,
-  malware, review, revocation and idempotency gates while simplifying services.
-- Test the selected provider and rollback path against the same API contract.
-  PostgreSQL search needs real SQL tests, Unicode/literal-input fixtures,
-  deterministic pagination, eligibility/revocation and timeout/failure cases.
-- Keep existing checks. Report local, CI, ignored, failed and not-run checks
-  separately and bind evidence to the actual commit being reviewed/merged.
-- Distinguish target, implemented, tested and deployed. Report RSS only from
-  measurements with workload, commit and environment; never infer it from
-  requests/limits, streaming buffers or moving the database to a managed service.
+有效代码行不含空行、纯注释和纯注释多行区域，内联注释所在代码行仍计数。有语言感知 checker 时以它为准，物理行数只是上界。
+
+| 有效行数 | 要求 |
+| --- | --- |
+| 约 150；100–250 | 推荐目标，保持职责清晰 |
+| 251–500 | 可以接受，但必须只有一个明确职责 |
+| 501–700 | 记录凝聚性理由、风险和保护测试 |
+| 701–1500 | 新增或完成迁移的结果不能以此交付，继续拆分 |
+| 超过 1500 | 无条件拆分，不允许豁免 |
+
+按领域、权限、输入解析、数据访问、对象操作和生命周期划分，不以任意行号拆文件。不使用巨型 `common/utils/helpers`，不压缩代码或把可执行逻辑藏在字符串中规避检查。
+
+## 3. 架构与安全
+
+- 主业务在 Workers，业务事实在 D1，字节在 R2；当前只实现 Cloudflare。
+- 简单接口表达真实职责即可，不做多云框架。实质开销或能力限制出现时优先原生调用。
+- 不兼容旧开发版本，不迁移旧库；当前版本的权限、状态和一致性仍需完整保证。
+- 身份与资源授权分开；账号服务独立，客户端不得获得数据库或对象存储管理凭据。
+- 参数化 SQL、有界分页、确定性排序、唯一约束和条件更新必须有测试。
+- D1 多次分散调用不是事务；条件更新零行不等于批次回滚，审计和副作用必须对应真实成功状态。
+- D1/R2 跨服务流程使用阶段、幂等、重试和补偿，不声称跨服务原子事务。
+- 对象保持私有隔离直到必要验证和审核完成；下载当前授权、撤销和续传行为必须明确。
+- 审查输入大小、解析边界、集合有界性、阻塞、取消、重试和清理，不执行上传内容。
+- 秘密不进入代码、日志、错误、客户端包或证据。归档排除不能成为关闭秘密扫描的理由。
+
+## 4. 最低验证流程
+
+1. 修改前确认真实调用点、责任边界和相关文件有效行数。
+2. 为新增行为和非显然安全/并发不变量补充聚焦测试与简洁注释。
+3. 逐文件检查输入、权限、秘密、资源生命周期、有界性和性能复杂度。
+4. 运行实际配置的 formatter、聚焦测试、直接类型/编译检查、本地行数和适用安全检查。
+5. 执行 `git diff --check` 并复核独立仓库状态，不撤销他人修改。
+6. 运行时交付还要验证 Worker 构建和当前绑定；云验收只在授权后的真实隔离环境进行。
+
+新运行图形成时才建立对应命令和 CI。当前纯文档与归档整理不运行旧 Rust/Web suite，也不伪造新构建通过。
+
+## 5. 发现、打包和证据
+
+新 formatter、lint、typecheck、测试、行数检查、文档索引、活动依赖扫描、缓存键和打包均限定活动路径；禁止全仓 glob 把 `old` 的锁文件或源码纳入运行图。
+
+旧 CI 已离开根 `.github` 活动位置。新 CI 按当前语言和依赖建立，不直接复制历史发布图；远端 required checks、分支保护和安全功能需分别核实，不因本地归档而自动修改。
+
+秘密保护仍覆盖适用的工作区和 Git 历史。本地环境、缓存、旧发布证据和基础设施状态不提交、不打包。
+
+报告计划、实现、本地验证、云验收和部署的区别。忽略、失败、未运行和通过分别记录；旧报告与旧二进制不能证明新代码。资源、性能、容量和账单只报告有环境与负载依据的测量结果。
+
+## 6. 操作边界
+
+文本使用 UTF-8 无 BOM。Windows 默认 PowerShell；临时产物优先放 `C:/Users/Public/nas_home/AI/GameEditor/linshi`。
+
+不擅自提交、推送、开通服务、配置真实凭据、部署或删除数据。`linshi` 外高风险删除、清空或格式化必须先说明并获得用户明确“同意”。
+
+移动前核验绝对路径和目标冲突，保存内容保全记录；忽略保护先于归档移动。恢复按清单处理，不使用 `git reset --hard` 或 `git clean` 删除新工作。

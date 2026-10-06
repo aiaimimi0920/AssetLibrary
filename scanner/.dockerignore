@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!database.mjs
+!process.mjs
+!server.mjs
+!limits.mjs

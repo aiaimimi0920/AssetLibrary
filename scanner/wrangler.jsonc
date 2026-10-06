@@ -1,0 +1,18 @@
+{
+  "name": "neuro-assetlibrary-scanner",
+  "main": "../src/scanner/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["enable_request_signal"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "containers": [
+    {
+      "class_name": "ArtScanner",
+      "image": "./Dockerfile",
+      "instance_type": "standard-1",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": { "bindings": [{ "name": "ART_SCANNER", "class_name": "ArtScanner" }] },
+  "exports": { "ArtScanner": { "type": "durable-object", "storage": "sqlite" } }
+}

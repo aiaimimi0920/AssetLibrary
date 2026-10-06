@@ -1,0 +1,279 @@
+:root {
+  color-scheme: dark;
+  --yellow: #d9ff38;
+  --green: #22c55e;
+  --info: #06b6d4;
+  --danger: #f43f5e;
+  --bg: #06080d;
+  --surface: #090c11;
+  --panel: #0e1218;
+  --rail: #070a0f;
+  --control: #111720;
+  --hover: #18222c;
+  --text: #f7f8ef;
+  --muted: #929a9f;
+  --line: rgb(255 255 255 / 12%);
+  --focus: #f3f5f1;
+  --ink: #20252b;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px / 1.6 "Segoe UI",
+    "Microsoft YaHei",
+    sans-serif;
+}
+header {
+  height: 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand {
+  color: var(--green);
+}
+.section-links {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+a {
+  color: var(--info);
+  text-underline-offset: 3px;
+}
+h4 {
+  font-size: 14px;
+  margin: 8px 0;
+}
+header > span {
+  overflow-wrap: anywhere;
+  max-width: 55%;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: calc(100dvh - 56px);
+}
+aside {
+  padding: 24px 20px;
+  border-right: 1px solid var(--line);
+  background: var(--rail);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+main {
+  padding: 24px 32px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+h1 {
+  font-size: 26px;
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 20px;
+  margin: 0;
+}
+h3 {
+  font-size: 16px;
+  margin: 12px 0;
+}
+.kicker {
+  color: var(--muted);
+  font:
+    11px / 1.4 Consolas,
+    monospace;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+}
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.heading,
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.heading {
+  justify-content: space-between;
+}
+section {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+  margin-top: 20px;
+}
+label {
+  display: block;
+  margin: 8px 0;
+}
+input,
+select,
+textarea,
+button {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 9px 12px;
+  background: var(--control);
+  color: var(--text);
+  font: inherit;
+  max-width: 100%;
+}
+input,
+textarea {
+  width: 100%;
+}
+.toolbar input {
+  flex: 1;
+  min-width: 140px;
+}
+button {
+  cursor: pointer;
+  text-align: center;
+}
+button:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--muted);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-style: dashed;
+}
+button.primary {
+  background: var(--yellow);
+  color: color-mix(in srgb, var(--yellow) 14%, black);
+  border-color: var(--yellow);
+  font-weight: 700;
+}
+button.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--yellow) 86%, white);
+}
+button.danger {
+  border-color: var(--danger);
+  color: color-mix(in srgb, var(--danger) 78%, white);
+}
+:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+#identity-form button {
+  margin: 12px 0;
+}
+#session-state {
+  color: var(--muted);
+  font-size: 12px;
+}
+#notice {
+  border-left: 3px solid var(--info);
+  padding: 12px 16px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+#notice[data-tone="error"] {
+  border-color: var(--danger);
+}
+#notice[data-tone="success"] {
+  border-color: var(--green);
+}
+.facts {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 12px;
+  overflow: auto;
+  max-height: 280px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    12px / 1.6 Consolas,
+    "Microsoft YaHei",
+    monospace;
+}
+.rows {
+  overflow: auto;
+  max-height: 340px;
+  scrollbar-gutter: stable;
+}
+.row {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.row p {
+  margin: 4px 0;
+}
+.row .toolbar {
+  margin-top: 8px;
+}
+.resource-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  text-align: left;
+}
+.resource-row[aria-current="true"] {
+  background: var(--focus);
+  color: var(--ink);
+  border-left: 3px solid var(--yellow);
+}
+.resource-row[aria-current="true"]:hover {
+  background: var(--focus);
+}
+.status {
+  color: var(--info);
+  font-size: 12px;
+}
+dialog {
+  max-width: min(480px, 90vw);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+}
+dialog::backdrop {
+  background: rgb(0 0 0 / 75%);
+}
+/* 窄屏使用文档滚动；只锁内部 main/aside 不能阻止背景页面滚动。 */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+body:has(dialog[open]) main,
+body:has(dialog[open]) aside {
+  overflow: hidden;
+}
+@media (max-width: 760px) {
+  header {
+    padding: 0 16px;
+  }
+  .shell {
+    display: block;
+    height: auto;
+  }
+  aside {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  main {
+    padding: 20px 16px;
+  }
+  .toolbar input {
+    min-width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@neuro/assetlibrary",
+  "version": "0.3.0-dev.23",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "trial": "node scripts/local-trial.mjs",
+    "dev": "wrangler dev --local --persist-to ../../linshi/assetlibrary-p33b-local",
+    "db:local": "wrangler d1 migrations apply DB --local --persist-to ../../linshi/assetlibrary-p33b-local",
+    "scanner:dev": "wrangler dev --config scanner/wrangler.jsonc --local --persist-to ../../linshi/assetlibrary-scanner-local",
+    "pack:art": "node scripts/pack-art.mjs",
+    "check": "biome check src tests scripts scanner package.json tsconfig.json biome.json wrangler.jsonc",
+    "format": "biome check --write src tests scripts scanner package.json tsconfig.json biome.json wrangler.jsonc",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "test:scanner": "node scripts/verify-scanner.mjs",
+    "scanner:release": "node scripts/scanner-release.mjs",
+    "scanner:assess": "node scripts/scanner-release-proof.mjs",
+    "scanner:source-audit": "node scripts/scanner-source-audit.mjs",
+    "scanner:native-build": "node scripts/scanner-native-build.mjs",
+    "scanner:native-assess": "node scripts/scanner-native-policy.mjs",
+    "scanner:native-risk": "node scripts/scanner-native-risk.mjs",
+    "sizecheck": "node scripts/check-source.mjs",
+    "audit": "pnpm audit --audit-level=low",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@cloudflare/workers-types": "5.20261004.1",
+    "miniflare": "5.20261001.0-alpha",
+    "typescript": "5.9.3",
+    "wrangler": "4.147.0"
+  }
+}

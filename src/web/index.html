@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AssetLibrary · Neuro</title>
+    <link rel="stylesheet" href="/style.css">
+    <script type="module" src="/app.client.js"></script>
+  </head>
+  <body>
+    <header>
+      <strong><span class="brand">Neuro /</span> AssetLibrary</strong
+      ><span id="session-state">未连接身份</span>
+    </header>
+    <div class="shell">
+      <aside>
+        <p class="kicker">01 / 私有工作区</p>
+        <h1>资源库</h1>
+        <p class="muted">Art 包上传、检查与版本审核。对象保持私有，尚未开放生产发布或下载。</p>
+        <form id="identity-form">
+          <label for="credential">外部身份 Bearer JWT</label>
+          <input
+            id="credential"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            maxlength="8192"
+          >
+          <button type="submit">连接身份</button>
+        </form>
+        <button id="disconnect" type="button">清除身份与当前视图</button>
+        <p class="muted">凭据仅在本页内存中使用；不保存到浏览器存储，不提供模拟登录。</p>
+        <nav class="section-links" aria-label="工作区章节">
+          <a href="#resource-heading">上传与版本</a>
+          <a href="#distribution-heading">分发目录与资源库</a>
+          <a href="#publication-heading">发布与下载授权</a>
+        </nav>
+        <div class="toolbar">
+          <h2>我的资源</h2>
+          <button id="refresh-resources" data-protected type="button" disabled>刷新</button>
+        </div>
+        <nav id="resources" class="rows" aria-label="资源列表">
+          <p class="muted">连接身份后读取真实目录。</p>
+        </nav>
+        <button id="more-resources" data-protected type="button" disabled>下一页资源</button>
+      </aside>
+      <main>
+        <div class="heading">
+          <div>
+            <p class="kicker">02 / ART WORKBENCH</p>
+            <h2>私有资源工作台</h2>
+          </div>
+          <button id="stop" type="button" disabled>停止当前请求</button>
+        </div>
+        <p id="notice" role="status" aria-live="polite">
+          连接外部身份后开始。原生组件安全风险与网络边界验收暂缓，现有发布门禁保持不变。
+        </p>
+        <form id="create-form" class="toolbar">
+          <label for="new-title">新资源标题</label>
+          <input id="new-title" maxlength="200" required placeholder="例如：角色动作素材">
+          <button class="primary" data-protected type="submit" disabled>创建 Art 资源</button>
+        </form>
+        <section aria-labelledby="resource-heading">
+          <div class="toolbar">
+            <h3 id="resource-heading">当前资源</h3>
+            <span id="resource-state" class="muted">未选择</span>
+          </div>
+          <pre id="resource-detail" class="facts">请选择左侧资源。</pre>
+          <form id="upload-form">
+            <label for="package-file">多文件 Art ZIP（1–32 张静态 PNG，最多 8 MiB）</label>
+            <input id="package-file" type="file" accept=".zip,application/zip" required>
+            <div class="toolbar">
+              <label for="inspection-policy">检查策略</label>
+              <select id="inspection-policy">
+                <option value="art-zip-clamav-v1">格式 + ClamAV 内容检查</option>
+                <option value="art-zip-manifest-v1">仅格式检查（不可发布）</option>
+              </select>
+              <button data-protected type="submit" disabled>上传并申请检查</button>
+            </div>
+          </form>
+          <p class="muted">
+            使用 pack:art 生成带 manifest
+            的包。检查由后台定时任务执行；失败不会降级为格式通过。停止请求不等于服务器取消上传，请在列表中显式取消。
+          </p>
+          <div class="toolbar">
+            <h3>上传与检查</h3>
+            <button id="refresh-workspace" data-protected type="button" disabled>
+              刷新当前资源
+            </button>
+          </div>
+          <div id="uploads" class="rows"></div>
+          <button id="more-uploads" data-protected type="button" disabled>下一页上传</button>
+          <form id="version-form" class="toolbar">
+            <label for="version-upload">待绑定隔离上传（服务器验证 passed）</label
+            ><select id="version-upload" required></select>
+            <label for="version-label">不可变版本标签</label>
+            <input
+              id="version-label"
+              required
+              maxlength="64"
+              pattern="[A-Za-z0-9][A-Za-z0-9._\-]{0,63}"
+              placeholder="v1"
+            >
+            <button data-protected type="submit" disabled>创建待审核版本</button>
+          </form>
+          <div id="versions" class="rows"></div>
+          <button id="more-versions" data-protected type="button" disabled>下一页版本</button>
+        </section>
+        <section aria-labelledby="distribution-heading">
+          <p class="kicker">04 / 授权分发</p>
+          <h3 id="distribution-heading">公开目录与我的下载资源库</h3>
+          <p class="muted">目录元数据和下载权限分别判断。生产尚未准入时显示服务器错误，不将不可用写成空目录或下载成功。</p>
+          <div class="toolbar"><h4>公开目录</h4><button id="refresh-catalog" data-public type="button">读取公开目录</button></div>
+          <p id="catalog-state" class="muted" role="status"></p>
+          <div id="catalog" class="rows"></div>
+          <button id="more-catalog" data-public type="button" disabled>下一页公开目录</button>
+          <pre id="catalog-detail" class="facts">尚未读取公开详情。</pre>
+          <div class="toolbar"><h4>我的下载资源库</h4><button id="refresh-library" data-protected type="button" disabled>读取我的资源库</button></div>
+          <p id="library-state" class="muted" role="status"></p>
+          <div id="library" class="rows"></div>
+          <button id="more-library" data-protected type="button" disabled>下一页下载资源库</button>
+          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB Art ZIP。停止会丢弃未完成字节，再次下载重新申请授权。</p>
+        </section>
+        <section aria-labelledby="publication-heading">
+          <p class="kicker">05 / PUBLISHER OPERATIONS</p>
+          <h3 id="publication-heading">发布状态与独立下载授权</h3>
+          <form id="publication-read-form" class="toolbar">
+            <label for="publication-id">发布 ID（或从版本列表进入）</label>
+            <input id="publication-id" maxlength="36" required>
+            <button data-protected type="submit" disabled>读取 owner 发布记录</button>
+          </form>
+          <pre id="publication-detail" class="facts">尚未读取 owner 发布记录。</pre>
+          <div class="toolbar">
+            <button id="download-managed" data-protected type="button" disabled>申请票据并下载</button>
+            <button id="unlist-publication" class="danger" data-protected type="button" disabled>下架发布</button>
+          </div>
+          <form id="grant-read-form" class="toolbar">
+            <label for="grant-principal">下载主体 PrincipalRef</label>
+            <input id="grant-principal" maxlength="200" required>
+            <button data-protected type="submit" disabled>查询当前下载授权</button>
+          </form>
+          <pre id="grant-detail" class="facts">尚未查询下载授权。</pre>
+          <div class="toolbar">
+            <button id="grant-activate" data-protected type="button" disabled>授予或恢复下载授权</button>
+            <button id="grant-revoke" class="danger" data-protected type="button" disabled>撤销下载授权</button>
+          </div>
+          <p class="muted">授权 revision 来自服务器，首次未登记使用 0；冲突或未知提交先查询，不猜测 revision。下架与撤销阻止新请求和续传，不能收回已传出的字节。</p>
+        </section>
+        <section aria-labelledby="review-heading">
+          <p class="kicker">03 / 独立审核</p>
+          <h3 id="review-heading">按版本 ID 查看与审核</h3>
+          <p class="muted">
+            将版本 ID 交给配置名单中的另一位审核者。切换身份会清空本页数据。owner
+            不能自审；审核不代表实际预览或新的扫描证明。
+          </p>
+          <form id="read-version-form" class="toolbar">
+            <label for="review-id">版本 ID</label><input id="review-id" required maxlength="36">
+            <button data-protected type="submit" disabled>读取版本</button>
+          </form>
+          <pre id="review-detail" class="facts">尚未读取版本。</pre>
+          <form id="review-form">
+            <label for="review-decision">审核决定</label
+            ><select id="review-decision">
+              <option value="approved">批准</option>
+              <option value="rejected">拒绝</option>
+            </select>
+            <label for="review-reason">审核说明</label
+            ><textarea id="review-reason" required maxlength="500" rows="2"></textarea>
+            <button data-protected type="submit" disabled>提交独立审核决定</button>
+          </form>
+        </section>
+      </main>
+    </div>
+    <dialog id="confirmation">
+      <form method="dialog">
+        <h2 id="confirmation-title">确认撤回</h2>
+        <p id="confirmation-description">此操作将关闭该版本，标签不能重用，历史审核会保留。</p>
+        <div class="toolbar">
+          <button type="submit" value="cancel">返回</button
+          ><button id="confirmation-submit" type="submit" value="confirm" class="danger">确认撤回</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

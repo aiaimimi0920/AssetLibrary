@@ -1,13 +1,24 @@
-# Contributing
+# AssetLibrary 协作流程
 
-1. Read `AGENTS.md` and `DEVELOPMENT_PLAN.md` before changing architecture.
-2. Keep account concerns behind `PrincipalRef`; do not add account storage or
-   authentication flows to this repository.
-3. Update the OpenAPI/AsyncAPI contract and JSON Schemas with behavior changes.
-4. Add a focused regression test for each non-trivial behavior change.
-5. Run the applicable Rust, web, contract, and security checks locally.
-6. Keep commits scoped to one subsystem and explain security or migration
-   implications in the commit body.
+## 开始工作
 
-Pull requests must describe API compatibility, storage changes, rollout and
-rollback steps, observability changes, and any residual risk.
+先阅读 `AGENTS.md`、`DEVELOPMENT_PLAN.md`、`README.md` 和 `docs/DEVELOPMENT_STANDARD.md`，确认当前授权范围和阶段退出条件。
+
+新项目按 TypeScript Workers + D1 + R2 从零开发，只实现 Cloudflare。开发期不兼容旧版本，不迁移旧数据库；不要为旧 API、旧 Schema 或旧部署增加兼容机制。
+
+## 开发节奏
+
+1. 从真实调用点和业务不变量出发，选择一个可观察的端到端切片。
+2. 先声明范围、非目标和验证条件，再引入确有必要的模块、依赖或配套服务。
+3. 为权限、状态、幂等、并发、失败和重试补充聚焦测试。
+4. 更新当前 API 和数据模型文档；不要求继续维护归档的 OpenAPI/AsyncAPI 或旧协议。
+5. 执行新项目实际配置的格式、类型、测试、行数及安全检查，并运行 `git diff --check`。
+6. 报告真实结果和未验证项；完成当前切片后停止扩展范围。
+
+不要在 `old/` 开发，不自动运行其测试或发布脚本。旧代码实际复用到新项目时，视为新代码重新审查与验证。
+
+## 交付与授权
+
+提交和推送需明确授权，且只操作独立 AssetLibrary 仓库。说明当前行为、数据结构、权限和副作用变化，但不承诺开发期历史版本兼容。
+
+Cloudflare 环境开通、真实凭据、云资源变更和部署单独授权。开发完成、本地验证、云环境验收和生产就绪必须分别说明。
