@@ -48,7 +48,7 @@ export function resolveOperation(scope, body, subject) {
 /** consume 必须在控制器生命周期内读完响应，下载不能在返回后失去取消/身份保护。 */
 export async function withResponse(
   path,
-  { method = "GET", body, signal, key, raw = false, publicRead = false, ticket },
+  { method = "GET", body, signal, key, raw = false, publicRead = false, ticket, range, ifRange },
   consume,
 ) {
   if (!credential && !publicRead) throw new Error("IDENTITY_REQUIRED");
@@ -59,6 +59,30 @@ export async function withResponse(
     throw new Error("INVALID_API_PATH");
   if (publicRead && (method !== "GET" || !/^\/v1\/catalog(?:\?|\/[0-9a-f-]{36}$|$)/.test(path)))
     throw new Error("INVALID_PUBLIC_API_PATH");
+  // ?????????? Range???????????????? header?
+  if (range !== undefined || ifRange !== undefined) {
+    const match = typeof range === "string" && /^bytes=([0-9]+)-([0-9]+)$/.exec(range);
+    const start = match ? Number(match[1]) : -1;
+    const end = match ? Number(match[2]) : -1;
+    if (
+      publicRead ||
+      method !== "GET" ||
+      body !== undefined ||
+      !/^\/v1\/publications\/[0-9a-f-]{36}\/content$/.test(path) ||
+      !/^[0-9a-f]{64}$/.test(ticket ?? "") ||
+      !match ||
+      range.length > 128 ||
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      start < 0 ||
+      end < start ||
+      end >= 8 * 1024 * 1024 ||
+      end - start + 1 > 256 * 1024 ||
+      (ifRange !== undefined &&
+        (typeof ifRange !== "string" || !/^"[\x21\x23-\x7e]{1,126}"$/.test(ifRange)))
+    )
+      throw new Error("INVALID_DOWNLOAD_RANGE");
+  }
   const current = generation;
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -77,6 +101,8 @@ export async function withResponse(
       headers: {
         ...(publicRead ? {} : { Authorization: `Bearer ${credential}` }),
         ...(ticket ? { "X-Download-Ticket": ticket } : {}),
+        ...(range !== undefined ? { Range: range } : {}),
+        ...(ifRange !== undefined ? { "If-Range": ifRange } : {}),
         ...(body === undefined
           ? {}
           : { "Content-Type": raw ? "application/octet-stream" : "application/json" }),
