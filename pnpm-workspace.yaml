@@ -3,3 +3,5 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - workerd
+overrides:
+  "miniflare>sharp": 0.35.5
