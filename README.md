@@ -1,5 +1,7 @@
 # AssetLibrary
 
+当前活动项目已新增 [GitHub CI](docs/CI.md) 候选，覆盖格式、类型、行数、Worker 本地测试、活动依赖审计与增量秘密扫描；旧 workflow 仍只在 `old/` 中，不代表新项目已通过云端检查。CI 不部署 Worker，也不更改生产准入。
+
 最新 `0.3.0-dev.25` 增加[资源管理页面操作](docs/P5_RESOURCE_MANAGEMENT.md)：owner 可在“当前资源”改名、关闭、查询并变更指定主体的目录读权限，不再需要手工调用 API。改名和授权会使既有版本绑定失效；目录读权限不等于包体下载授权。`rtk proxy pnpm trial` 可在本地用 10001/10003 演练，正式账号、云部署和生产准入没有因此改变。
 
 最新 `0.3.0-dev.24` 已新增[独立审核待办](docs/P5_REVIEW_QUEUE.md)：本地体验的 10002 可直接“读取审核待办”→“查看并审核”，无需复制版本 ID。继续使用 `rtk proxy pnpm trial`；账号系统延期，生产门禁不变。`.23` Cloudflare 重建基线已按授权提交推送独立 `main`（`f2597a5`），旧源码完整保存在 `old/`。
