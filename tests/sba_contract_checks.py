@@ -19,7 +19,7 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.0',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.1',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
 for key, value in [('origin', 'https://evil.test/path'), ('accountId', '../other'),
@@ -38,9 +38,11 @@ with patch.object(springbok, 'validate', lambda req: req):
     with patch.object(springbok, 'Cloud', side_effect=AssertionError('cloud called')):
         assert springbok.execute(preview)[0:3:2] == ('failed', 'ASSETLIBRARY_PREVIEW_NOT_IMPLEMENTED')
     verification = {**request, 'action': 'verify'}
-    with patch.object(springbok, 'verify', return_value=[{'id': 'observed', 'passed': True}]), \
+    with patch.object(springbok, 'verify_public', return_value=[{'id': 'observed', 'passed': True}]), \
          patch.object(springbok, 'migrate', side_effect=AssertionError('verify wrote data')):
-        assert springbok.execute(verification, cloud_factory=lambda _: object())[0] == 'succeeded'
+        def no_cloud(_):
+            raise AssertionError('independent verification requested a cloud credential')
+        assert springbok.execute(verification, cloud_factory=no_cloud)[0] == 'succeeded'
     with patch.dict('os.environ', {'SBA_EXECUTE': '1'}), \
          patch.object(springbok, 'preflight', side_effect=contract.Failure('ASSETLIBRARY_TARGET_EXISTS')):
         assert springbok.execute(request, cloud_factory=lambda _: object())[0] == 'failed'
@@ -129,4 +131,18 @@ with tempfile.TemporaryDirectory(prefix='sba-unit-', dir=scratch) as temp:
         raise AssertionError('changed artifact accepted')
     except contract.Failure:
         assert not fake.calls
+ready = {'status': 'ready', 'checks': {'identity': 'available', 'database': 'available', 'storage': 'available'},
+         'distribution': {'status': 'blocked', 'reason': 'SCANNER_CLOUD_NOT_VALIDATED'}}
+responses = [{'sourceSha': request['sourceSha'], 'version': request['applicationVersion']}, ready,
+             {'enabled': True, 'principal': None}]
+with patch.object(cloudflare, 'public_json', side_effect=responses) as get:
+    assert len(cloudflare.verify_public(request)) == 4
+    assert [args.args[0] for args in get.call_args_list] == [config['origin'] + path for path in ['/healthz', '/readyz', '/auth/session']]
+for broken in [{**ready, 'checks': {}}, {**ready, 'distribution': {'status': 'allowed'}}, {**ready, 'status': 'degraded'}]:
+    with patch.object(cloudflare, 'public_json', side_effect=[responses[0], broken]):
+        try:
+            cloudflare.verify_public(request)
+            raise AssertionError('invalid readiness accepted')
+        except contract.Failure:
+            pass
 print('SBA_CHECKS_PASSED')

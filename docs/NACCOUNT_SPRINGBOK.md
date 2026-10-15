@@ -28,9 +28,13 @@ SpringBok 自动分配 D1/R2，将实际 ID 写入 configuration。应用不创�
 
 ## 生命周期及限制
 
+`0.4.1` 修正独立 verify 的凭据边界：SpringBok 不向 verify 交付云部署令牌，
+所以只读取 `/healthz`、`/readyz`、匿名 `/auth/session`，核对固定版本、依赖可用性和关闭的门禁。
+真实绑定核对仍在 deploy/update 的内部验证阶段执行；独立 verify 不冒称重新读取 Cloudflare 配置。
+
 - deploy：固定 GitHub SHA、干净检出；拒绝已存在 Worker、非空 D1、公开 R2 和其他服务占用的域名；执行增量 Schema、上传主 Worker 全模块、配置内部绑定、访问入口和 cron。写入开始后不确定结果为 unknown，不自动重放。
 - update：核对原 SHA、同实例 D1/R2 和身份合同；导出 D1 到私有 R2 独立备份键并读回摘要，迁移后验证旧列/旧行及 R2 对象元数据见证；保留会话 secret。不把对象元数据见证说成逐字节全库恢复测试。
-- verify：只读核对固定版本、绑定、私有依赖、匿名会话状态和仍关闭的分发门禁，不顺便发布或初始化。
+- verify：无部署凭据，只读核对固定版本、私有依赖可用性、匿名会话状态和仍关闭的分发门禁，不顺便发布或初始化。
 - preview / destroy-preview：当前明确返回 `ASSETLIBRARY_PREVIEW_NOT_IMPLEMENTED`，应用入口在云调用前拒绝；**尚未完成全生命周期支持**。SpringBok 可能已在执行应用前分配预览资源，不能据应用拒绝声称平台未创建资源；不得发起这两个动作，也不自动删除平台已创建资源。
 - 成功首次部署返回 deployed-unverified；独立 verify 的 succeeded 只表示上述服务可用性范围，不代表用户登录、扫描安全或完整生产分发通过。
 

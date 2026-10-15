@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import time
 from contract import ROOT, Failure, atomic_result, load, require, validate
-from cloudflare import Cloud, build, migrate, preflight, publish, verify
+from cloudflare import Cloud, build, migrate, preflight, publish, verify, verify_public
 from preservation import backup, preserved, objects
 
 
@@ -17,9 +17,10 @@ def execute(request, cloud_factory=Cloud, output_builder=build):
         if request['action'] in ('preview', 'destroy-preview'):
             # 不将空库或缺 R2 副本的演练冒充完整预升级；绝不按前缀删除资源。
             raise Failure('ASSETLIBRARY_PREVIEW_NOT_IMPLEMENTED')
-        cloud = cloud_factory(request['configuration'])
         if request['action'] == 'verify':
-            return 'succeeded', verify(cloud, request), None
+            # SpringBok 独立 verify 不发放部署凭据，仅核验公开只读探针。
+            return 'succeeded', verify_public(request), None
+        cloud = cloud_factory(request['configuration'])
         require(os.environ.get('SBA_EXECUTE') == '1', 'ASSETLIBRARY_EXECUTION_NOT_AUTHORIZED')
         preflight(cloud, request)
         temp_root = Path(os.environ.get('RUNNER_TEMP', ROOT.parent.parent / 'linshi'))

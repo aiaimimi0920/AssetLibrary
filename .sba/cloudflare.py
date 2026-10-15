@@ -170,11 +170,18 @@ def verify(cloud, request):
             bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'] and
             bindings.get('NACCOUNT_SESSION_KEY', {}).get('type') == 'secret_text',
             'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH')
+    return [{'id': 'deployed-bindings', 'passed': True}, *verify_public(request)]
+
+
+def verify_public(request):
+    c = request['configuration']
     health = public_json(c['origin'] + '/healthz')
     require(health.get('sourceSha') == request['sourceSha'] and health.get('version') == request['applicationVersion'],
             'ASSETLIBRARY_RELEASE_MISMATCH')
     ready = public_json(c['origin'] + '/readyz')
-    require(ready.get('status') == 'ready' and ready.get('distribution', {}).get('reason') == 'SCANNER_CLOUD_NOT_VALIDATED',
+    require(ready.get('status') == 'ready' and ready.get('checks') == {
+                'identity': 'available', 'database': 'available', 'storage': 'available'} and
+            ready.get('distribution') == {'status': 'blocked', 'reason': 'SCANNER_CLOUD_NOT_VALIDATED'},
             'ASSETLIBRARY_READINESS_FAILED')
     session = public_json(c['origin'] + '/auth/session')
     require(session == {'enabled': True, 'principal': None}, 'ASSETLIBRARY_AUTH_READINESS_FAILED')
