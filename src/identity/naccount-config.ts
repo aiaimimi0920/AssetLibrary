@@ -4,6 +4,7 @@ export interface NAccountEnv {
   DB: D1Database;
   NACCOUNT_ISSUER?: string;
   NACCOUNT_CLIENT_ID?: string;
+  NACCOUNT_NATIVE_CLIENT_ID?: string;
   NACCOUNT_SESSION_KEY?: string;
   APP_ORIGIN?: string;
 }

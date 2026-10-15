@@ -64,6 +64,22 @@ formatter、typecheck、sizecheck、SBA Python 合同、构建和活动依赖审
 
 ## 认证合同
 
+### 0.4.5 Loom 原生客户端增量（待部署）
+
+新增可选 `configuration.identity.nativeClientId`，部署到 `NACCOUNT_NATIVE_CLIENT_ID`。
+Loom 的公开客户端为 `E2C4ea99CC5Fee924b9023D76986397f7593282D25AF979d727D26eaB09A0c10`，
+NAccount 应用名为 `Loom Desktop`，固定回调 `http://127.0.0.1:8765/v1/naccount/callback`；已登记并读回核对。
+此公开标识不是 secret；不得替换现有网页 `clientId`。
+
+配置后，独立原生客户端可使用 `Authorization: Bearer` 请求业务 API；校验独立 azp、签名、时效、
+userinfo 与原有主体映射。未配置时明确拒绝 `NATIVE_CLIENT_NOT_CONFIGURED`；网页客户端令牌不能冒充
+原生客户端，混合 Cookie/Bearer 拒绝。原网页 Cookie/CSRF、会话密钥及扫描门禁保持。
+升级允许首次添加 native binding；已有 binding 不允许被配置静默替换或移除。
+
+本地 Worker/D1/R2 合成身份测试已覆盖 Art、Capability、application 资源元数据创建和读取，
+不等于 Loom 文件上传、包安装、更新或真实原生登录验收。正式上线必须创建新版本并正常 update，
+不得重放历史 update/repair。以下未特别说明的认证条目描述网页流程。
+
 - 正式 issuer 是域名 origin，不是 `/account` 页面地址。
 - 使用独立 SPA client、固定小写 `/auth/callback`、Authorization Code + S256 PKCE，以及随机 state 和浏览器绑定；仅申请 `openid profile`，不申请 `offline_access`。
 - 当前 NAccount Access Token 没有 `aud`，校验固定 issuer、RS256/JWKS、`azp`、`tokenType=user`、profile scope 和时效；拒绝 impersonation。不将 ID Token 当作业务 API 凭据。
@@ -72,7 +88,7 @@ formatter、typecheck、sizecheck、SBA Python 合同、构建和活动依赖审
 - 会话最长 15 分钟，且不超过 access token 的有效期；到期重新登录。不把令牌写入 URL、浏览器存储或客户端 JavaScript。
 - 所有私有请求（包括 GET/Range）校验页面会话绑定；写请求另校验 Origin。防止另一标签页更换 Cookie 后旧页接纳新主体的数据。
 - 回调先原子认领事务，网络交换后有条件创建会话；退出删除当前会话并取消同浏览器在途登录，迟到回调不能复活会话。
-- 配置 NAccount 后拒绝旧 Bearer 身份；未配置时保留原固定签发者本地测试入口。真实用户主体不使用邮箱，不自动获得审核或资源权限。
+- 配置 NAccount 后拒绝旧 Bearer 身份；0.4.5 仅额外接受显式配置的独立原生 NAccount 客户端。未配置 NAccount 时保留原固定签发者本地测试入口。真实用户主体不使用邮箱，不自动获得审核或资源权限。
 
 公开端点：`POST /auth/login`、`GET /auth/callback`、`GET /auth/session`、`POST /auth/logout`。只有 `/auth/session` 返回同源页面所需 CSRF 值，不返回访问令牌。退出先废止 AssetLibrary 会话，再跳 NAccount 的客户端退出入口；不宣称这撤销其他应用的令牌。
 

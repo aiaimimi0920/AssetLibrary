@@ -40,9 +40,13 @@ def settings(value):
     require(origin.scheme == 'https' and origin.hostname and not origin.path and not origin.query
             and not origin.fragment and not origin.username and not origin.port)
     require(value['origin'] == f'https://{origin.hostname}')
-    require(set(value['identity']) == {'issuer', 'clientId'})
+    require(set(value['identity']) in ({'issuer', 'clientId'}, {'issuer', 'clientId', 'nativeClientId'}))
     require(value['identity']['issuer'] == 'https://naccount-auth.aiaimimi.com')
     require(re.fullmatch(r'[A-Za-z0-9_-]{1,128}', str(value['identity']['clientId'])))
+    if 'nativeClientId' in value['identity']:
+        require(isinstance(value['identity']['nativeClientId'], str) and
+                re.fullmatch(r'[A-Za-z0-9_-]{1,128}', value['identity']['nativeClientId']) and
+                value['identity']['nativeClientId'] != value['identity']['clientId'])
     require(isinstance(value['reviewers'], list) and len(value['reviewers']) <= 100)
     require(all(isinstance(p, str) and re.fullmatch(r'[A-Za-z0-9:._@-]{1,200}', p) for p in value['reviewers']))
     require(len(set(value['reviewers'])) == len(value['reviewers']))

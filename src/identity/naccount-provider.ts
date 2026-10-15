@@ -67,8 +67,13 @@ async function verificationKeys(issuer: string, refresh = false) {
   return keys.resolve;
 }
 
-export async function validateNAccountToken(env: NAccountEnv, token: string) {
-  const { issuer, clientId } = naccountConfig(env);
+export async function validateNAccountToken(
+  env: NAccountEnv,
+  token: string,
+  nativeClientId?: string,
+) {
+  const { issuer, clientId: webClientId } = naccountConfig(env);
+  const clientId = nativeClientId ?? webClientId;
   if (typeof token !== "string" || token.length > 8192) throw new HttpError(401, "UNAUTHENTICATED");
   const options = {
     issuer,

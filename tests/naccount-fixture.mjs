@@ -111,6 +111,12 @@ export async function naccountFixture() {
     request,
     start,
     login,
+    issueToken: async (overrides = {}) => {
+      const now = Math.floor(Date.now() / 1000);
+      return new SignJWT({ ...claims, iss: issuer, iat: now, exp: now + 600, ...overrides })
+        .setProtectedHeader({ alg: "RS256", kid: jwk.kid })
+        .sign(privateKey);
+    },
     dispose: async () => {
       globalThis.fetch = originalFetch;
       await f.dispose();

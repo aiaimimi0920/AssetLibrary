@@ -35,8 +35,17 @@ export async function csrfCheck(request: Request, env: NAccountEnv, session: Ses
     throw new HttpError(403, "AUTH_CSRF_REJECTED");
 }
 export async function naccountIdentity(request: Request, env: NAccountEnv, bindPage = true) {
-  // NAccount 模式只接受服务端会话，不能混用旧测试签发者或客户端主体头。
-  if (request.headers.has("Authorization")) throw new HttpError(401, "UNAUTHENTICATED");
+  // 原生客户端使用独立登记的 azp；网页 cookie/CSRF 流程保持不变。
+  const authorization = request.headers.get("Authorization");
+  if (authorization !== null) {
+    const clientId = env.NACCOUNT_NATIVE_CLIENT_ID;
+    if (!clientId) throw new HttpError(401, "NATIVE_CLIENT_NOT_CONFIGURED");
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(clientId) || clientId === env.NACCOUNT_CLIENT_ID)
+      throw new HttpError(503, "IDENTITY_NOT_CONFIGURED");
+    if (request.headers.has("Cookie") || !authorization.startsWith("Bearer "))
+      throw new HttpError(401, "UNAUTHENTICATED");
+    return (await validateNAccountToken(env, authorization.slice(7), clientId)).principal;
+  }
   const session = await sessionRecord(request, env);
   if (bindPage) await csrfCheck(request, env, session);
   try {

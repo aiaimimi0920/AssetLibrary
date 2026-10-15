@@ -20,9 +20,19 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.4',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.5',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
+native = copy.deepcopy(config)
+native['identity']['nativeClientId'] = 'loom-client'
+assert contract.settings(native)['identity']['nativeClientId'] == 'loom-client'
+for invalid in ('', 'assetlibrary-client', '../invalid'):
+    native['identity']['nativeClientId'] = invalid
+    try:
+        contract.settings(native)
+        raise AssertionError('invalid native client accepted')
+    except contract.Failure:
+        pass
 for key, value in [('origin', 'https://evil.test/path'), ('accountId', '../other'),
                    ('scannerService', 'assetlibrary-test'), ('reviewers', ['x', 'x'])]:
     bad = copy.deepcopy(request)
