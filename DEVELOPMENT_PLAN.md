@@ -1,5 +1,11 @@
 # AssetLibrary：Cloudflare 从零重建开发计划
 
+当前上线版本 `0.4.3` 已经 SpringBok 在原实例完成证据绑定修复，原 Worker/D1/私有 R2 保留，
+备份及数据保全、线上固定版本与就绪检查通过。独立应用 verify 不使用云凭据，四项通过；
+平台未提供 repair 后独立 verify 按钮，不能称为新平台 verify 任务。真实浏览器账号/私有业务验收尚待完成，
+scanner 未绑定，生产分发继续阻断，见 [实际部署回执](docs/NACCOUNT_SPRINGBOK.md#2026-10-15-实际部署回执)。
+下文 `.27` 及更早批次中的账号延期、未部署等文字属于历史状态。
+
 2026-10-15：用户已授权真实 NAccount 接入、通过 SpringBok 实际部署，以及验证后独立提交/推送/创建部署版本。当前实现与边界见 [NAccount 与 SpringBok](docs/NACCOUNT_SPRINGBOK.md)。正式账号不再延期；原生扫描安全和网络准入不能因接通账号或发布 Worker 自动变为通过。`.sba` 当前初次部署/更新/只读验证已有实现，preview/destroy-preview 写前拒绝，完整生命周期尚未完成。
 
 本轮修复 fresh audit 新检出的活动依赖 HIGH：仅覆写 `miniflare>sharp` 为 `0.35.5`，独占新锁安装、实际图像库加载和 296 项分批测试通过，详见 [工具链依赖修复](docs/DEPENDENCY_SHARP_FIX.md)。生产业务源码/Schema/云配置不变，运行版本仍 `.27`；既有 trial 进程保留旧依赖，不冒称已安装补丁。

@@ -6,6 +6,30 @@
 
 **这不是扫描安全验收通过或生产分发开放。** `scannerService` 留空时不部署或绑定 scanner；对象仍隔离，内容检查不能获得通过。非空时仅引用同账户已有内部扫描服务，不创建 Container、不切换镜像。不得复用旧镜像历史云结果声称新镜像合格。`SCANNER_CLOUD_NOT_VALIDATED` 仍硬拒绝生产发布和下载。
 
+## 2026-10-15 实际部署回执
+
+- 地址：`https://assetlibrary.aiaimimi.com`；线上 `0.4.3`，固定 SHA `eb3c362ea7f8dcc7b18c38920de7bdeda068948b`。
+- 独立仓库 [v0.4.3 Release](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.3)；精确提交 [CI 38750774015](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/38750774015) 的 verify/secret_scan 均成功。
+- SpringBok 原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 保留。repair 任务 `dc-e2e0c559e28242dbbe1ce9977b11a8fb`，
+  [运行 38751546139](https://github.com/aiaimimi0920/SpringBok/actions/runs/38751546139) 业务结果 `succeeded`，10 项检查全部通过。
+  包括 backup-created、data-preserved、deployed-bindings、release-identity、private-dependencies、
+  naccount-login-configured、production-gate-preserved、repair-completed、unchanged-resources-verified、service-ready。
+- 回执 archive SHA-256：`c50879602043be335dbcde3a5d192b3ed29658dd17b89a7f9fe0796f1dba00b7`；
+  run/task/source 身份及 GitHub artifact digest 均独立核对。首次部署、失败升级的历史回执不改写为成功。
+- 真实资源：Worker `assetlibrary`；D1 `assetlibrary-db` / `dd6dc465-2d9a-4ee6-800f-3033ffea0dc1`；私有 R2 `assetlibrary-objects`。
+  R2 托管公共入口关闭、无自定义公开域名；Worker workers.dev/preview 均关闭，仅批准的自定义域名启用；cron 为 `* * * * *`。
+  `NACCOUNT_SESSION_KEY` secret binding 存在且修复不生成新 key；这不是读出或比较 secret 明文字节的证明。SCANNER binding 不存在。
+- `/healthz` 返回以上固定版本/SHA；`/readyz` 的 identity/database/storage 均 available，distribution 保持 blocked / SCANNER_CLOUD_NOT_VALIDATED。
+- 独立验证：在精确发布提交的 clean 工作区，清空进程云 token 和 SBA_EXECUTE 后调用 `.sba/springbok.py` 的 verify，
+  返回 succeeded / 四项公开只读检查通过，结果保留在 `linshi/assetlibrary-independent-verify-v043/result.json`。
+  SpringBok 当前不向成功 repair 提供独立 verify 动作，因此这不是额外的平台 verify 任务，也不改写 repair 回执。
+- 本轮本地：SBA Python 合同检查、SpringBok v3/v2 声明检查、formatter、typecheck、sizecheck、构建及 8 项认证/SBA 聚焦测试通过；
+  活动依赖 fresh `pnpm audit --audit-level=low` 无已知漏洞。GitHub 推送仍提示仓库级 Dependabot 告警，未将活动依赖结果外推为全历史仓库安全通过。
+
+真实浏览器已打开线上 Web。自动化点击登录在 Edge 出现 `ERR_BLOCKED_BY_CLIENT`，尚无证据证明是真实账号拒绝或服务器错误；
+已请求用户手动确认正常登录，未关闭扩展、浏览器保护或修改 Access 策略。真实 NAccount 登录、创建/读取私有资源和退出仍待验收。
+本次数据保全证明覆盖当时库/对象状态，不冒称已有完整业务数据升级、恢复演练或完整 P0–P6 退出。
+
 ## 认证合同
 
 - 正式 issuer 是域名 origin，不是 `/account` 页面地址。
@@ -51,7 +75,7 @@ SpringBok 自动分配 D1/R2，将实际 ID 写入 configuration。应用不创�
 返回 `deployed-unverified`。`0.4.1` 升级任务 `dc-3cc50662aa804fc9891fcff1a7c6baf3`
 在 [运行 38746770491](https://github.com/aiaimimi0920/SpringBok/actions/runs/38746770491)
 因上述空 cursor 在备份/迁移前返回 `failed / ASSETLIBRARY_CLOUDFLARE_REQUEST_FAILED`；
-线上保持 `0.4.0`。Actions 的 success 不替代业务回执，两次原回执均保留，不重放。
+该失败后线上保持 `0.4.0`，后来仅通过上文的独立 repair 晋级。Actions 的 success 不替代业务回执，两次原回执均保留，不重放。
 
 - deploy：固定 GitHub SHA、干净检出；拒绝已存在 Worker、非空 D1、公开 R2 和其他服务占用的域名；执行增量 Schema、上传主 Worker 全模块、配置内部绑定、访问入口和 cron。写入开始后不确定结果为 unknown，不自动重放。
 - update：核对原 SHA、同实例 D1/R2 和身份合同；导出 D1 到私有 R2 独立备份键并读回摘要，迁移后验证旧列/旧行及 R2 对象元数据见证；保留会话 secret。不把对象元数据见证说成逐字节全库恢复测试。
