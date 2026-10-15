@@ -127,12 +127,13 @@ async function list(name, signal, after = "") {
   state[name] = page.items;
   state.cursors[name] = page.nextCursor;
 }
-async function refreshWorkspace(signal) {
-  if (!state.resource) throw new Error("SELECT_RESOURCE_REQUIRED");
+async function refreshWorkspace(signal, id = state.resource?.id) {
+  if (!id) throw new Error("SELECT_RESOURCE_REQUIRED");
+  let resource;
   try {
-    state.resource = await api(`/v1/resources/${state.resource.id}`, { signal });
+    resource = await api(`/v1/resources/${id}`, { signal });
   } catch (error) {
-    if (error.status === 404) {
+    if (error.status === 404 && state.resource?.id === id) {
       state.resource = null;
       state.uploads = [];
       state.versions = [];
@@ -142,20 +143,30 @@ async function refreshWorkspace(signal) {
     }
     throw error;
   }
+  // 整个目标工作区读取成功后再切换，失败不得混用旧画面与新资源 ID。
+  const pages =
+    resource.owner === state.principal
+      ? await Promise.all(
+          ["uploads", "versions"].map((name) =>
+            api(`/v1/resources/${id}/${name}?limit=20`, { signal }),
+          ),
+        )
+      : [
+          { items: [], nextCursor: null },
+          { items: [], nextCursor: null },
+        ];
+  signal.throwIfAborted();
+  state.resource = resource;
   state.inspections = {};
-  if (state.resource.owner === state.principal)
-    await Promise.all([list("uploads", signal), list("versions", signal)]);
-  else {
-    state.uploads = [];
-    state.versions = [];
+  for (const [index, name] of ["uploads", "versions"].entries()) {
+    state[name] = pages[index].items;
+    state.cursors[name] = pages[index].nextCursor;
   }
+  for (const upload of state.uploads) confirmUploadClosed(upload);
   display();
 }
 function select(id) {
-  run(async (signal) => {
-    state.resource = { id };
-    await refreshWorkspace(signal);
-  }, "已读取当前资源。");
+  run((signal) => refreshWorkspace(signal, id), "已读取当前资源。");
 }
 async function readVersion(id, signal) {
   state.reviewed = null;
@@ -326,8 +337,21 @@ form(
       signal,
     });
     completeOperation(operation);
-    await listResources(signal);
-    await refreshWorkspace(signal);
+    state.uploads = [];
+    state.versions = [];
+    state.inspections = {};
+    state.cursors.uploads = null;
+    state.cursors.versions = null;
+    element("new-title").value = "";
+    display();
+    try {
+      await listResources(signal);
+      await refreshWorkspace(signal);
+    } catch (error) {
+      if (error.name !== "AbortError")
+        error.message = `资源已创建；后续读取失败，请刷新，不必重新创建。${error.message}`;
+      throw error;
+    }
   },
   "资源已创建。",
 );
