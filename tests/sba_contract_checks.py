@@ -19,7 +19,7 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.1',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.2',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
 for key, value in [('origin', 'https://evil.test/path'), ('accountId', '../other'),
@@ -145,4 +145,51 @@ for broken in [{**ready, 'checks': {}}, {**ready, 'distribution': {'status': 'al
             raise AssertionError('invalid readiness accepted')
         except contract.Failure:
             pass
+class ObjectPages:
+    def __init__(self, pages):
+        self.config = config
+        self.pages = iter(pages)
+        self.paths = []
+    def call(self, path, **kwargs):
+        assert kwargs == {'envelope': True}
+        self.paths.append(path)
+        return next(self.pages)
+
+
+empty = ObjectPages([{'result': []}])
+assert preservation.objects(empty) == {}
+assert empty.paths == ['/r2/buckets/assetlibrary-objects/objects?per_page=1000']
+item = {'key': 'private/object', 'size': 3, 'etag': 'abc', 'last_modified': '2026-10-15T00:00:00Z'}
+pages = ObjectPages([
+    {'result': [{**item, 'key': '_sba_backups/proof.sql'}], 'result_info': {'is_truncated': True, 'cursor': 'next+/='}},
+    {'result': [item], 'result_info': {'is_truncated': False}},
+])
+assert preservation.objects(pages) == {item['key']: {key: item[key] for key in ('size', 'etag', 'last_modified')}}
+assert pages.paths[1].endswith('cursor=next%2B%2F%3D')
+unpaged = ObjectPages([{'result': [item]}, {'result': []}])
+assert preservation.objects(unpaged)[item['key']]['size'] == 3
+assert unpaged.paths[1].endswith('start_after=private%2Fobject')
+backup_only = ObjectPages([{'result': [{**item, 'key': '_sba_backups/proof.sql'}]}, {'result': []}])
+assert preservation.objects(backup_only) == {}
+assert backup_only.paths[1].endswith('start_after=_sba_backups%2Fproof.sql')
+bounded = ObjectPages([{'result': [{**item, 'key': f'object/{index:04d}'}]} for index in range(100)])
+try:
+    preservation.objects(bounded)
+    raise AssertionError('partial object witness accepted at page limit')
+except contract.Failure as error:
+    assert str(error) == 'ASSETLIBRARY_OBJECT_WITNESS_LIMIT'
+assert len(bounded.paths) == 100
+for broken in [
+    [{'result': [item]}, {'result': [item]}],
+    [{'result': [], 'result_info': {'is_truncated': True, 'cursor': ''}}],
+    [{'result': [item], 'result_info': {'is_truncated': True, 'cursor': 'next'}},
+     {'result': [item], 'result_info': {'is_truncated': False}}],
+    [{'result': [], 'result_info': {'is_truncated': True, 'cursor': 'next'}},
+     {'result': [], 'result_info': {'is_truncated': True, 'cursor': 'next'}}],
+]:
+    try:
+        preservation.objects(ObjectPages(broken))
+        raise AssertionError('incomplete or duplicate object witness accepted')
+    except contract.Failure:
+        pass
 print('SBA_CHECKS_PASSED')

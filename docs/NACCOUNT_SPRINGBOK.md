@@ -28,9 +28,23 @@ SpringBok 自动分配 D1/R2，将实际 ID 写入 configuration。应用不创�
 
 ## 生命周期及限制
 
+`0.4.2` 修复真实 R2 List Objects 的分页差异：首请求省略空 cursor；响应未提供可选
+`result_info` 时，按官方 `start_after` 严格递增读取至空页，不把短页猜为终页。
+重复/逆序键、无效或重复 cursor、超过 100 页仍拒绝；备份键不纳入业务对象见证，
+但参与分页进度。2026-10-15 已只读复现空 cursor 返回 400 / code 10023，
+修正后的空桶及含私有备份的桶均完成读取；额外 D1 导出、R2 写入/读回摘要和旧行见证通过。
+备份保留于 `_sba_backups/preupgrade-proof-20261015/`，不删除。
+
 `0.4.1` 修正独立 verify 的凭据边界：SpringBok 不向 verify 交付云部署令牌，
 所以只读取 `/healthz`、`/readyz`、匿名 `/auth/session`，核对固定版本、依赖可用性和关闭的门禁。
 真实绑定核对仍在 deploy/update 的内部验证阶段执行；独立 verify 不冒称重新读取 Cloudflare 配置。
+
+首次 `0.4.0` 部署任务 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 经 SpringBok 恢复原 reserved
+任务后，在 [运行 38745974590](https://github.com/aiaimimi0920/SpringBok/actions/runs/38745974590)
+返回 `deployed-unverified`。`0.4.1` 升级任务 `dc-3cc50662aa804fc9891fcff1a7c6baf3`
+在 [运行 38746770491](https://github.com/aiaimimi0920/SpringBok/actions/runs/38746770491)
+因上述空 cursor 在备份/迁移前返回 `failed / ASSETLIBRARY_CLOUDFLARE_REQUEST_FAILED`；
+线上保持 `0.4.0`。Actions 的 success 不替代业务回执，两次原回执均保留，不重放。
 
 - deploy：固定 GitHub SHA、干净检出；拒绝已存在 Worker、非空 D1、公开 R2 和其他服务占用的域名；执行增量 Schema、上传主 Worker 全模块、配置内部绑定、访问入口和 cron。写入开始后不确定结果为 unknown，不自动重放。
 - update：核对原 SHA、同实例 D1/R2 和身份合同；导出 D1 到私有 R2 独立备份键并读回摘要，迁移后验证旧列/旧行及 R2 对象元数据见证；保留会话 secret。不把对象元数据见证说成逐字节全库恢复测试。

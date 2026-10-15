@@ -87,21 +87,36 @@ def preserved(cloud, proof):
 
 def objects(cloud):
     cursor = ''
+    start_after = ''
+    last_key = None
     result = {}
     for _ in range(100):
-        query = urlencode({'per_page': 1000, 'cursor': cursor})
+        # 首页不发送空 cursor：真实 R2 会将它视为无效 continuation token。
+        query = urlencode({'per_page': 1000, **({'cursor': cursor} if cursor else {}),
+                           **({'start_after': start_after} if start_after else {})})
         page = cloud.call(f"/r2/buckets/{cloud.config['bucket']}/objects?{query}", envelope=True)
         require(isinstance(page.get('result'), list), 'ASSETLIBRARY_OBJECT_WITNESS_INVALID')
+        # 真实响应可省略 result_info；只有空页才能直接作为终页。
+        if not page['result'] and 'result_info' not in page:
+            return result
         for item in page['result']:
             key = item['key']
+            require(isinstance(key, str) and key and (last_key is None or key > last_key),
+                    'ASSETLIBRARY_OBJECT_WITNESS_INVALID')
+            last_key = key
             if key.startswith('_sba_backups/'):
                 continue
             require(key not in result, 'ASSETLIBRARY_OBJECT_WITNESS_INVALID')
             result[key] = {k: item[k] for k in ('size', 'etag', 'last_modified')}
+        if 'result_info' not in page:
+            # 不把短页猜为完整：使用官方 start_after 继续到实际空页，包含备份键。
+            start_after, cursor = last_key, ''
+            continue
         info = page.get('result_info', {})
         if info.get('is_truncated') is False:
             return result
         require(isinstance(info.get('cursor'), str) and info['cursor'] and info['cursor'] != cursor,
                 'ASSETLIBRARY_OBJECT_WITNESS_INVALID')
         cursor = info['cursor']
+        start_after = ''
     raise Failure('ASSETLIBRARY_OBJECT_WITNESS_LIMIT')
