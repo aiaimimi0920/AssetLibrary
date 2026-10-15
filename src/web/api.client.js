@@ -152,6 +152,8 @@ export async function withResponse(
       throw Object.assign(new Error(`${response.status} ${result.error ?? "REQUEST_FAILED"}`), {
         status: response.status,
         code: result.error,
+        identityRejected:
+          !publicRead && response.status === 401 && result.error === "UNAUTHENTICATED",
       });
     }
     const result = await consume(response, controller.signal);

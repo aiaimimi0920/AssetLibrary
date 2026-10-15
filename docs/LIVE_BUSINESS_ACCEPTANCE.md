@@ -36,3 +36,20 @@
 - 测试资源、上传及检查事实保留，不关闭资源、不取消或删除上传，不修改任何旧资源、审核者名单或 scanner 配置。
 - 截图：`linshi/assetlibrary-live-acceptance-20261015.png`、`linshi/assetlibrary-live-logout-20261015.png`。
   本轮只新增验收记录，不修改业务源码、不重新部署；平台独立 verify 仍另行记录。
+
+## 后续完善：会话失效清理（本地验证，尚未上线）
+
+针对上述 401 后仍显示已登录的问题，客户端仅将当前私有请求的
+`401 UNAUTHENTICATED` 标记为身份失效。统一操作入口清除身份、私有视图、
+成员/发布管理状态、下载续传状态和幂等键，停止在途请求，恢复 NAccount 登录按钮，
+提示重新登录。不自动重放写请求、不自动跳转，也不将本地清理说成服务端退出成功。
+403、503 和公开目录的 401 不清除当前身份；旧身份的迟到响应仍由请求代次检查拒绝。
+
+- 新增实际客户端模块与 DOM/HTTP 测试夹具：旧实现 401 用例失败，修复后通过；
+  该夹具不是实际浏览器或线上 NAccount 验收。
+- Worker 构建与认证、Web、审核、资源管理、续传授权等邻近测试：32 项通过。
+  后补首次加载失效和公开目录 401 用例后，客户端两文件 8 项通过。
+- `pnpm check`、`pnpm typecheck`、`pnpm sizecheck`、`git diff --check` 通过；
+  `pnpm audit --audit-level=low` 返回 `No known vulnerabilities found`，仅代表活动依赖。
+- 构建产物：`linshi/assetlibrary-p3-goPk3t`。未修改 Schema、服务端会话合同、
+  审核者或 scanner 配置；线上仍为原 `0.4.4`，新补丁的真实浏览器和上线复验待进行。

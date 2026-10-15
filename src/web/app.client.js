@@ -78,6 +78,11 @@ async function run(task, message) {
     notice(message, "success");
   } catch (error) {
     if (job !== controller) return;
+    if (error.identityRejected) {
+      clearIdentity();
+      notice("登录状态已失效，请重新登录。未自动重试操作。", "error");
+      return;
+    }
     notice(
       error.name === "AbortError"
         ? "请求已停止或超时。服务器可能已提交，请刷新真实状态后继续。"
@@ -254,6 +259,19 @@ form(
   },
   "身份已验证，目录来自 D1 当前授权。",
 );
+function clearIdentity() {
+  job?.abort();
+  job = null;
+  setCredential("");
+  state = empty();
+  element("credential").value = "";
+  element("confirmation").close("cancel");
+  clearView(state);
+  distribution.reset();
+  resourceManagement.reset();
+  element("naccount-login").hidden = !naccount;
+  controls();
+}
 element("disconnect").addEventListener("click", async () => {
   if (naccount && connected()) {
     job?.abort();
@@ -265,16 +283,7 @@ element("disconnect").addEventListener("click", async () => {
     }
     return;
   }
-  job?.abort();
-  job = null;
-  setCredential("");
-  state = empty();
-  element("credential").value = "";
-  element("confirmation").close("cancel");
-  clearView(state);
-  distribution.reset();
-  resourceManagement.reset();
-  controls();
+  clearIdentity();
   notice("身份和当前视图已清除；服务器数据未删除。");
 });
 element("stop").addEventListener("click", () => {

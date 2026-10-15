@@ -2,7 +2,8 @@
 
 2026-10-15：**服务已上线：[assetlibrary.aiaimimi.com](https://assetlibrary.aiaimimi.com)**。
 当前 `0.4.4` 经 SpringBok 原实例正常升级，备份、数据保全、原资源绑定及就绪检查通过；
-独立应用只读 verify 四项通过，用户已确认真实 NAccount 登录成功。私有业务与退出/撤销验收尚待完成。
+独立应用只读 verify 四项通过，真实 NAccount 登录、资源创建/改名/持久化、Art ZIP 私有上传及退出页面清理已有线上证据。
+双账号隔离、账号级撤销及审核/发布/下载正向闭环仍待验收，见[真实业务验收](docs/LIVE_BUSINESS_ACCEPTANCE.md)。
 这不是生产分发开放：没有绑定 scanner，发布/下载门禁保持关闭。详见[上线回执与范围](docs/NACCOUNT_SPRINGBOK.md#2026-10-15-实际部署回执)。
 
 `0.4.0` 开始接入真实 NAccount，并新增 SpringBok `.sba` 部署接口，详见 [认证与部署合同](docs/NACCOUNT_SPRINGBOK.md)。本轮先交付真实身份与私有工作区部署，扫描服务未配置时保持不可用，生产分发门禁不变；预升级/预览清理尚未实现，不能将这一增量说成 P0–P6 全部完成。

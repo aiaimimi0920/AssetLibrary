@@ -9,6 +9,30 @@ async function client() {
   );
 }
 
+test("旧身份迟到 401 被中止，公开读取 401 不标记当前身份失效", async () => {
+  const original = globalThis.fetch;
+  const api = await client();
+  try {
+    api.setSession("a".repeat(64));
+    let release;
+    globalThis.fetch = () =>
+      new Promise((resolve) => {
+        release = resolve;
+      });
+    const old = api.api("/v1/me");
+    api.setSession("b".repeat(64));
+    release(Response.json({ error: "UNAUTHENTICATED" }, { status: 401 }));
+    await assert.rejects(old, { name: "AbortError" });
+    assert.equal(api.connected(), true);
+    globalThis.fetch = async () => Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+    await assert.rejects(api.api("/v1/catalog", { publicRead: true }), { identityRejected: false });
+    await assert.rejects(api.api("/v1/me"), { identityRejected: true });
+  } finally {
+    api.stopRequests();
+    globalThis.fetch = original;
+  }
+});
+
 test("浏览器 API 同源无存储，切换身份和停止请求阻止旧响应污染", async () => {
   const original = globalThis.fetch;
   const api = await client();
