@@ -58,15 +58,19 @@ export async function naccountFixture() {
     throw new Error("UNEXPECTED_PROVIDER_REQUEST");
   };
   async function request(path, { method = "GET", cookie, csrf, headers = {}, body } = {}) {
+    const requestHeaders = new Headers({
+      ...(method !== "GET" ? { Origin: origin } : {}),
+      ...(cookie ? { Cookie: cookie } : {}),
+      ...(csrf ? { "X-AssetLibrary-CSRF": csrf } : {}),
+    });
+    for (const [name, value] of Object.entries(headers)) {
+      if (value === null) requestHeaders.delete(name);
+      else requestHeaders.set(name, value);
+    }
     return worker.fetch(
       new Request(`${origin}${path}`, {
         method,
-        headers: {
-          ...(method !== "GET" ? { Origin: origin } : {}),
-          ...(cookie ? { Cookie: cookie } : {}),
-          ...(csrf ? { "X-AssetLibrary-CSRF": csrf } : {}),
-          ...headers,
-        },
+        headers: requestHeaders,
         ...(body ? { body } : {}),
       }),
       env,
@@ -75,6 +79,7 @@ export async function naccountFixture() {
   async function start() {
     const response = await request("/auth/login", { method: "POST" });
     assert.equal(response.status, 303);
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
     const url = new URL(response.headers.get("location"));
     const flowCookie = response.headers.get("set-cookie").split(";")[0];
     return {
@@ -87,6 +92,7 @@ export async function naccountFixture() {
     const flow = await start();
     const response = await request(flow.path, { cookie: flow.flowCookie });
     assert.equal(response.headers.get("location"), origin);
+    assert.equal(response.headers.get("referrer-policy"), "no-referrer");
     const cookie = response.headers
       .getSetCookie()
       .find((v) => v.startsWith("__Host-assetlibrary-session="))

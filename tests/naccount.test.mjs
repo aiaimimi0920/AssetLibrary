@@ -30,11 +30,17 @@ test("NAccount PKCE 登录使用真实 authId 合同、加密会话和一次性 
 test("跨站登录、错误浏览器绑定和 CSRF 不得产生业务变更", async () => {
   const f = await naccountFixture();
   try {
-    assert.equal(
-      (await f.request("/auth/login", { method: "POST", headers: { Origin: "https://evil.test" } }))
-        .status,
-      403,
-    );
+    for (const origin of ["https://evil.test", "null", null]) {
+      const rejected = await f.request("/auth/login", {
+        method: "POST",
+        headers: { Origin: origin },
+      });
+      assert.equal(rejected.status, 403);
+      assert.deepEqual(await rejected.json(), { error: "AUTH_ORIGIN_REJECTED" });
+      assert.equal(rejected.headers.get("set-cookie"), null);
+    }
+    assert.equal((await f.db.prepare("SELECT count(*) AS n FROM auth_transactions").first()).n, 0);
+    assert.equal(f.remote.calls.length, 0);
     const flow = await f.start();
     assert.equal(
       (await f.request(flow.path, { cookie: `__Host-assetlibrary-login=${"0".repeat(64)}` }))

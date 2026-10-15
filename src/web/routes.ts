@@ -33,7 +33,8 @@ export function webRoutes(request: Request): Response | null {
       "Content-Type": `${asset[1]}; charset=utf-8`,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
-      "Referrer-Policy": "no-referrer",
+      // 原生 POST 表单须保留同源 Origin；跨站不发送 Referer。
+      "Referrer-Policy": "same-origin",
       "Content-Security-Policy":
         "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self' https://naccount-auth.aiaimimi.com; frame-ancestors 'none'",
       "Permissions-Policy": "camera=(), microphone=(), geolocation=()",

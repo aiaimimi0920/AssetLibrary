@@ -25,6 +25,7 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type"), new RegExp(type));
       assert.equal(response.headers.get("cache-control"), "no-store");
+      assert.equal(response.headers.get("referrer-policy"), "same-origin");
       assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
       assert.match(response.headers.get("content-security-policy"), /connect-src 'self'/);
       const content = await response.text();

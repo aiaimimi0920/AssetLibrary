@@ -26,9 +26,28 @@
 - 本轮本地：SBA Python 合同检查、SpringBok v3/v2 声明检查、formatter、typecheck、sizecheck、构建及 8 项认证/SBA 聚焦测试通过；
   活动依赖 fresh `pnpm audit --audit-level=low` 无已知漏洞。GitHub 推送仍提示仓库级 Dependabot 告警，未将活动依赖结果外推为全历史仓库安全通过。
 
-真实浏览器已打开线上 Web。自动化点击登录在 Edge 出现 `ERR_BLOCKED_BY_CLIENT`，尚无证据证明是真实账号拒绝或服务器错误；
-已请求用户手动确认正常登录，未关闭扩展、浏览器保护或修改 Access 策略。真实 NAccount 登录、创建/读取私有资源和退出仍待验收。
+真实浏览器已打开线上 Web。早期自动化点击在 Edge 出现 `ERR_BLOCKED_BY_CLIENT`；随后用户手动登录明确收到
+`AUTH_ORIGIN_REJECTED`，已确认存在下述应用侧策略冲突，不能再将用户错误归因于扩展。
+真实 NAccount 登录、创建/读取私有资源和退出仍待验收。
 本次数据保全证明覆盖当时库/对象状态，不冒称已有完整业务数据升级、恢复演练或完整 P0–P6 退出。
+
+## 0.4.4 登录表单策略修复
+
+2026-10-15：Web 的 `Referrer-Policy: no-referrer` 与原生 `POST /auth/login` 表单冲突。
+按 [MDN 的 Origin 规则](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy#effect_on_the_origin_header)，
+该策略使非 CORS 的表单 POST 携带 `Origin: null`，随后被应用严格同源校验拒绝。
+线上受控 HTTP 探针确认首页返回 no-referrer、null Origin 得到 403 / AUTH_ORIGIN_REJECTED、
+正确 Origin 得到 303 到 NAccount authorize。未取得用户原始请求头，不将 HTTP 探针说成浏览器抓包。
+
+仅将固定 Web 入口策略改为 `same-origin`：同源表单保留 Origin，跨站不发送 Referer。
+认证重定向继续使用 `no-referrer`，不泄露 callback code/state；不接受 null、缺失或外站 Origin。
+无 Schema、会话密钥、账号权限或 scanner 门禁变更。
+
+回归先在旧代码确认策略断言失败，再修复通过；认证/Web/SBA 聚焦 10 项通过。
+新增 null/缺失/外站来源拒绝、无 Cookie/事务/远端副作用和认证跳转策略断言。
+formatter、typecheck、sizecheck、SBA Python 合同、构建和活动依赖审计通过。
+浏览器工具自身加载 request-header policy 时遇到上游 403，不能接管 SpringBok 或完成真实登录验收。
+本节记录待部署修复，不改变上节的已上线 0.4.3 回执；须经原实例正常 update 后独立 verify。
 
 ## 认证合同
 
