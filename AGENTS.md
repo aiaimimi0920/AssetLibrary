@@ -1,10 +1,11 @@
 # AssetLibrary 新项目开发规则
 
 2026-10-15 当前状态：NAccount 正式接入已实现，AssetLibrary 已经 SpringBok 部署到
-`https://assetlibrary.aiaimimi.com`，线上为 `0.4.3` / `eb3c362ea7f8dcc7b18c38920de7bdeda068948b`。
+`https://assetlibrary.aiaimimi.com`，线上为 `0.4.4` / `acd3943e3a9e0f8fc29ecd9188bcc0387992d7ed`。
 原 `0.4.0` 首次部署、`0.4.1` 写前失败和后续证据绑定 repair 的历史均保留；修复回执 succeeded，
-无云部署凭据的独立应用 verify 四项通过。真实浏览器登录/私有业务验收仍待完成，
-不将配置就绪等同于用户登录通过。扫描服务未绑定，生产发布/下载仍被 `SCANNER_CLOUD_NOT_VALIDATED` 拒绝。
+本次正常 update 回执 deployed-unverified、七项通过；无云部署凭据的独立应用 verify 四项通过。
+用户已确认真实账号登录成功；私有业务、退出/撤销和平台独立 verify 仍待验收。
+扫描服务未绑定，生产发布/下载仍被 `SCANNER_CLOUD_NOT_VALIDATED` 拒绝。
 资源、回执和限制见 [认证与部署合同](docs/NACCOUNT_SPRINGBOK.md)。以下 `.27` 及更早段落是历史批次，
 其中“正式账号延期”“没有云部署”不再代表当前状态；原生安全/网络验收延期仍有效。
 

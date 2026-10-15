@@ -8,6 +8,17 @@
 
 ## 2026-10-15 实际部署回执
 
+- 当前线上 `0.4.4` / `acd3943e3a9e0f8fc29ecd9188bcc0387992d7ed`，用户已确认真实 NAccount 登录成功。
+- 原实例正常 update 任务 `dc-c038f89110cb48eb867f62e0fb5cfc45`，
+  [运行 38773857937](https://github.com/aiaimimi0920/SpringBok/actions/runs/38773857937) 回执 `deployed-unverified`，七项检查通过：
+  backup-created、data-preserved、deployed-bindings、release-identity、private-dependencies、naccount-login-configured、production-gate-preserved。
+  artifact 摘要及 run/task/source 身份均已核验，证据位于 `linshi/assetlibrary-run-38773857937/`。
+- clean 发布提交、无云部署凭据的应用独立 verify 四项通过，证据位于 `linshi/assetlibrary-independent-verify-v044/`。
+  线上 healthz 固定版本/SHA、首页 `Referrer-Policy: same-origin` 及 readyz 均复核通过；分发门禁仍拒绝。
+  此验证不是 SpringBok 平台 verify 任务；平台状态未改写。私有资源读写、上传、退出及账号撤销仍待真实用户验收。
+
+### 0.4.3 历史修复回执
+
 - 地址：`https://assetlibrary.aiaimimi.com`；线上 `0.4.3`，固定 SHA `eb3c362ea7f8dcc7b18c38920de7bdeda068948b`。
 - 独立仓库 [v0.4.3 Release](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.3)；精确提交 [CI 38750774015](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/38750774015) 的 verify/secret_scan 均成功。
 - SpringBok 原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 保留。repair 任务 `dc-e2e0c559e28242dbbe1ce9977b11a8fb`，
@@ -28,7 +39,7 @@
 
 真实浏览器已打开线上 Web。早期自动化点击在 Edge 出现 `ERR_BLOCKED_BY_CLIENT`；随后用户手动登录明确收到
 `AUTH_ORIGIN_REJECTED`，已确认存在下述应用侧策略冲突，不能再将用户错误归因于扩展。
-真实 NAccount 登录、创建/读取私有资源和退出仍待验收。
+当时真实 NAccount 登录、创建/读取私有资源和退出仍待验收；后续登录确认见本节顶部。
 本次数据保全证明覆盖当时库/对象状态，不冒称已有完整业务数据升级、恢复演练或完整 P0–P6 退出。
 
 ## 0.4.4 登录表单策略修复
@@ -47,7 +58,7 @@
 新增 null/缺失/外站来源拒绝、无 Cookie/事务/远端副作用和认证跳转策略断言。
 formatter、typecheck、sizecheck、SBA Python 合同、构建和活动依赖审计通过。
 浏览器工具自身加载 request-header policy 时遇到上游 403，不能接管 SpringBok 或完成真实登录验收。
-本节记录待部署修复，不改变上节的已上线 0.4.3 回执；须经原实例正常 update 后独立 verify。
+随后已通过原实例正常 update 上线，独立应用 verify 通过，用户确认真实登录成功；详见顶部当前回执。
 
 ## 认证合同
 
