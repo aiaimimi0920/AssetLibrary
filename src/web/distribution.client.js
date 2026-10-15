@@ -11,6 +11,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 export function initDistribution({ run, button, form, refreshControls }) {
   let managed = null;
   let grant = null;
+  let generation = 0;
   const transfer = createDownloadTransfer((value) => {
     element("download-state").textContent = value
       ? `${value.offset} / ${value.total} bytes 已完整接收${value.resumable ? "；可手动继续，或放弃。" : "；正在下载并校验。"}`
@@ -39,6 +40,7 @@ export function initDistribution({ run, button, form, refreshControls }) {
     element("grant-revoke").disabled = busy || !connected || !managed || grant?.state !== "active";
   }
   function reset() {
+    generation += 1;
     transfer.clear();
     managed = null;
     grant = null;
@@ -56,6 +58,7 @@ export function initDistribution({ run, button, form, refreshControls }) {
     management(null, null);
   }
   async function load(name, signal, after = "") {
+    const current = generation;
     element(name).replaceChildren();
     cursors[name] = null;
     element(`${name}-state`).textContent = "正在读取…";
@@ -73,7 +76,11 @@ export function initDistribution({ run, button, form, refreshControls }) {
           ? "本页候选已失效，可继续下一页。"
           : "没有当前可分发记录。";
     } catch (error) {
-      if (!signal.aborted) element(`${name}-state`).textContent = `读取失败：${error.message}`;
+      if (current === generation)
+        element(`${name}-state`).textContent =
+          error.name === "AbortError"
+            ? "读取已停止或超时，请重新读取。"
+            : `读取失败：${error.message}`;
       throw error;
     }
   }

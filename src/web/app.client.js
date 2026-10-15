@@ -169,14 +169,24 @@ function select(id) {
   run((signal) => refreshWorkspace(signal, id), "已读取当前资源。");
 }
 async function readVersion(id, signal) {
+  const current = state;
   state.reviewed = null;
   element("review-detail").textContent = "正在读取当前版本事实…";
   controls();
-  const version = await api(`/v1/versions/${id}`, { signal });
-  state.reviewed = version;
-  element("review-id").value = id;
-  facts("review-detail", version);
-  controls();
+  try {
+    const version = await api(`/v1/versions/${id}`, { signal });
+    state.reviewed = version;
+    element("review-id").value = id;
+    facts("review-detail", version);
+    controls();
+  } catch (error) {
+    if (state === current)
+      element("review-detail").textContent =
+        error.name === "AbortError"
+          ? "读取已停止或超时，请重新读取版本。"
+          : `版本读取失败：${error.message}`;
+    throw error;
+  }
 }
 async function listReviews(signal, after = "") {
   const current = state;
