@@ -12,6 +12,7 @@ import contract
 import cloudflare
 import preservation
 import springbok
+import repair
 
 config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https://assetlibrary.test',
           'identity': {'issuer': 'https://naccount-auth.aiaimimi.com', 'clientId': 'assetlibrary-client'},
@@ -19,7 +20,7 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.2',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.3',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
 for key, value in [('origin', 'https://evil.test/path'), ('accountId', '../other'),
@@ -192,4 +193,38 @@ for broken in [
         raise AssertionError('incomplete or duplicate object witness accepted')
     except contract.Failure:
         pass
+repair_request = {**request, 'action': 'repair', 'previous': repair.FAILED,
+                  'context': {'repairId': 'r2-pagination-v041', 'parentTaskId': 'dc-' + 'd' * 32,
+                              'parentRunId': 123, 'requestDigest': 'e' * 64,
+                              'errorCode': 'ASSETLIBRARY_CLOUDFLARE_REQUEST_FAILED'}}
+parent_result = {'schemaVersion': 3, 'taskId': repair_request['context']['parentTaskId'], 'action': 'update',
+                 **repair.FAILED, 'status': 'failed', 'checks': [],
+                 'errorCode': repair_request['context']['errorCode']}
+repair_request['context']['resultDigest'] = hashlib.sha256(json.dumps(
+    parent_result, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+contract.validate(repair_request, check_source=False)
+assert repair.preflight_request(repair_request)['previous'] == repair.INSTALLED
+for field, value in [('repairId', 'other-repair'), ('parentRunId', True),
+                     ('resultDigest', 'f' * 64), ('parentTaskId', request['taskId'])]:
+    bad = copy.deepcopy(repair_request)
+    bad['context'][field] = value
+    try:
+        contract.validate(bad, check_source=False)
+        raise AssertionError('invalid repair accepted')
+    except contract.Failure:
+        pass
+with patch.object(springbok, 'validate', lambda req: contract.validate(req, check_source=False)), \
+     patch.dict('os.environ', {'SBA_EXECUTE': '1'}), \
+     patch.object(springbok, 'preflight') as before, \
+     patch.object(springbok, 'backup', return_value=proof), \
+     patch.object(springbok, 'objects', return_value={}), \
+     patch.object(springbok, 'migrate'), patch.object(springbok, 'preserved'), \
+     patch.object(springbok, 'publish'), \
+     patch.object(springbok, 'verify', return_value=[{'id': 'deployed-bindings', 'passed': True}]):
+    result = springbok.execute(repair_request, cloud_factory=lambda _: object(), output_builder=lambda p: p)
+    assert result[0] == 'succeeded'
+    assert before.call_args.args[1]['previous'] == repair.INSTALLED
+    assert {'repair-completed', 'data-preserved', 'unchanged-resources-verified', 'service-ready'} <= {c['id'] for c in result[1]}
+    with patch.object(springbok, 'preserved', side_effect=contract.Failure('ASSETLIBRARY_DATA_PRESERVATION_UNCONFIRMED')):
+        assert springbok.execute(repair_request, cloud_factory=lambda _: object(), output_builder=lambda p: p)[0] == 'unknown'
 print('SBA_CHECKS_PASSED')

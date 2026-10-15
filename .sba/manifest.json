@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "id": "assetlibrary-cloudflare",
   "name": "AssetLibrary",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "entrypoint": "springbok.ps1",
   "runtime": { "runner": "windows-2025", "powershell": "5.1", "python": "3.12", "node": "22" },
   "actions": {
@@ -10,7 +10,16 @@
     "update": { "timeoutSeconds": 1800 },
     "verify": { "timeoutSeconds": 180 },
     "preview": { "timeoutSeconds": 60 },
-    "destroy-preview": { "timeoutSeconds": 60 }
+    "destroy-preview": { "timeoutSeconds": 60 },
+    "repair": { "timeoutSeconds": 1800 }
   },
+  "repairs": [
+    {
+      "id": "r2-pagination-v041",
+      "name": "修复 0.4.1 升级前 R2 分页失败",
+      "fromErrorCodes": ["ASSETLIBRARY_CLOUDFLARE_REQUEST_FAILED"],
+      "secretNames": ["CLOUDFLARE_API_TOKEN"]
+    }
+  ],
   "secrets": ["CLOUDFLARE_API_TOKEN"]
 }

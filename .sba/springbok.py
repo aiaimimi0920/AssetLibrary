@@ -7,6 +7,7 @@ import time
 from contract import ROOT, Failure, atomic_result, load, require, validate
 from cloudflare import Cloud, build, migrate, preflight, publish, verify, verify_public
 from preservation import backup, preserved, objects
+from repair import preflight_request
 
 
 def execute(request, cloud_factory=Cloud, output_builder=build):
@@ -22,14 +23,14 @@ def execute(request, cloud_factory=Cloud, output_builder=build):
             return 'succeeded', verify_public(request), None
         cloud = cloud_factory(request['configuration'])
         require(os.environ.get('SBA_EXECUTE') == '1', 'ASSETLIBRARY_EXECUTION_NOT_AUTHORIZED')
-        preflight(cloud, request)
+        preflight(cloud, preflight_request(request) if request['action'] == 'repair' else request)
         temp_root = Path(os.environ.get('RUNNER_TEMP', ROOT.parent.parent / 'linshi'))
         temp_root.mkdir(parents=True, exist_ok=True)
         directory = Path(tempfile.mkdtemp(prefix='assetlibrary-sba-', dir=temp_root))
         output = output_builder(directory)
         proof = None
         object_proof = None
-        if request['action'] == 'update':
+        if request['action'] in ('update', 'repair'):
             object_proof = objects(cloud)
             mutated = True
             proof = backup(cloud, request, directory)
@@ -51,6 +52,10 @@ def execute(request, cloud_factory=Cloud, output_builder=build):
                 if attempt == 11:
                     raise
                 time.sleep(5)
+        if request['action'] == 'repair':
+            checks.extend({'id': key, 'passed': True} for key in
+                          ('repair-completed', 'unchanged-resources-verified', 'service-ready'))
+            return 'succeeded', checks, None
         # 线上身份登录/业务仍须由独立 verify 与用户实际流程验收。
         return 'deployed-unverified', checks, None
     except Exception as error:

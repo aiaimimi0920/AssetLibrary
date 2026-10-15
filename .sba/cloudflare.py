@@ -85,6 +85,8 @@ def preflight(cloud, request):
         require(current is not None, 'ASSETLIBRARY_TARGET_MISSING')
         bindings = {b['name']: b for b in current['bindings']}
         require(bindings.get('RELEASE_SHA', {}).get('text') == request['previous']['sourceSha'], 'ASSETLIBRARY_PREVIOUS_RELEASE_MISMATCH')
+        require(bindings.get('RELEASE_VERSION', {}).get('text') == request['previous']['applicationVersion'],
+                'ASSETLIBRARY_PREVIOUS_RELEASE_MISMATCH')
         require(bindings.get('DB', {}).get('id') == c['database']['id'] and
                 bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'], 'ASSETLIBRARY_RESOURCE_REBIND_REJECTED')
         require(bindings.get('NACCOUNT_SESSION_KEY', {}).get('type') == 'secret_text', 'ASSETLIBRARY_SESSION_KEY_MISSING')

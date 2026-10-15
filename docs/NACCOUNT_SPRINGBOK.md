@@ -28,6 +28,13 @@ SpringBok 自动分配 D1/R2，将实际 ID 写入 configuration。应用不创�
 
 ## 生命周期及限制
 
+`0.4.3` 新增声明式 `r2-pagination-v041` 修复，只接受固定 `0.4.1` 提交的 update
+父回执：状态必须是 `failed`、检查为空、错误为上述 Cloudflare 请求失败，且规范 JSON
+摘要与 SpringBok 已核验的父结果一致。线上必须仍是固定 `0.4.0` 提交和版本，原 D1/R2、
+身份与会话 secret 均匹配；否则写前拒绝。修复复用备份、旧行/对象保全、发布及就绪核对，
+成功返回 `succeeded` 和 repair-completed/data-preserved/unchanged-resources-verified/service-ready。
+写后异常仍为 unknown，不支持未知状态、任意旧版本或任意失败的通用重放。
+
 `0.4.2` 修复真实 R2 List Objects 的分页差异：首请求省略空 cursor；响应未提供可选
 `result_info` 时，按官方 `start_after` 严格递增读取至空页，不把短页猜为终页。
 重复/逆序键、无效或重复 cursor、超过 100 页仍拒绝；备份键不纳入业务对象见证，

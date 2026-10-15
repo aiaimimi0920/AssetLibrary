@@ -61,7 +61,7 @@ def validate(request, check_source=True):
     manifest = load(ROOT / '.sba/manifest.json')
     fields = {'schemaVersion', 'taskId', 'action', 'repository', 'sourceSha', 'applicationId',
               'applicationVersion', 'environment', 'configuration', 'previous'}
-    if request.get('action') in ('preview', 'destroy-preview'):
+    if request.get('action') in ('preview', 'destroy-preview', 'repair'):
         fields.add('context')
     require(set(request) == fields and request['schemaVersion'] == 3, 'ASSETLIBRARY_REQUEST_INVALID')
     require(request['action'] in manifest['actions'], 'ASSETLIBRARY_REQUEST_INVALID')
@@ -78,11 +78,14 @@ def validate(request, check_source=True):
         require(isinstance(previous, dict) and set(previous) == {'sourceSha', 'applicationVersion'})
         require(re.fullmatch(r'[a-f0-9]{40}', previous['sourceSha']))
         old = version(previous['applicationVersion'])
-        if request['action'] in ('update', 'preview'):
+        if request['action'] in ('update', 'preview', 'repair'):
             require(current > old and request['sourceSha'] != previous['sourceSha'])
         else:
             require(current == old and request['sourceSha'] == previous['sourceSha'])
     settings(request['configuration'])
+    if request['action'] == 'repair':
+        from repair import validate_repair
+        validate_repair(request)
     if check_source:
         require(not git('status', '--porcelain') and git('rev-parse', 'HEAD') == request['sourceSha'], 'ASSETLIBRARY_SOURCE_INVALID')
         require(git('remote', 'get-url', 'origin').removesuffix('.git') == 'https://github.com/aiaimimi0920/AssetLibrary', 'ASSETLIBRARY_SOURCE_INVALID')
