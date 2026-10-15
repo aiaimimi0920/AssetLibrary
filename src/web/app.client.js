@@ -2,8 +2,10 @@ import {
   api,
   completeOperation,
   connected,
+  logoutSession,
   operationKey,
   setCredential,
+  setSession,
   stopRequests,
 } from "./api.client.js";
 import { initDistribution } from "./distribution.client.js";
@@ -39,6 +41,7 @@ let state = empty();
 let job = null;
 let distribution;
 let resourceManagement;
+let naccount = false;
 
 function controls() {
   syncUploadForm(state.resource);
@@ -251,7 +254,17 @@ form(
   },
   "身份已验证，目录来自 D1 当前授权。",
 );
-element("disconnect").addEventListener("click", () => {
+element("disconnect").addEventListener("click", async () => {
+  if (naccount && connected()) {
+    job?.abort();
+    stopRequests();
+    try {
+      window.location.assign(await logoutSession());
+    } catch (error) {
+      notice(error.message, "error");
+    }
+    return;
+  }
   job?.abort();
   job = null;
   setCredential("");
@@ -396,3 +409,32 @@ resourceManagement = initResourceManagement({
   },
 });
 controls();
+
+async function restoreSession() {
+  try {
+    const response = await fetch("/auth/session", {
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "error",
+    });
+    if (!response.ok) throw new Error("SESSION_UNAVAILABLE");
+    const session = await response.json();
+    naccount = session.enabled === true;
+    element("identity-form").hidden = naccount;
+    element("naccount-login").hidden = !naccount || !!session.principal;
+    element("identity-note").hidden = naccount;
+    element("disconnect").textContent = naccount ? "退出登录" : "清除身份与当前视图";
+    if (naccount && session.principal) {
+      setSession(session.csrf);
+      state.principal = session.principal;
+      element("session-state").textContent = `已登录 · ${session.principal}`;
+      await run((signal) => listResources(signal), "已登录。");
+    }
+    if (new URL(window.location.href).searchParams.get("auth") === "failed")
+      notice("登录未完成，请重试。", "error");
+    controls();
+  } catch {
+    notice("无法读取登录状态，请稍后重试。", "error");
+  }
+}
+restoreSession();

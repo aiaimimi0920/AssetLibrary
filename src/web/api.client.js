@@ -1,4 +1,5 @@
 let credential = "";
+let sessionCsrf = "";
 let generation = 0;
 const controllers = new Set();
 const keys = new Map();
@@ -14,10 +15,31 @@ export function setCredential(value) {
   stopRequests();
   generation += 1;
   credential = value.trim();
+  sessionCsrf = "";
   keys.clear();
 }
 export function connected() {
-  return credential.length > 0;
+  return credential.length > 0 || sessionCsrf.length > 0;
+}
+export function setSession(csrf) {
+  setCredential("");
+  if (!/^[0-9a-f]{64}$/.test(csrf)) throw new Error("INVALID_SESSION");
+  sessionCsrf = csrf;
+}
+export async function logoutSession() {
+  const response = await fetch("/auth/logout", {
+    method: "POST",
+    credentials: "same-origin",
+    redirect: "error",
+    headers: { "X-AssetLibrary-CSRF": sessionCsrf },
+  });
+  if (!response.ok) throw new Error("LOGOUT_FAILED");
+  const result = await response.json();
+  const url = new URL(result.logoutUrl);
+  if (url.protocol !== "https:" || url.pathname !== "/oauth2/v1/logout")
+    throw new Error("INVALID_LOGOUT_URL");
+  setCredential("");
+  return url.href;
 }
 export function stopRequests() {
   for (const observer of stopObservers) observer();
@@ -58,7 +80,7 @@ export async function withResponse(
   { method = "GET", body, signal, key, raw = false, publicRead = false, ticket, range, ifRange },
   consume,
 ) {
-  if (!credential && !publicRead) throw new Error("IDENTITY_REQUIRED");
+  if (!connected() && !publicRead) throw new Error("IDENTITY_REQUIRED");
   if (
     !path.startsWith("/v1/") ||
     !new URL(path, "http://assetlibrary.invalid").pathname.startsWith("/v1/")
@@ -103,10 +125,14 @@ export async function withResponse(
       method,
       signal: controller.signal,
       redirect: "error",
-      credentials: "omit",
+      credentials: sessionCsrf && !publicRead ? "same-origin" : "omit",
       cache: "no-store",
       headers: {
-        ...(publicRead ? {} : { Authorization: `Bearer ${credential}` }),
+        ...(publicRead
+          ? {}
+          : sessionCsrf
+            ? { "X-AssetLibrary-CSRF": sessionCsrf }
+            : { Authorization: `Bearer ${credential}` }),
         ...(ticket ? { "X-Download-Ticket": ticket } : {}),
         ...(range !== undefined ? { Range: range } : {}),
         ...(ifRange !== undefined ? { "If-Range": ifRange } : {}),

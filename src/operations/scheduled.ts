@@ -1,11 +1,13 @@
 import { expireTickets } from "../distribution/tickets";
+import type { NAccountEnv } from "../identity/naccount-config";
+import { expireAuth } from "../identity/session-store";
 import { inspectDue } from "../inspections/runner";
 import { reconcileDue } from "../uploads/reconcile";
 import type { UploadEnv } from "../uploads/records";
 import { observeSchedule, observeStage } from "./events";
 
 /** 独立维护阶段顺序执行一次；失败不阻止其余阶段，不新增重试或脱离 owner 的任务。 */
-export async function scheduledWork(env: UploadEnv) {
+export async function scheduledWork(env: UploadEnv & Pick<NAccountEnv, "NACCOUNT_ISSUER">) {
   const runId = crypto.randomUUID();
   const start = performance.now();
   let failedStages = 0;
@@ -18,6 +20,7 @@ export async function scheduledWork(env: UploadEnv) {
       error: "TICKET_CLEANUP_INCOMPLETE",
       run: async () => {
         const removed = await expireTickets(env.DB);
+        if (env.NACCOUNT_ISSUER) await expireAuth(env.DB);
         return { processed: removed, completed: removed, failed: 0 };
       },
     },

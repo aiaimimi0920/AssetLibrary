@@ -1,6 +1,7 @@
 import { json } from "../http";
 import type { IdentityConfig } from "../identity";
 import { fixedVerificationKeys } from "../identity/keys";
+import { type NAccountEnv, naccountConfig } from "../identity/naccount-config";
 import { cloudScanBlocker } from "../scanner/facts";
 import type { UploadEnv } from "../uploads/records";
 
@@ -31,19 +32,26 @@ async function probe(action: () => Promise<boolean>) {
 }
 
 /** 仅做固定的只读依赖探测；不公开账号、公钥、业务计数、对象或内部异常。 */
-export async function readiness(env: UploadEnv & IdentityConfig) {
+export async function readiness(env: UploadEnv & IdentityConfig & NAccountEnv) {
   const [identity, database, storage] = await Promise.all([
     probe(async () => {
+      if (env.NACCOUNT_ISSUER) {
+        naccountConfig(env);
+        return true;
+      }
       if (!env.AUTH_ISSUER || !env.AUTH_AUDIENCE) return false;
       await fixedVerificationKeys(env);
       return true;
     }),
     probe(async () => {
+      const required = env.NACCOUNT_ISSUER
+        ? [...tables, "auth_sessions", "auth_transactions"]
+        : tables;
       const row = await env.DB.prepare(`SELECT count(*) AS n FROM sqlite_schema
-        WHERE type = 'table' AND name IN (${tables.map(() => "?").join(",")})`)
-        .bind(...tables)
+        WHERE type = 'table' AND name IN (${required.map(() => "?").join(",")})`)
+        .bind(...required)
         .first<{ n: number }>();
-      return row?.n === tables.length;
+      return row?.n === required.length;
     }),
     probe(async () => {
       // 保留键不属于任何 quarantine/{resource}/{upload}；缺对象也表示 HEAD 调用成功。

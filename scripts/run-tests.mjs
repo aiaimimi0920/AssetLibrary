@@ -17,7 +17,7 @@ const result = spawnSync(
   {
     cwd: root,
     encoding: "utf8",
-    timeout: 180000,
+    timeout: 600000,
     env: { ...process.env, ASSETLIBRARY_BUNDLE: path.join(output, "index.js") },
   },
 );

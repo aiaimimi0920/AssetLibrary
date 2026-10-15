@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "target": "cloudflare-workers",
+  "accountMode": "single",
+  "accountPath": ["accountId"],
+  "accounts": [
+    {
+      "key": "runtime",
+      "label": "Cloudflare 账户",
+      "path": ["accountId"],
+      "secret": "CLOUDFLARE_API_TOKEN"
+    }
+  ],
+  "defaults": {
+    "worker": "",
+    "origin": "",
+    "identity": { "issuer": "https://naccount-auth.aiaimimi.com", "clientId": "" },
+    "reviewers": [],
+    "scannerService": ""
+  },
+  "fields": [
+    {
+      "path": ["worker"],
+      "label": "Worker",
+      "type": "text",
+      "required": true,
+      "template": "{instance}"
+    },
+    {
+      "path": ["origin"],
+      "label": "访问地址",
+      "type": "text",
+      "required": true,
+      "template": "https://{instance}.{subdomain:runtime}.workers.dev"
+    },
+    {
+      "path": ["identity"],
+      "label": "NAccount 配置",
+      "type": "json",
+      "required": true,
+      "template": null
+    },
+    {
+      "path": ["reviewers"],
+      "label": "审核者主体列表",
+      "type": "json",
+      "required": true,
+      "template": null
+    },
+    {
+      "path": ["scannerService"],
+      "label": "已验收扫描服务（未提供时保持检查阻断）",
+      "type": "text",
+      "required": false,
+      "template": null
+    }
+  ],
+  "targets": [
+    { "kind": "worker", "path": ["worker"], "account": "runtime" },
+    { "kind": "domain", "path": ["origin"], "account": "runtime" }
+  ],
+  "resources": [
+    {
+      "key": "database",
+      "label": "数据库",
+      "kind": "d1",
+      "idPath": ["database", "id"],
+      "namePath": ["database", "name"],
+      "account": "runtime",
+      "nativeAccount": "runtime",
+      "nameTemplate": "{instance}-db"
+    },
+    {
+      "key": "objects",
+      "label": "私有包体",
+      "kind": "r2",
+      "idPath": ["bucket"],
+      "namePath": null,
+      "account": "runtime",
+      "nativeAccount": "runtime",
+      "nameTemplate": "{instance}-objects"
+    }
+  ]
+}

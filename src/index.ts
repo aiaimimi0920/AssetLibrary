@@ -1,5 +1,8 @@
 import { HttpError, json } from "./http";
 import { authenticate, type IdentityConfig } from "./identity";
+import type { NAccountEnv } from "./identity/naccount-config";
+import { authRoutes } from "./identity/naccount-routes";
+import { naccountIdentity } from "./identity/naccount-session";
 import { inspectionRoutes } from "./inspections/routes";
 import { observeResponse } from "./operations/events";
 import { readiness } from "./operations/readiness";
@@ -11,7 +14,10 @@ import type { ReviewConfig } from "./versions/policy";
 import { versionRoutes } from "./versions/routes";
 import { webRoutes } from "./web/routes";
 
-interface Env extends IdentityConfig, UploadEnv, ReviewConfig {}
+interface Env extends IdentityConfig, UploadEnv, ReviewConfig, NAccountEnv {
+  RELEASE_SHA?: string;
+  RELEASE_VERSION?: string;
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -37,15 +43,23 @@ export default {
 import { catalogRoutes, distributionRoutes } from "./distribution/routes";
 
 async function route(request: Request, env: Env) {
+  const auth = await authRoutes(request, env);
+  if (auth) return auth;
   const web = webRoutes(request);
   if (web) return web;
   const path = new URL(request.url).pathname;
   if (request.method === "GET" && path === "/healthz")
-    return json({ service: "assetlibrary", status: "alive" });
+    return json({
+      service: "assetlibrary",
+      status: "alive",
+      ...(env.RELEASE_SHA ? { sourceSha: env.RELEASE_SHA, version: env.RELEASE_VERSION } : {}),
+    });
   if (request.method === "GET" && path === "/readyz") return readiness(env);
   const catalog = await catalogRoutes(request, env);
   if (catalog) return catalog;
-  const principal = await authenticate(request, env);
+  const principal = env.NACCOUNT_ISSUER
+    ? await naccountIdentity(request, env)
+    : await authenticate(request, env);
   if (request.method === "GET" && path === "/v1/me") return json({ principal });
   const distribution = await distributionRoutes(request, env, principal);
   if (distribution) return distribution;

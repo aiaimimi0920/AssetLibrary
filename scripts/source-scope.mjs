@@ -3,8 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const root = fileURLToPath(new URL("../", import.meta.url));
-export const artifactRoot = path.resolve(root, "../../linshi");
-const directories = ["src", "tests", "scripts", "db", "docs", "scanner"];
+export const artifactRoot = process.env.ASSETLIBRARY_ARTIFACT_ROOT
+  ? path.resolve(process.env.ASSETLIBRARY_ARTIFACT_ROOT)
+  : path.resolve(root, "../../linshi");
+const directories = ["src", "tests", "scripts", "db", "docs", "scanner", ".sba"];
 const rootFiles = [
   "package.json",
   "pnpm-lock.yaml",

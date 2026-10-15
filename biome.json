@@ -5,6 +5,7 @@
       "tests/**",
       "scripts/**",
       "scanner/**",
+      ".sba/*.json",
       "*.json",
       "*.jsonc",
       "!!old",

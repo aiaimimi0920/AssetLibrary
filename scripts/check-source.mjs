@@ -7,7 +7,7 @@ import { root, sourceFiles } from "./source-scope.mjs";
 function effectiveLines(file, text) {
   // HTML/CSS 用非空物理行作为保守上界，不能借 TS 解析器漏算新 UI。
   if (/\.(?:html|css)$/.test(file)) return text.split(/\r?\n/).filter((line) => line.trim()).length;
-  if (/\.(?:sql|yaml)$/.test(file))
+  if (/\.(?:sql|yaml|py|ps1)$/.test(file))
     return text.split(/\r?\n/).filter((line) => line.trim() && !/^\s*(?:--|#)/.test(line)).length;
   const kind = /\.jsonc?$/.test(file)
     ? ts.ScriptKind.JSON
@@ -38,7 +38,12 @@ for (const file of await sourceFiles()) {
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
     throw new Error(`UTF8_BOM: ${file}`);
-  if (file.endsWith(".md") || file === "pnpm-lock.yaml" || file.startsWith(".")) continue;
+  if (
+    file.endsWith(".md") ||
+    file === "pnpm-lock.yaml" ||
+    (file.startsWith(".") && !file.startsWith(".sba/"))
+  )
+    continue;
   const count = effectiveLines(file, text);
   console.log(`${count.toString().padStart(4)} ${file}`);
   // 当前切片没有 501–700 行例外，达到软阈值即要求人工审查而不是默许。
