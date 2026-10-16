@@ -1,6 +1,7 @@
 # AssetLibrary：Cloudflare 从零重建开发计划
 
-当前上线版本 `0.4.4` 已经 SpringBok 在原实例完成正常升级，原 Worker/D1/私有 R2 保留，
+当前上线版本 `0.4.6` 已经 SpringBok 在原实例完成正常升级，原 Worker/D1/私有 R2 保留，
+Loom 客户端 binding 已实际部署并读回，版本管理及后续保留规则见 [部署方案](docs/LOOM_CLIENT_DEPLOYMENT.md)；
 备份及数据保全、线上固定版本与就绪检查通过。独立应用 verify 不使用云凭据，四项通过；
 本次尚未发起平台独立 verify，不能将本地应用验证称为平台任务。真实账号登录、资源创建/改名/持久化、Art ZIP 私有上传及退出页面清理已有[线上验收证据](docs/LIVE_BUSINESS_ACCEPTANCE.md)；双账号隔离与账号级撤销仍待验收，
 scanner 未绑定，生产分发继续阻断，见 [实际部署回执](docs/NACCOUNT_SPRINGBOK.md#2026-10-15-实际部署回执)。

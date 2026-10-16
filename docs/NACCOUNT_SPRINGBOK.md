@@ -2,12 +2,16 @@
 
 ## 当前交付范围
 
-2026-10-16：线上已升级至 `0.4.5` / `754763b133b9143767351fa338082e7eab25dd7a`。
+2026-10-16 当前线上为 `0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`，
+Loom native binding 已实际部署并独立读回匹配，详见 [Loom 部署方案与回执](LOOM_CLIENT_DEPLOYMENT.md)。
+原实例正常 update 回执七项通过，独立应用 verify 四项通过；不是平台 verify 或桌面登录验收。
+
+此前 `0.4.5` / `754763b133b9143767351fa338082e7eab25dd7a`：
 原实例任务 `dc-c49695e5aebf4099bd9cc64b6f887c07`，GitHub run `38847015111`，
 回执 `deployed-unverified` / 七项通过，artifact SHA-256 与 run/task/source 身份已核验。
 线上 healthz/readyz 与 D1/R2、会话 secret binding 读回通过；native binding 仍不存在。
 原因是 SpringBok 普通 update 要求原 configuration 完全相同，不能在升级时添加配置项。
-`0.4.6` 的应用自有正式站点绑定方案见 [Loom 部署方案](LOOM_CLIENT_DEPLOYMENT.md)，尚待部署。
+该缺口已由 `0.4.6` 的应用自有正式站点绑定方案解决。
 
 真实账号业务验收已执行，见 [线上业务证据与边界](LIVE_BUSINESS_ACCEPTANCE.md)：资源创建/改名/刷新、私有 Art 上传和拒绝门禁通过，退出后的页面清除通过；审核/发布/下载正向闭环及服务端旧会话重放仍未验收通过。下文早期“私有业务待验收”以该具体范围为准。
 
@@ -17,7 +21,7 @@
 
 ## 2026-10-15 实际部署回执
 
-- 当前线上 `0.4.4` / `acd3943e3a9e0f8fc29ecd9188bcc0387992d7ed`，用户已确认真实 NAccount 登录成功。
+- 本历史批次线上 `0.4.4` / `acd3943e3a9e0f8fc29ecd9188bcc0387992d7ed`，用户已确认真实 NAccount 登录成功。
 - 原实例正常 update 任务 `dc-c038f89110cb48eb867f62e0fb5cfc45`，
   [运行 38773857937](https://github.com/aiaimimi0920/SpringBok/actions/runs/38773857937) 回执 `deployed-unverified`，七项检查通过：
   backup-created、data-preserved、deployed-bindings、release-identity、private-dependencies、naccount-login-configured、production-gate-preserved。

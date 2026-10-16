@@ -1,7 +1,10 @@
 # AssetLibrary 新项目开发规则
 
-2026-10-15 当前状态：NAccount 正式接入已实现，AssetLibrary 已经 SpringBok 部署到
-`https://assetlibrary.aiaimimi.com`，线上为 `0.4.4` / `acd3943e3a9e0f8fc29ecd9188bcc0387992d7ed`。
+2026-10-16 当前状态：NAccount 正式接入已实现，AssetLibrary 已经 SpringBok 部署到
+`https://assetlibrary.aiaimimi.com`，线上为 `0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`。
+Loom 独立客户端 binding 已部署并读回；正式站点由应用版本管理默认绑定，保持 SpringBok 原 configuration，
+后续升级必须保留 `.sba/native_client.py` 合同与保护测试，见 `docs/LOOM_CLIENT_DEPLOYMENT.md`。
+真实 Loom 桌面登录、包存储/安装/更新闭环仍待验收，本地完整测试 329 项通过。
 原 `0.4.0` 首次部署、`0.4.1` 写前失败和后续证据绑定 repair 的历史均保留；修复回执 succeeded，
 本次正常 update 回执 deployed-unverified、七项通过；无云部署凭据的独立应用 verify 四项通过。
 用户已确认真实账号登录成功；私有业务、退出/撤销和平台独立 verify 仍待验收。

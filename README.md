@@ -1,7 +1,8 @@
 # AssetLibrary
 
-2026-10-15：**服务已上线：[assetlibrary.aiaimimi.com](https://assetlibrary.aiaimimi.com)**。
-当前 `0.4.4` 经 SpringBok 原实例正常升级，备份、数据保全、原资源绑定及就绪检查通过；
+2026-10-16：**服务已上线：[assetlibrary.aiaimimi.com](https://assetlibrary.aiaimimi.com)**。
+当前 `0.4.6` 经 SpringBok 原实例正常升级，Loom 客户端 binding 已实际部署，见 [部署方案与证据](docs/LOOM_CLIENT_DEPLOYMENT.md)。
+备份、数据保全、原资源绑定及就绪检查通过；
 独立应用只读 verify 四项通过，真实 NAccount 登录、资源创建/改名/持久化、Art ZIP 私有上传及退出页面清理已有线上证据。
 双账号隔离、账号级撤销及审核/发布/下载正向闭环仍待验收，见[真实业务验收](docs/LIVE_BUSINESS_ACCEPTANCE.md)。
 这不是生产分发开放：没有绑定 scanner，发布/下载门禁保持关闭。详见[上线回执与范围](docs/NACCOUNT_SPRINGBOK.md#2026-10-15-实际部署回执)。

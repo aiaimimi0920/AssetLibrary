@@ -1,5 +1,21 @@
 # Loom 原生客户端正式部署方案
 
+## 2026-10-16 已部署结果
+
+- 发布 `v0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`，精确提交 CI
+  [38850067853](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/38850067853) 两项 job 通过；本地完整测试 329 项通过。
+- 用户在原实例提交 task `dc-bf45117308d444189d09edb0e1007b19`，SpringBok 执行
+  [38850385813](https://github.com/aiaimimi0920/SpringBok/actions/runs/38850385813) 成功。
+- 回执 `deployed-unverified`，备份、数据保全、部署绑定、发布身份、私有依赖、网页认证配置和生产门禁七项均通过。
+  artifact `12024174430`，归档 SHA-256 `8c7e56584b99ee84034702256e995b7683adb1446e2e08c51c9b420f9f78dee2`，
+  摘要与 run/task/source 身份已核验；证据在 `linshi/assetlibrary-run-38850385813/`。
+- 独立 Cloudflare 读回：native clientId 与下文 Loom 值一致，网页 clientId、D1/R2 不变，
+  session secret binding 存在，reviewers 仍为空，SCANNER 未绑定；不声称读出了 secret 明文。
+- 在 clean 发布提交运行无云 token 的应用 verify，四项通过；healthz 精确版本/SHA 匹配，readyz
+  为 ready，分发仍 blocked / `SCANNER_CLOUD_NOT_VALIDATED`。
+  证据在 `linshi/assetlibrary-independent-verify-v046/`，不是 SpringBok 平台独立 verify 任务，未改写平台状态。
+- 本批完成服务端客户端配置部署；Loom 桌面真实登录与私有资源访问、包上传/安装/更新仍须分别验收。
+
 ## 当前问题与责任边界
 
 `0.4.5` 已部署，但正式 Worker 没有 `NACCOUNT_NATIVE_CLIENT_ID`。SpringBok 的
