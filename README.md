@@ -1,7 +1,12 @@
 # AssetLibrary
 
+2026-10-16 续进：生产准入代码及过期事务保护已本地验证，335 项测试通过；
+新受控 scanner 候选十场景和全量 APK 扫描通过，但原生风险及新云验收仍未关闭，
+线上分发未开放。精确停点与证据见 [Scanner 部署准入](docs/SCANNER_DEPLOYMENT_ADMISSION.md)。
+
 2026-10-16：**服务已上线：[assetlibrary.aiaimimi.com](https://assetlibrary.aiaimimi.com)**。
 当前 `0.4.6` 经 SpringBok 原实例正常升级，Loom 客户端 binding 已实际部署，见 [部署方案与证据](docs/LOOM_CLIENT_DEPLOYMENT.md)。
+Loom 下载已补齐三类包的九项[真实本地 Worker 联合验收](docs/LOOM_DOWNLOAD_ACCEPTANCE.md)；正式分发仍阻断，不代表线上下载完成。
 备份、数据保全、原资源绑定及就绪检查通过；
 独立应用只读 verify 四项通过，真实 NAccount 登录、资源创建/改名/持久化、Art ZIP 私有上传及退出页面清理已有线上证据。
 双账号隔离、账号级撤销及审核/发布/下载正向闭环仍待验收，见[真实业务验收](docs/LIVE_BUSINESS_ACCEPTANCE.md)。

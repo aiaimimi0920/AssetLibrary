@@ -1,4 +1,5 @@
 import { HttpError } from "../http";
+import type { ScannerRelease } from "../scanner/deployment";
 import { objectMatches } from "../uploads/reconcile";
 import { objectKey } from "../uploads/records";
 import { downloadRange } from "./range";
@@ -16,9 +17,10 @@ export async function downloadContent(
   env: DistributionEnv,
   id: string,
   actor: string,
+  release?: ScannerRelease,
 ) {
   const token = request.headers.get("x-download-ticket") ?? "";
-  const row = await authorizeTicket(env.DB, id, actor, token);
+  const row = await authorizeTicket(env.DB, id, actor, token, release);
   if (request.signal.aborted) throw new HttpError(499, "DOWNLOAD_ABORTED");
   let range: ReturnType<typeof downloadRange>;
   try {
@@ -49,7 +51,7 @@ export async function downloadContent(
   try {
     if (!object || !objectMatches(row, object) || (request.method !== "HEAD" && !body))
       throw new HttpError(409, "DISTRIBUTION_OBJECT_CHANGED");
-    const current = await authorizeTicket(env.DB, id, actor, token);
+    const current = await authorizeTicket(env.DB, id, actor, token, release);
     if (current.revision !== row.revision || current.etag !== row.etag)
       throw new HttpError(404, "NOT_FOUND");
     if (request.signal.aborted) throw new HttpError(499, "DOWNLOAD_ABORTED");

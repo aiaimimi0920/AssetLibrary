@@ -11,9 +11,14 @@ export function packagePolicies(kind) {
     return [
       ["art-zip-clamav-v1", "格式 + ClamAV 内容检查"],
       ["art-zip-manifest-v1", "仅格式检查（不可发布）"],
+      ["loom-art-zip-clamav-v1", "Loom Art Node + ClamAV"],
     ];
-  if (["capability", "application"].includes(kind))
-    return [[`${kind}-zip-clamav-v1`, "包体 + ClamAV 内容检查"]];
+  if (kind === "capability")
+    return [
+      ["capability-zip-clamav-v1", "包体 + ClamAV 内容检查"],
+      ["loom-capability-zip-clamav-v1", "Loom 能力包 + ClamAV"],
+    ];
+  if (kind === "application") return [[`${kind}-zip-clamav-v1`, "包体 + ClamAV 内容检查"]];
   return [];
 }
 
@@ -33,10 +38,12 @@ export function syncUploadForm(resource) {
   document.getElementById("package-file").value = "";
   document.getElementById("package-label").textContent =
     resource?.kind === "art"
-      ? "Art ZIP（1–32 张静态 PNG，最多 8 MiB；使用 pack:art）"
-      : ["capability", "application"].includes(resource?.kind)
-        ? `${resource.kind === "capability" ? "Capability" : "应用包"} ZIP（1–32 个载荷，每个最多 1 MiB，整包最多 8 MiB；使用 pack:software）`
-        : "请选择资源后上传匹配类型的 ZIP。";
+      ? "Art ZIP（素材包或 Loom Art Node，最多 8 MiB）"
+      : resource?.kind === "capability"
+        ? "Capability ZIP（软件封装或 Loom 原生包，最多 8 MiB）"
+        : resource?.kind === "application"
+          ? "应用包 ZIP（1–32 个载荷，每个最多 1 MiB，整包最多 8 MiB；使用 pack:software）"
+          : "请选择资源后上传匹配类型的 ZIP。";
 }
 
 /** 仅已绑定 ID 的不可逆终态可释放意图，不能按摘要猜测未知预约或历史记录。 */

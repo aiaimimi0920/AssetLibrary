@@ -2,7 +2,7 @@ FROM clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa585282
 # 官方同版本 Alpine 构建保留 libxml2.so.2 ABI，避免混装 Debian unstable 或自制兼容链接。
 # Node 使用同一发行版维护的 musl 包，使二进制及动态依赖进入 APK 漏洞清单。
 RUN apk add --no-cache nodejs=24.18.1-r0 libxml2=2.13.9-r2 \
-    pcre2=10.49-r0 nghttp2-libs=1.70.0-r0
+    pcre2=10.49-r0 nghttp2-libs=1.70.0-r0 zlib=1.3.2-r1
 # 候选验证每次传入唯一值，使 freshclam 层不能复用；不在运行时开放网络更新。
 ARG SCANNER_SIGNATURE_REFRESH=unmanaged
 LABEL neuro.signature-refresh=$SCANNER_SIGNATURE_REFRESH

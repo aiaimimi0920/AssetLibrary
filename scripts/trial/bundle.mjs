@@ -2,8 +2,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const gate = `function requireDeploymentAdmission() {
-  throw new HttpError(409, cloudScanBlocker);
+const gate = `function requireDeploymentAdmission(env, scan) {
+  const release = deploymentAdmission(env);
+  if (!release || scan !== void 0 && !admittedScan(scan, release))
+    throw new HttpError(409, cloudScanBlocker);
+  return release;
 }`;
 export function replaceOnce(source, before, after) {
   if (source.split(before).length !== 2) throw new Error("TRIAL_SOURCE_CONTRACT_CHANGED");
@@ -29,7 +32,7 @@ export async function trialModules(directory) {
       contents: replaceOnce(
         original,
         gate,
-        "function requireDeploymentAdmission() { /* LOCAL TRIAL ONLY */ }",
+        "function requireDeploymentAdmission(env, scan) { /* LOCAL TRIAL ONLY */ }",
       ),
     },
   };

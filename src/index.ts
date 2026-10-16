@@ -8,13 +8,14 @@ import { observeResponse } from "./operations/events";
 import { readiness } from "./operations/readiness";
 import { scheduledWork } from "./operations/scheduled";
 import { resourceRoutes } from "./resources/routes";
+import type { DeploymentEnv } from "./scanner/deployment";
 import type { UploadEnv } from "./uploads/records";
 import { uploadRoutes } from "./uploads/routes";
 import type { ReviewConfig } from "./versions/policy";
 import { versionRoutes } from "./versions/routes";
 import { webRoutes } from "./web/routes";
 
-interface Env extends IdentityConfig, UploadEnv, ReviewConfig, NAccountEnv {
+interface Env extends IdentityConfig, UploadEnv, ReviewConfig, NAccountEnv, DeploymentEnv {
   RELEASE_SHA?: string;
   RELEASE_VERSION?: string;
 }

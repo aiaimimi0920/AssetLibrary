@@ -45,6 +45,13 @@ owner 固有权限不能通过授权表修改。授权变更使用 CAS 和同批
 
 客户端向 `contentPath` 发送外部 `Authorization: Bearer ...` 和 `X-Download-Ticket: ...`。票据绑定主体、publication/version revision、授权 revision、SHA-256、ETag 和到期时间；另一主体、另一发布或重新授权后的旧票据都拒绝。最多每轮删除 100 张过期票据，保留发布/授权/审核/事件历史。
 
+2026-10-16 补充：签发期限还受当前 scanner 准入期限限制。签发 INSERT 和下载授权 SELECT
+使用 D1 执行时钟判断过期，不能沿用请求发起时的时间；数据库响应返回后再次检查到期时间。
+如果票据在有效期内已写入、但响应返回时过期，不返回明文票据，摘要留给既有有界清理，
+不为失败响应增加回滚或删除业务数据。`tests/distribution-ticket-deadlines.test.mjs` 覆盖
+签发和授权在 D1 执行前、执行后响应等待期间过期的四种情况；使用独占本地 D1，
+身份、扫描和发布准入仍为测试条件，不代表正式分发已开放。
+
 `GET /v1/publications/{id}/content` 流式返回 `application/zip`；`HEAD` 校验同一资格和原生对象身份但不读取包体。R2 原生 SHA-256、size、ETag 必须匹配，不信 custom metadata。包体不整包缓冲、没有 R2 预签名下载 URL；附 `private, no-store`、`nosniff`、固定安全下载文件名、Content-Length、ETag 和 Accept-Ranges。
 
 - 单一 `Range: bytes=start-end`、开放尾端和 suffix 支持 206，拒绝多 Range、溢出整数和不可满足范围；416 附 `Content-Range: bytes */size`。

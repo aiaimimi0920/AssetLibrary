@@ -20,7 +20,7 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.6',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.7',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
 native = copy.deepcopy(config)

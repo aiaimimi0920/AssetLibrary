@@ -1,4 +1,5 @@
 import { HttpError, json } from "../http";
+import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { currentSnapshot, loadVersion } from "../versions/records";
 import { versionSafety } from "../versions/safety";
 import {
@@ -10,14 +11,23 @@ import {
 } from "./records";
 
 /** 业务事务不判定部署安全证明；生产调用者必须先经过 admission.ts。 */
-export async function publishVersion(db: D1Database, id: string, actor: string, revision: number) {
+export async function publishVersion(
+  db: D1Database,
+  id: string,
+  actor: string,
+  revision: number,
+  release?: ScannerRelease,
+) {
   const version = await loadVersion(db, id);
   if (version.owner !== actor) throw new HttpError(404, "NOT_FOUND");
   if (version.revision !== revision) throw new HttpError(409, "REVISION_CONFLICT");
   if (version.state !== "approved") throw new HttpError(409, "VERSION_NOT_APPROVED");
   if (version.binding_current !== 1) throw new HttpError(409, "VERSION_BINDING_CHANGED");
   const safety = versionSafety(version);
-  if (!safety.scanCurrent || !safety.scan) throw new HttpError(409, safety.blocker);
+  if (!safety.scanCurrent || !safety.scan)
+    throw new HttpError(409, safety.blocker ?? "CONTENT_SCAN_EXPIRED_OR_INVALIDATED");
+  if (release && !admittedScan(safety.scan, release))
+    throw new HttpError(409, "SCANNER_CLOUD_NOT_VALIDATED");
   const publication = crypto.randomUUID();
   const operation = crypto.randomUUID();
   const now = Date.now();
@@ -30,7 +40,9 @@ export async function publishVersion(db: D1Database, id: string, actor: string, 
       AND EXISTS (SELECT 1 FROM resources r WHERE r.id = versions.resource_id AND r.owner = ?)
       AND ${currentSnapshot}
       AND EXISTS (SELECT 1 FROM inspections i WHERE i.id = versions.inspection_id AND i.result = ?)
-      AND ? > ? ON CONFLICT(version_id) DO NOTHING`)
+      AND ? > ?
+      AND (? IS NULL OR ? > CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
+      ON CONFLICT(version_id) DO NOTHING`)
       .bind(
         publication,
         version.inspection_result,
@@ -44,6 +56,8 @@ export async function publishVersion(db: D1Database, id: string, actor: string, 
         version.inspection_result,
         safety.scan.expiresAt,
         now,
+        release?.expiresAt ?? null,
+        release?.expiresAt ?? null,
       ),
     db
       .prepare(`INSERT INTO publication_events(operation_id, publication_id, actor, action, revision, created_at)

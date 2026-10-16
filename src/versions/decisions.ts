@@ -1,4 +1,5 @@
 import { HttpError, json } from "../http";
+import type { ScannerRelease } from "../scanner/deployment";
 import {
   currentSnapshot,
   type VersionRow,
@@ -17,6 +18,7 @@ export async function decideVersion(
   revision: number,
   decision: Decision,
   reason: string | null,
+  release: ScannerRelease | null = null,
 ) {
   const operation = crypto.randomUUID();
   const now = Date.now();
@@ -50,5 +52,5 @@ export async function decideVersion(
       throw new HttpError(409, "VERSION_BINDING_CHANGED");
     throw new HttpError(409, "VERSION_STATE_CONFLICT");
   }
-  return json(versionView(row));
+  return json(versionView(row, release));
 }

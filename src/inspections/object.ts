@@ -1,10 +1,11 @@
 import { inspectArtPackage } from "../packages/art";
+import { inspectLoomPackage } from "../packages/loom";
 import { inspectSoftwarePackage } from "../packages/software";
 import { scanArchive } from "../scanner/client";
 import { objectMatches } from "../uploads/reconcile";
 import { loadUpload, objectKey, type UploadEnv } from "../uploads/records";
 import { ContentRejected, inspectPng } from "./png";
-import { inspectionKind, isScanPolicy } from "./policy";
+import { inspectionKind, isLoomPolicy, isScanPolicy } from "./policy";
 import { type InspectionRow, maxArchiveSize, maxObjectSize, policy } from "./records";
 
 /** 仅检查明确策略的受限对象；该缓冲是检查任务，不是元数据或下载路径。 */
@@ -66,9 +67,11 @@ export async function inspectObject(env: UploadEnv, row: InspectionRow) {
   const result =
     row.policy === policy
       ? await inspectPng(bytes)
-      : kind === "art"
-        ? await inspectArtPackage(bytes)
-        : await inspectSoftwarePackage(bytes, kind);
+      : isLoomPolicy(row.policy) && kind !== "application"
+        ? await inspectLoomPackage(bytes, kind)
+        : kind === "art"
+          ? await inspectArtPackage(bytes)
+          : await inspectSoftwarePackage(bytes, kind);
   const scan = isScanPolicy(row.policy) ? await scanArchive(env, bytes, sha256) : undefined;
   return {
     ...result,

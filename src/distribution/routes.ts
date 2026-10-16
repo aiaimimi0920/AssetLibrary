@@ -2,12 +2,13 @@ import { exactFields, HttpError, json, principalRef, readJson, revision } from "
 import { uuid } from "../page";
 import { requireDeploymentAdmission } from "../publications/admission";
 import { ownerPublication, unlistPublication } from "../publications/mutations";
+import type { DeploymentEnv, ScannerRelease } from "../scanner/deployment";
 import { downloadContent } from "./content";
 import { changeGrant, downloadAuthority, readGrant } from "./grants";
 import { listPublications, publicDetail } from "./queries";
 import { issueTicket } from "./tickets";
 
-interface DistributionEnv {
+interface DistributionEnv extends DeploymentEnv {
   DB: D1Database;
   QUARANTINE: R2Bucket;
 }
@@ -20,26 +21,27 @@ export async function catalogRoutes(request: Request, env: DistributionEnv) {
   )
     return null;
   if (url.pathname === "/v1/catalog") {
+    let release: ScannerRelease;
     // 门禁未完成时不暴露 seeded 历史记录，也不把不可用伪装成可用空目录。
     try {
-      requireDeploymentAdmission();
+      release = requireDeploymentAdmission(env);
     } catch (error) {
       if (error instanceof HttpError) return json({ error: error.code }, 503);
       throw error;
     }
-    return listPublications(env.DB, url);
+    return listPublications(env.DB, url, undefined, release);
   }
   const parts = url.pathname.split("/");
   if (parts.length !== 4 || !uuid.test(parts[3] ?? "")) throw new HttpError(404, "NOT_FOUND");
-  requireDeploymentAdmission();
-  return publicDetail(env.DB, parts[3] ?? "");
+  const release = requireDeploymentAdmission(env);
+  return publicDetail(env.DB, parts[3] ?? "", release);
 }
 
 export async function distributionRoutes(request: Request, env: DistributionEnv, actor: string) {
   const url = new URL(request.url);
   if (url.pathname === "/v1/me/library" && request.method === "GET") {
-    requireDeploymentAdmission();
-    return listPublications(env.DB, url, actor);
+    const release = requireDeploymentAdmission(env);
+    return listPublications(env.DB, url, actor, release);
   }
   const parts = url.pathname.split("/");
   if (parts[1] !== "v1" || parts[2] !== "publications") return null;
@@ -79,13 +81,13 @@ export async function distributionRoutes(request: Request, env: DistributionEnv,
     const body = await readJson(request);
     exactFields(body, []);
     await downloadAuthority(env.DB, id, actor);
-    requireDeploymentAdmission();
-    return issueTicket(env.DB, id, actor);
+    const release = requireDeploymentAdmission(env);
+    return issueTicket(env.DB, id, actor, release);
   }
   if (parts.length === 5 && parts[4] === "content" && ["GET", "HEAD"].includes(request.method)) {
     await downloadAuthority(env.DB, id, actor);
-    requireDeploymentAdmission();
-    return downloadContent(request, env, id, actor);
+    const release = requireDeploymentAdmission(env);
+    return downloadContent(request, env, id, actor, release);
   }
   throw new HttpError(404, "NOT_FOUND");
 }

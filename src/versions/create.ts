@@ -1,5 +1,6 @@
 import { HttpError, json } from "../http";
 import { policyKindSql } from "../inspections/policy";
+import type { ScannerRelease } from "../scanner/deployment";
 import { type VersionRow, versionEvent, versionSelect, versionView } from "./records";
 
 export interface NewVersion {
@@ -10,7 +11,12 @@ export interface NewVersion {
 }
 
 /** 标签是创建的自然幂等身份；不同输入不得占用或重写已有版本。 */
-export async function createVersion(db: D1Database, actor: string, input: NewVersion) {
+export async function createVersion(
+  db: D1Database,
+  actor: string,
+  input: NewVersion,
+  release: ScannerRelease | null = null,
+) {
   const resource = await db
     .prepare(`SELECT kind FROM resources
     WHERE id = ? AND owner = ? AND state = 'draft'`)
@@ -62,5 +68,5 @@ export async function createVersion(db: D1Database, actor: string, input: NewVer
   if (!row) throw new HttpError(409, "VERSION_BINDING_NOT_READY");
   if (row.upload_id !== input.uploadId || row.resource_revision !== input.resourceRevision)
     throw new HttpError(409, "VERSION_LABEL_CONFLICT");
-  return json(versionView(row), row.last_operation === operation ? 201 : 200);
+  return json(versionView(row, release), row.last_operation === operation ? 201 : 200);
 }

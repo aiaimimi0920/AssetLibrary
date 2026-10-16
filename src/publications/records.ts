@@ -1,5 +1,6 @@
 import { HttpError } from "../http";
 import { scanPoliciesSql } from "../inspections/policy";
+import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { parseScanFact, scanCurrent } from "../scanner/facts";
 import { currentSnapshot } from "../versions/records";
 
@@ -55,8 +56,14 @@ export function publicationScan(row: PublicationRow) {
   }
 }
 
-export function isDistributable(row: PublicationRow) {
-  return row.state === "published" && row.binding_current === 1 && publicationScan(row) !== null;
+export function isDistributable(row: PublicationRow, release?: ScannerRelease) {
+  const scan = publicationScan(row);
+  return (
+    row.state === "published" &&
+    row.binding_current === 1 &&
+    scan !== null &&
+    (release === undefined || admittedScan(scan, release))
+  );
 }
 
 export function publicationView(row: PublicationRow) {

@@ -23,3 +23,14 @@ test("SBA 正式 Loom 客户端随原配置升级并在后续版本保留", () =
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /SBA_NATIVE_CLIENT_CHECKS_PASSED/);
 });
+
+test("SBA scanner 精确身份、原 configuration 保留及限时激活", () => {
+  const result = spawnSync("python", ["-B", "tests/sba_scanner_release_checks.py"], {
+    cwd: new URL("../", import.meta.url),
+    encoding: "utf8",
+    timeout: 30000,
+    env: { ...process.env, PYTHONUTF8: "1", PYTHONDONTWRITEBYTECODE: "1" },
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /SBA_SCANNER_RELEASE_CHECKS_PASSED/);
+});

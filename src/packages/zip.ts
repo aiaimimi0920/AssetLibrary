@@ -12,6 +12,34 @@ export interface ZipEntry {
 
 /** 只允许连续 local records + 一一对应的 central directory + 无注释 EOCD。 */
 export function parseZip(bytes: Uint8Array): ZipEntry[] {
+  return parseArchive(bytes, null);
+}
+
+/** 原生包清单可位于任意条目；不重排或改写签名所覆盖的文件字节。 */
+export function parseLoomZip(bytes: Uint8Array, kind: "art" | "capability"): ZipEntry[] {
+  const entries = parseArchive(bytes, kind);
+  const marker = kind === "art" ? "manifest.json" : "capability.manifest.json";
+  const markers = [
+    "manifest.json",
+    "capability.manifest.json",
+    "framework.manifest.json",
+    "mcp.server.json",
+  ];
+  if (
+    !entries.some((entry) => entry.path === marker) ||
+    entries.some(
+      (entry) =>
+        (markers.includes(entry.path.toLowerCase()) && entry.path !== marker) ||
+        (entry.path.toLowerCase() === "art.runtime.json" &&
+          (kind !== "art" || entry.path !== "art.runtime.json")),
+    ) ||
+    (kind === "art" && !entries.some((entry) => entry.path === "art.runtime.json"))
+  )
+    throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
+  return entries;
+}
+
+function parseArchive(bytes: Uint8Array, nativeKind: "art" | "capability" | null): ZipEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const invalid = () => {
     throw new ContentRejected("ZIP_STRUCTURE_INVALID");
@@ -100,9 +128,12 @@ export function parseZip(bytes: Uint8Array): ZipEntry[] {
     )
       throw new ContentRejected("ZIP_PATH_COLLISION");
     paths.add(folded);
-    if (index === 0 && path !== "manifest.json")
+    if (!nativeKind && index === 0 && path !== "manifest.json")
       throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
-    const limit = index === 0 ? 32768 : 1048576;
+    const isManifest = nativeKind
+      ? ["manifest.json", "capability.manifest.json", "art.runtime.json"].includes(path)
+      : index === 0;
+    const limit = isManifest ? 32768 : 1048576;
     total += size;
     if (
       !size ||

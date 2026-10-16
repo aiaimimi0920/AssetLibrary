@@ -2,6 +2,7 @@ import { json } from "../http";
 import type { IdentityConfig } from "../identity";
 import { fixedVerificationKeys } from "../identity/keys";
 import { type NAccountEnv, naccountConfig } from "../identity/naccount-config";
+import { type DeploymentEnv, deploymentAdmission } from "../scanner/deployment";
 import { cloudScanBlocker } from "../scanner/facts";
 import type { UploadEnv } from "../uploads/records";
 
@@ -32,7 +33,7 @@ async function probe(action: () => Promise<boolean>) {
 }
 
 /** 仅做固定的只读依赖探测；不公开账号、公钥、业务计数、对象或内部异常。 */
-export async function readiness(env: UploadEnv & IdentityConfig & NAccountEnv) {
+export async function readiness(env: UploadEnv & IdentityConfig & NAccountEnv & DeploymentEnv) {
   const [identity, database, storage] = await Promise.all([
     probe(async () => {
       if (env.NACCOUNT_ISSUER) {
@@ -60,13 +61,16 @@ export async function readiness(env: UploadEnv & IdentityConfig & NAccountEnv) {
     }),
   ]);
   const ready = [identity, database, storage].every((state) => state === "available");
+  const release = deploymentAdmission(env);
   return json(
     {
       service: "assetlibrary",
       scope: "private_dependencies",
       status: ready ? "ready" : "degraded",
       checks: { identity, database, storage },
-      distribution: { status: "blocked", reason: cloudScanBlocker },
+      distribution: release
+        ? { status: "available", releaseId: release.id, expiresAt: release.expiresAt }
+        : { status: "blocked", reason: cloudScanBlocker },
     },
     ready ? 200 : 503,
   );

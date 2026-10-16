@@ -12,6 +12,8 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from contract import ROOT, Failure, require, load
 from native_client import native_client_id
+from reviewers import reviewer_principals
+from scanner_release import distribution_status, scanner_bindings, verify_release_window, verify_scanner
 
 
 class Cloud:
@@ -100,9 +102,7 @@ def preflight(cloud, request):
     require(managed.get('enabled') is False, 'ASSETLIBRARY_BUCKET_PUBLIC')
     domains = cloud.call(f"/r2/buckets/{c['bucket']}/domains/custom")
     require(not domains.get('domains'), 'ASSETLIBRARY_BUCKET_PUBLIC')
-    if c['scannerService']:
-        require(cloud.call(f"/workers/scripts/{c['scannerService']}/settings", missing=True) is not None,
-                'ASSETLIBRARY_SCANNER_MISSING')
+    verify_scanner(cloud, activating=True)
     discovery = public_json(c['identity']['issuer'] + '/.well-known/openid-configuration')
     require(discovery.get('issuer') == c['identity']['issuer'] and 'S256' in discovery.get('code_challenge_methods_supported', []),
             'ASSETLIBRARY_IDENTITY_CONTRACT_INVALID')
@@ -135,13 +135,13 @@ def publish(cloud, request, output):
         {'name': 'QUARANTINE', 'type': 'r2_bucket', 'bucket_name': c['bucket']},
     ]
     variables = {'APP_ORIGIN': c['origin'], 'NACCOUNT_ISSUER': c['identity']['issuer'],
-                 'NACCOUNT_CLIENT_ID': c['identity']['clientId'], 'REVIEWER_PRINCIPALS': json.dumps(c['reviewers']),
+                 'NACCOUNT_CLIENT_ID': c['identity']['clientId'], 'REVIEWER_PRINCIPALS': json.dumps(reviewer_principals(c)),
                  'RELEASE_SHA': request['sourceSha'], 'RELEASE_VERSION': request['applicationVersion']}
     if native_client_id(c):
         variables['NACCOUNT_NATIVE_CLIENT_ID'] = native_client_id(c)
     bindings += [{'name': k, 'type': 'plain_text', 'text': v} for k, v in variables.items()]
-    if c['scannerService']:
-        bindings.append({'name': 'SCANNER', 'type': 'service', 'service': c['scannerService'], 'entrypoint': 'ScannerService'})
+    scanner_record = verify_scanner(cloud, activating=True)
+    bindings += scanner_bindings(c)
     if request['action'] == 'deploy':
         bindings.append({'name': 'NACCOUNT_SESSION_KEY', 'type': 'secret_text', 'text': secrets.token_hex(32)})
     metadata = {'main_module': 'index.js', 'compatibility_date': '2026-10-01',
@@ -158,6 +158,7 @@ def publish(cloud, request, output):
         require(hashlib.sha256(raw).hexdigest() == manifest['artifacts'][name], 'ASSETLIBRARY_ARTIFACT_CHANGED')
         part(name, raw, 'application/javascript+module' if name == 'index.js' else 'text/plain')
     body = b''.join(parts) + f'--{boundary}--\r\n'.encode()
+    verify_release_window(scanner_record, activating=True)
     cloud.call(f"/workers/scripts/{c['worker']}", 'PUT', body, f'multipart/form-data; boundary={boundary}')
     cloud.call(f"/workers/scripts/{c['worker']}/subdomain", 'POST', {'enabled': c['origin'].endswith('.workers.dev'), 'previews_enabled': False})
     if not c['origin'].endswith('.workers.dev'):
@@ -172,10 +173,17 @@ def verify(cloud, request):
     c = cloud.config
     current = cloud.call(f"/workers/scripts/{c['worker']}/settings")
     bindings = {b['name']: b for b in current['bindings']}
+    expected_scanner = {b['name']: b for b in scanner_bindings(c)}
+    for name in ('SCANNER', 'SCANNER_RELEASE_ID'):
+        actual, expected = bindings.get(name), expected_scanner.get(name)
+        require(actual is None if expected is None else actual is not None and
+                all(actual.get(key) == value for key, value in expected.items()), 'ASSETLIBRARY_SCANNER_BINDING_MISMATCH')
+    verify_scanner(cloud)
     require(bindings.get('RELEASE_SHA', {}).get('text') == request['sourceSha'] and
             bindings.get('DB', {}).get('id') == c['database']['id'] and
             bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'] and
             bindings.get('NACCOUNT_NATIVE_CLIENT_ID', {}).get('text', '') == native_client_id(c) and
+            bindings.get('REVIEWER_PRINCIPALS', {}).get('text') == json.dumps(reviewer_principals(c)) and
             bindings.get('NACCOUNT_SESSION_KEY', {}).get('type') == 'secret_text',
             'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH')
     return [{'id': 'deployed-bindings', 'passed': True}, *verify_public(request)]
@@ -189,8 +197,9 @@ def verify_public(request):
     ready = public_json(c['origin'] + '/readyz')
     require(ready.get('status') == 'ready' and ready.get('checks') == {
                 'identity': 'available', 'database': 'available', 'storage': 'available'} and
-            ready.get('distribution') == {'status': 'blocked', 'reason': 'SCANNER_CLOUD_NOT_VALIDATED'},
+            ready.get('distribution') == distribution_status(c),
             'ASSETLIBRARY_READINESS_FAILED')
     session = public_json(c['origin'] + '/auth/session')
     require(session == {'enabled': True, 'principal': None}, 'ASSETLIBRARY_AUTH_READINESS_FAILED')
-    return [{'id': key, 'passed': True} for key in ['release-identity', 'private-dependencies', 'naccount-login-configured', 'production-gate-preserved']]
+    gate = 'production-gate-preserved' if distribution_status(c)['status'] == 'blocked' else 'scanner-admission-verified'
+    return [{'id': key, 'passed': True} for key in ['release-identity', 'private-dependencies', 'naccount-login-configured', gate]]

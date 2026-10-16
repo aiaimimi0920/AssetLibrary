@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / '.sba'))
 import cloudflare
 import contract
 from native_client import LOOM_CLIENT_ID, OFFICIAL_TARGET, OFFICIAL_IDENTITY, native_client_id
+from reviewers import OFFICIAL_REVIEWER, reviewer_principals
 
 config = {**OFFICIAL_TARGET, 'identity': dict(OFFICIAL_IDENTITY),
           'database': {'id': '00000000-0000-4000-8000-000000000001', 'name': 'assetlibrary-db'},
@@ -19,11 +20,16 @@ original = copy.deepcopy(config)
 contract.settings(config)
 assert native_client_id(config) == LOOM_CLIENT_ID
 assert config == original
+assert reviewer_principals(config) == [OFFICIAL_REVIEWER]
+explicit_reviewers = {**config, 'reviewers': ['user:another']}
+assert reviewer_principals(explicit_reviewers) == ['user:another']
+assert reviewer_principals(explicit_reviewers) is not explicit_reviewers['reviewers']
 for section, fields in [(None, OFFICIAL_TARGET), ('identity', OFFICIAL_IDENTITY)]:
     for key in fields:
         other = copy.deepcopy(config)
         (other[section] if section else other)[key] += '-other'
         assert native_client_id(other) == ''
+        assert reviewer_principals(other) == []
 explicit = copy.deepcopy(config)
 explicit['identity']['nativeClientId'] = 'explicit-client'
 assert native_client_id(explicit) == 'explicit-client'
@@ -81,6 +87,7 @@ with tempfile.TemporaryDirectory(prefix='sba-native-', dir=contract.ROOT.parent.
     bindings = {row['name']: row for row in cloud.bindings}
     assert bindings['NACCOUNT_NATIVE_CLIENT_ID']['text'] == LOOM_CLIENT_ID
     assert bindings['NACCOUNT_CLIENT_ID']['text'] == config['identity']['clientId']
+    assert json.loads(bindings['REVIEWER_PRINCIPALS']['text']) == [OFFICIAL_REVIEWER]
     assert bindings['DB']['id'] == config['database']['id']
     assert bindings['QUARANTINE']['bucket_name'] == config['bucket']
     assert 'SCANNER' not in bindings
@@ -93,6 +100,14 @@ with tempfile.TemporaryDirectory(prefix='sba-native-', dir=contract.ROOT.parent.
         except contract.Failure as error:
             assert str(error) == 'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH'
     cloud.bindings.append(bindings['NACCOUNT_NATIVE_CLIENT_ID'])
+    with patch.object(cloudflare, 'verify_public', return_value=[]):
+        bindings['REVIEWER_PRINCIPALS']['text'] = '[]'
+        try:
+            cloudflare.verify(cloud, request)
+            raise AssertionError('missing reviewer accepted')
+        except contract.Failure as error:
+            assert str(error) == 'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH'
+        bindings['REVIEWER_PRINCIPALS']['text'] = json.dumps([OFFICIAL_REVIEWER])
     next_request = {**request, 'sourceSha': 'c' * 40, 'applicationVersion': '0.4.7',
                     'previous': {'sourceSha': request['sourceSha'], 'applicationVersion': request['applicationVersion']}}
     with patch.object(cloudflare, 'public_json', return_value=discovery):

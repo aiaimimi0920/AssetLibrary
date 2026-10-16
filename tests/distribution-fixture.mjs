@@ -51,6 +51,10 @@ async function compileCore() {
       "distribution/queries",
       "distribution/stream",
       "operations/events",
+      "scanner/deployment",
+      "versions/safety",
+      "packages/loom",
+      "packages/art",
     ].map((module) => require(path.join(output, `${module}.js`))),
   );
 }

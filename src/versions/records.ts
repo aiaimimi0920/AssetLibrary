@@ -1,5 +1,6 @@
 import { HttpError } from "../http";
 import { policyKindSql } from "../inspections/policy";
+import type { ScannerRelease } from "../scanner/deployment";
 import { versionSafety } from "./safety";
 
 export interface VersionRow {
@@ -63,8 +64,8 @@ export async function loadVersion(db: D1Database, id: string): Promise<VersionRo
   return row;
 }
 
-export function versionView(row: VersionRow) {
-  const safety = versionSafety(row);
+export function versionView(row: VersionRow, release: ScannerRelease | null = null) {
+  const safety = versionSafety(row, release);
   return {
     id: row.id,
     resourceId: row.resource_id,
@@ -104,12 +105,21 @@ export function versionView(row: VersionRow) {
             state: row.publication_state,
             revision: row.publication_revision,
           },
-    publicationEligible: false,
-    contentSafety: { scan: safety.scan, scanCurrent: safety.scanCurrent, cloudValidated: false },
+    publicationEligible:
+      row.state === "approved" &&
+      row.binding_current === 1 &&
+      safety.cloudValidated &&
+      row.publication_id === null,
+    contentSafety: {
+      scan: safety.scan,
+      scanCurrent: safety.scanCurrent,
+      cloudValidated: safety.cloudValidated,
+    },
     publicationBlockers: [
       ...(row.state === "approved" ? [] : ["VERSION_NOT_APPROVED"]),
       ...(row.binding_current === 1 ? [] : ["VERSION_BINDING_CHANGED"]),
-      safety.blocker,
+      ...(safety.blocker ? [safety.blocker] : []),
+      ...(row.publication_id === null ? [] : ["VERSION_ALREADY_PUBLISHED"]),
     ],
     createdAt: row.created_at,
     updatedAt: row.updated_at,

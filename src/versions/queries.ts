@@ -1,5 +1,6 @@
 import { HttpError, json } from "../http";
 import { pageInput } from "../page";
+import type { ScannerRelease } from "../scanner/deployment";
 import { type ReviewConfig, reviewers } from "./policy";
 import { type VersionRow, versionSelect, versionView } from "./records";
 
@@ -9,6 +10,7 @@ export async function listVersions(
   resourceId: string,
   principal: string,
   url: URL,
+  release: ScannerRelease | null = null,
 ) {
   const { after, limit } = pageInput(url);
   const owner = await db
@@ -22,7 +24,7 @@ export async function listVersions(
     .bind(resourceId, principal, after, limit + 1)
     .all<VersionRow>();
   return json({
-    items: rows.results.slice(0, limit).map(versionView),
+    items: rows.results.slice(0, limit).map((row) => versionView(row, release)),
     nextCursor: rows.results.length > limit ? rows.results[limit - 1]?.id : null,
   });
 }
@@ -33,6 +35,7 @@ export async function listReviews(
   config: ReviewConfig,
   principal: string,
   url: URL,
+  release: ScannerRelease | null = null,
 ) {
   if (!reviewers(config).includes(principal)) throw new HttpError(404, "NOT_FOUND");
   const { after, limit } = pageInput(url);
@@ -43,7 +46,9 @@ export async function listReviews(
     .bind(after, principal, limit + 1)
     .all<VersionRow>();
   return json({
-    items: rows.results.slice(0, limit).map((row) => ({ ...versionView(row), owner: row.owner })),
+    items: rows.results
+      .slice(0, limit)
+      .map((row) => ({ ...versionView(row, release), owner: row.owner })),
     nextCursor: rows.results.length > limit ? rows.results[limit - 1]?.id : null,
   });
 }

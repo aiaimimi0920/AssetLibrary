@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { Log, LogLevel, Miniflare } from "miniflare";
+import { withReleaseDocument } from "./scanner-deployment-fixture.mjs";
 import { textModules } from "./worker-fixture.mjs";
 
 export async function fixture({
@@ -11,6 +12,8 @@ export async function fixture({
   streamFaults = false,
   reviewers,
   runtimeLog,
+  deploymentDocument,
+  deploymentBindings = {},
 } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("RS256", { extractable: true });
   const jwk = await exportJWK(publicKey);
@@ -39,7 +42,10 @@ export async function fixture({
             mainModule: streamFaults ? "upload-stream-worker.mjs" : "index.js",
             modulesRoot: path.dirname(bundle),
             modules: {
-              "index.js": { type: "esm", contents: await readFile(bundle, "utf8") },
+              "index.js": {
+                type: "esm",
+                contents: withReleaseDocument(await readFile(bundle, "utf8"), deploymentDocument),
+              },
               ...(await textModules(bundle)),
               ...(streamFaults
                 ? {
@@ -57,6 +63,7 @@ export async function fixture({
           env: {
             DB: { type: "d1", id: "assetlibrary-test" },
             QUARANTINE: { type: "r2", name: "assetlibrary-test-quarantine" },
+            ...deploymentBindings,
             ...(reviewers === undefined
               ? {}
               : { REVIEWER_PRINCIPALS: { type: "text", value: reviewers } }),

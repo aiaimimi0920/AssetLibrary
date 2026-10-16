@@ -7,9 +7,15 @@ import {
   publicationSelect,
   publicationView,
 } from "../publications/records";
+import type { ScannerRelease } from "../scanner/deployment";
 
 /** 扫描失效记录也占扫描预算；nextAfter 指向最后扫描项，不漏过后续有效项。 */
-export async function listPublications(db: D1Database, url: URL, actor?: string) {
+export async function listPublications(
+  db: D1Database,
+  url: URL,
+  actor?: string,
+  release?: ScannerRelease,
+) {
   const { after, limit } = pageInput(url);
   const library =
     actor === undefined
@@ -24,13 +30,13 @@ export async function listPublications(db: D1Database, url: URL, actor?: string)
     .all<PublicationRow>();
   const scanned = result.results.slice(0, limit);
   return json({
-    items: scanned.filter(isDistributable).map(publicationView),
+    items: scanned.filter((row) => isDistributable(row, release)).map(publicationView),
     nextAfter: result.results.length > limit ? (scanned.at(-1)?.id ?? null) : null,
   });
 }
 
-export async function publicDetail(db: D1Database, id: string) {
+export async function publicDetail(db: D1Database, id: string, release?: ScannerRelease) {
   const row = await loadPublication(db, id);
-  if (!isDistributable(row)) throw new HttpError(404, "NOT_FOUND");
+  if (!isDistributable(row, release)) throw new HttpError(404, "NOT_FOUND");
   return json(publicationView(row));
 }

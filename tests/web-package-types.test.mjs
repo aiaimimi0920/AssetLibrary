@@ -31,7 +31,8 @@ test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
   upload.syncUploadForm(art);
   const select = nodes.get("inspection-policy");
   const file = nodes.get("package-file");
-  assert.equal(select.children.length, 2);
+  assert.equal(select.children.length, 3);
+  assert.equal(select.children[2].value, "loom-art-zip-clamav-v1");
   select.value = "art-zip-manifest-v1";
   file.value = "old.zip";
   upload.syncUploadForm(art);
@@ -41,10 +42,15 @@ test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
     upload.syncUploadForm({ id: kind, kind });
     assert.deepEqual(
       select.children.map((o) => o.value),
-      [`${kind}-zip-clamav-v1`],
+      kind === "capability"
+        ? ["capability-zip-clamav-v1", "loom-capability-zip-clamav-v1"]
+        : ["application-zip-clamav-v1"],
     );
     assert.equal(file.value, "");
-    assert.match(nodes.get("package-label").textContent, /pack:software/);
+    assert.match(
+      nodes.get("package-label").textContent,
+      kind === "capability" ? /Loom 原生包/ : /pack:software/,
+    );
     file.value = "old.zip";
   }
   upload.syncUploadForm(null);
@@ -68,6 +74,9 @@ test("上传前拒绝类型/策略失配与非 ZIP/超大文件，不读取文�
     ["capability", "art-zip-clamav-v1"],
     ["application", "capability-zip-clamav-v1"],
     ["unknown", "art-zip-manifest-v1"],
+    ["application", "loom-capability-zip-clamav-v1"],
+    ["art", "loom-capability-zip-clamav-v1"],
+    ["capability", "loom-art-zip-clamav-v1"],
   ]) {
     await assert.rejects(
       upload.uploadPackage({ id: "r", kind }, null, policy, new AbortController().signal, () => {}),
@@ -87,8 +96,14 @@ test("上传前拒绝类型/策略失配与非 ZIP/超大文件，不读取文�
     );
 });
 
-for (const kind of ["art", "capability", "application"])
-  test(`${kind} 浏览器上传原 File，完成后申请对应策略，不增加生产旁路`, async (t) => {
+for (const [kind, policy] of [
+  ["art", "art-zip-clamav-v1"],
+  ["capability", "capability-zip-clamav-v1"],
+  ["application", "application-zip-clamav-v1"],
+  ["art", "loom-art-zip-clamav-v1"],
+  ["capability", "loom-capability-zip-clamav-v1"],
+])
+  test(`${policy} 浏览器上传原 File，完成后申请对应策略，不增加生产旁路`, async (t) => {
     const original = globalThis.fetch;
     t.after(() => {
       globalThis.fetch = original;
@@ -107,7 +122,7 @@ for (const kind of ["art", "capability", "application"])
     await upload.uploadPackage(
       { id: "r", kind },
       file,
-      `${kind}-zip-clamav-v1`,
+      policy,
       new AbortController().signal,
       (row) => {
         reserved = row.id;
@@ -117,5 +132,5 @@ for (const kind of ["art", "capability", "application"])
     assert.equal(calls.length, 4);
     assert.equal(calls[1].body, file);
     assert.equal(calls[2].url, "/v1/uploads/upload/complete");
-    assert.deepEqual(JSON.parse(calls[3].body), { policy: `${kind}-zip-clamav-v1` });
+    assert.deepEqual(JSON.parse(calls[3].body), { policy });
   });
