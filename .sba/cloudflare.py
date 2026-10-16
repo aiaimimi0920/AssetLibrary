@@ -11,6 +11,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 from contract import ROOT, Failure, require, load
+from native_client import native_client_id
 
 
 class Cloud:
@@ -94,7 +95,7 @@ def preflight(cloud, request):
                 bindings.get('NACCOUNT_CLIENT_ID', {}).get('text') == c['identity']['clientId'] and
                 bindings.get('APP_ORIGIN', {}).get('text') == c['origin'], 'ASSETLIBRARY_IDENTITY_REBIND_REJECTED')
         require(bindings.get('NACCOUNT_NATIVE_CLIENT_ID', {}).get('text', '') in
-                ('', c['identity'].get('nativeClientId', '')), 'ASSETLIBRARY_IDENTITY_REBIND_REJECTED')
+                ('', native_client_id(c)), 'ASSETLIBRARY_IDENTITY_REBIND_REJECTED')
     managed = cloud.call(f"/r2/buckets/{c['bucket']}/domains/managed")
     require(managed.get('enabled') is False, 'ASSETLIBRARY_BUCKET_PUBLIC')
     domains = cloud.call(f"/r2/buckets/{c['bucket']}/domains/custom")
@@ -136,8 +137,8 @@ def publish(cloud, request, output):
     variables = {'APP_ORIGIN': c['origin'], 'NACCOUNT_ISSUER': c['identity']['issuer'],
                  'NACCOUNT_CLIENT_ID': c['identity']['clientId'], 'REVIEWER_PRINCIPALS': json.dumps(c['reviewers']),
                  'RELEASE_SHA': request['sourceSha'], 'RELEASE_VERSION': request['applicationVersion']}
-    if c['identity'].get('nativeClientId'):
-        variables['NACCOUNT_NATIVE_CLIENT_ID'] = c['identity']['nativeClientId']
+    if native_client_id(c):
+        variables['NACCOUNT_NATIVE_CLIENT_ID'] = native_client_id(c)
     bindings += [{'name': k, 'type': 'plain_text', 'text': v} for k, v in variables.items()]
     if c['scannerService']:
         bindings.append({'name': 'SCANNER', 'type': 'service', 'service': c['scannerService'], 'entrypoint': 'ScannerService'})
@@ -174,7 +175,7 @@ def verify(cloud, request):
     require(bindings.get('RELEASE_SHA', {}).get('text') == request['sourceSha'] and
             bindings.get('DB', {}).get('id') == c['database']['id'] and
             bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'] and
-            bindings.get('NACCOUNT_NATIVE_CLIENT_ID', {}).get('text', '') == c['identity'].get('nativeClientId', '') and
+            bindings.get('NACCOUNT_NATIVE_CLIENT_ID', {}).get('text', '') == native_client_id(c) and
             bindings.get('NACCOUNT_SESSION_KEY', {}).get('type') == 'secret_text',
             'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH')
     return [{'id': 'deployed-bindings', 'passed': True}, *verify_public(request)]

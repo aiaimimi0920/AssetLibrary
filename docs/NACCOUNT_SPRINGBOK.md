@@ -2,6 +2,13 @@
 
 ## 当前交付范围
 
+2026-10-16：线上已升级至 `0.4.5` / `754763b133b9143767351fa338082e7eab25dd7a`。
+原实例任务 `dc-c49695e5aebf4099bd9cc64b6f887c07`，GitHub run `38847015111`，
+回执 `deployed-unverified` / 七项通过，artifact SHA-256 与 run/task/source 身份已核验。
+线上 healthz/readyz 与 D1/R2、会话 secret binding 读回通过；native binding 仍不存在。
+原因是 SpringBok 普通 update 要求原 configuration 完全相同，不能在升级时添加配置项。
+`0.4.6` 的应用自有正式站点绑定方案见 [Loom 部署方案](LOOM_CLIENT_DEPLOYMENT.md)，尚待部署。
+
 真实账号业务验收已执行，见 [线上业务证据与边界](LIVE_BUSINESS_ACCEPTANCE.md)：资源创建/改名/刷新、私有 Art 上传和拒绝门禁通过，退出后的页面清除通过；审核/发布/下载正向闭环及服务端旧会话重放仍未验收通过。下文早期“私有业务待验收”以该具体范围为准。
 
 `0.4.0` 接入已经部署的 `https://naccount-auth.aiaimimi.com`，新增应用自有 `.sba` v3 执行合同和 v2 资源声明。首次部署范围为真实身份、私有工作区、D1、私有 R2、Web/API 和定时维护。
@@ -64,7 +71,7 @@ formatter、typecheck、sizecheck、SBA Python 合同、构建和活动依赖审
 
 ## 认证合同
 
-### 0.4.5 Loom 原生客户端增量（待部署）
+### 0.4.5 Loom 原生客户端增量（代码已部署，客户端尚未启用）
 
 新增可选 `configuration.identity.nativeClientId`，部署到 `NACCOUNT_NATIVE_CLIENT_ID`。
 Loom 的公开客户端为 `E2C4ea99CC5Fee924b9023D76986397f7593282D25AF979d727D26eaB09A0c10`，
