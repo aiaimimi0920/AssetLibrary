@@ -1,6 +1,15 @@
 # 平台统一分发与更新验收
 
-当前发布候选为 0.4.10。用户已于本轮明确同意 0011 保数据生产迁移及所需提交、推送和 SpringBok 更新；授权不表示这些步骤已完成。
+当前生产版本为 0.4.10，源码 b37ea47b5d4a2a8250bdbc50a7f7cfae1126b2fb。用户明确同意的 0011 保数据生产迁移及 SpringBok 更新已完成，独立可用性验证通过；四类真实账号更新使用验收仍未完成。下文早期批次的“未部署”仅描述当时状态。
+
+## 生产更新与独立验证（2026-10-17）
+
+- 精确提交 CI 39028333994 的 verify、secret_scan 均通过；已发布 v0.4.10 Release，未部署失败的 v0.4.9 候选。
+- 原实例 dc-b20cc87beb7b44c0aa5c73eec88a7292 保数据更新任务 dc-19e119d9a04c411c9481ef3c05936972 返回 deployed-unverified。七项检查均通过，包括 backup-created、data-preserved、deployed-bindings；D1 备份校验、0011 迁移、原记录和 R2 保全检查后部署。
+- 独立 verify 任务 dc-8f432ad91f5946f098878286c634b3c6 返回 succeeded，release-identity、private-dependencies、naccount-login-configured、scanner-admission-verified 四项通过。最后一项为历史检查名称，此处验证未扫描分发策略，不代表病毒扫描通过。
+- 2026-10-17T11:35:25Z 线上 /healthz 返回 0.4.10 及上述完整 SHA；/readyz 的 identity、database、storage 均 available，distribution 为 available / unscanned-packages / malwareScanning=not_required。
+- 回执与截图：C:/Users/Public/nas_home/AI/GameEditor/linshi/assetlibrary-v0410-update-ui.txt、assetlibrary-v0410-verify-ui.txt、assetlibrary-v0410-verified.png；独立 HTTP 读回：同目录 assetlibrary-v0410-live-health.json。
+- 这些证据确认应用上线与依赖可用性，不代替真实双账号的四类上传、下载、安装及新版实际运行验收。
 
 0.4.9 的精确提交 CI 39027794638 为 366 项通过、1 项失败：SBA 合同夹具仍写死 0.4.8。修正为读取当前 manifest，并增加错误版本拒绝断言；保留原失败标签，不重写标签，不部署失败候选。
 
@@ -23,7 +32,7 @@ Loom 自身更新和较大程序托管属于平台目标；当前 8 MiB/32 载�
 暂停病毒/恶意代码扫描开发和研究；分发结果明确 not_scanned，不伪造 clean/cloudValidated。
 摘要、类型、身份、权限、发布者信任和消费者安装/执行约束仍各自生效。
 
-## 本次已实现的资源库增量（尚未上线）
+## 本次已实现的资源库增量（已随 0.4.10 上线）
 
 - 新增独立 mcp 资源类型，走既有上传、检查、版本、审核、发布、授权、票据和流式下载。
 - mcp-zip-format-v1 使用软件封装；loom-mcp-zip-format-v1 接受原字节 mcp.server.json 原生包。
@@ -36,7 +45,7 @@ Loom 自身更新和较大程序托管属于平台目标；当前 8 MiB/32 载�
 ## 迁移与兼容性
 
 0011_mcp_packages.sql 扩展 resources、inspections、versions 的 CHECK 合同，在单一事务中复制、替换并重建索引。
-旧列、旧策略和业务记录保留；不修改已上线迁移。仅在独占 linshi 测试库执行，未执行生产迁移。
+旧列、旧策略和业务记录保留；不修改已上线迁移。独占 linshi 测试后，经用户明确授权执行生产迁移，保全结果见上文。
 上线顺序为备份并核对原库、应用新增迁移、验证保全和外键、部署支持新类型的 Worker，最后开放 MCP 上传。
 旧代码不识别 MCP，不允许混用旧实例处理新类型写入。回退应用时保留新增记录和包体，不逆向缩表或删除新数据。
 迁移失败回滚和重复执行保全沿用 populated 数据库测试；旧版本/票据/审核/审计逐行核对。
@@ -48,7 +57,7 @@ Loom 自身更新和较大程序托管属于平台目标；当前 8 MiB/32 载�
 这些测试包仅用于分发验证，不是四类业务使用验收样例。
 
 既有真实 Art 首次下载/安装/执行证据见 UNSCANNED_DISTRIBUTION_STAGE.md。
-四类线上真实消费者旧版到新版运行和新增代码生产部署仍未完成；MCP 和便携应用的本地消费者进展见下文。
+新增代码生产部署与独立验证已完成；四类线上真实消费者旧版到新版运行仍未完成。MCP 和便携应用的本地消费者进展见下文。
 总验收保持未完成，不以局部测试通过替代用户提出的四类全流程标准。
 
 2026-10-17 本地验证记录（目录均位于 C:/Users/Public/nas_home/AI/GameEditor/linshi）：
