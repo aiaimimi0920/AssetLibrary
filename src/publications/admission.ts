@@ -15,6 +15,7 @@ export function requireDeploymentAdmission(env: DeploymentEnv, scan?: ScanFact |
 
 export function requirePublishAdmission(row: VersionRow, env: DeploymentEnv) {
   const safety = versionSafety(row);
+  if (safety.unscanned) return undefined;
   if (!safety.scanCurrent) throw new HttpError(409, safety.blocker ?? cloudScanBlocker);
   return requireDeploymentAdmission(env, safety.scan);
 }

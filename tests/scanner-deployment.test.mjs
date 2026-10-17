@@ -90,15 +90,25 @@ test("版本内验收记录严格解析，缺证、畸形、过期和超长有�
     assert.equal(core.parseDeploymentRelease(doc, now), null);
 });
 
-test("只有版本记录不够：部署 ID 或正式 origin 不匹配时真实 Worker 保持阻断", async () => {
+test("扫描部署不匹配不阻断未扫描目录，但不能放行扫描版本", async () => {
   const doc = releaseFixture();
   for (const bindings of [
     { SCANNER_RELEASE_ID: { type: "text", value: "wrong" } },
     { APP_ORIGIN: { type: "text", value: "https://other.invalid" } },
   ]) {
     const f = await deployed(doc, bindings);
-    assert.equal((await f.request("GET", "/v1/catalog")).status, 503);
-    assert.equal((await f.request("GET", "/readyz")).body.distribution.status, "blocked");
+    assert.deepEqual((await f.request("GET", "/v1/catalog")).body.items, []);
+    assert.equal((await f.request("GET", "/readyz")).body.distribution.mode, "unscanned-packages");
+    const version = await approved(f, doc.release);
+    assert.equal(version.publicationEligible, false);
+    assert.equal(
+      (
+        await f.request("POST", `/v1/versions/${version.id}/publish`, {
+          revision: version.revision,
+        })
+      ).status,
+      409,
+    );
   }
 });
 
@@ -108,8 +118,8 @@ test("真实准入路径：匹配验收身份后审核、发布、票据及 R2 �
   const ready = (await f.request("GET", "/readyz")).body;
   assert.deepEqual(ready.distribution, {
     status: "available",
-    releaseId: doc.release.id,
-    expiresAt: doc.release.expiresAt,
+    mode: "unscanned-packages",
+    malwareScanning: "not_required",
   });
   const version = await approved(f, doc.release);
   assert.equal(version.contentSafety.cloudValidated, true);

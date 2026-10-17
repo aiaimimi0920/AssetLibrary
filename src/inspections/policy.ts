@@ -5,6 +5,10 @@ export const capabilityPolicy = "capability-zip-clamav-v1";
 export const applicationPolicy = "application-zip-clamav-v1";
 export const loomArtPolicy = "loom-art-zip-clamav-v1";
 export const loomCapabilityPolicy = "loom-capability-zip-clamav-v1";
+export const loomArtFormatPolicy = "loom-art-zip-format-v1";
+export const loomCapabilityFormatPolicy = "loom-capability-zip-format-v1";
+export const capabilityFormatPolicy = "capability-zip-format-v1";
+export const applicationFormatPolicy = "application-zip-format-v1";
 
 const kinds = {
   [policy]: "art",
@@ -14,6 +18,10 @@ const kinds = {
   [applicationPolicy]: "application",
   [loomArtPolicy]: "art",
   [loomCapabilityPolicy]: "capability",
+  [loomArtFormatPolicy]: "art",
+  [loomCapabilityFormatPolicy]: "capability",
+  [capabilityFormatPolicy]: "capability",
+  [applicationFormatPolicy]: "application",
 } as const;
 
 export function inspectionKind(value: unknown) {
@@ -27,7 +35,24 @@ export function isScanPolicy(value: unknown) {
 }
 
 export function isLoomPolicy(value: unknown) {
-  return value === loomArtPolicy || value === loomCapabilityPolicy;
+  return (
+    value === loomArtPolicy ||
+    value === loomCapabilityPolicy ||
+    value === loomArtFormatPolicy ||
+    value === loomCapabilityFormatPolicy
+  );
+}
+
+const formatPolicies = [
+  packagePolicy,
+  loomArtFormatPolicy,
+  loomCapabilityFormatPolicy,
+  capabilityFormatPolicy,
+  applicationFormatPolicy,
+];
+
+export function isFormatPolicy(value: unknown) {
+  return formatPolicies.includes(value as (typeof formatPolicies)[number]);
 }
 
 const scanPolicies = [
@@ -46,3 +71,6 @@ export function policyKindSql(column: string) {
 }
 
 export const scanPoliciesSql = scanPolicies.map((value) => `'${value}'`).join(", ");
+export const distributionPoliciesSql = [...scanPolicies, ...formatPolicies]
+  .map((value) => `'${value}'`)
+  .join(", ");

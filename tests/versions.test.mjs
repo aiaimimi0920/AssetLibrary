@@ -44,7 +44,7 @@ test("真实 Worker/D1/R2：不可变版本、独立批准、发布拒绝及撤�
   assert.ok(await f.bucket.head(keyOf(upload)));
   for (const path of [`/v1/versions/${version.id}/download`])
     assert.equal((await f.request("GET", path)).status, 404);
-  assert.equal((await f.request("GET", "/v1/catalog")).body.error, "SCANNER_CLOUD_NOT_VALIDATED");
+  assert.deepEqual((await f.request("GET", "/v1/catalog")).body.items, []);
   const withdrawn = await withdraw(f, approved.body);
   assert.equal(withdrawn.status, 200);
   assert.equal(withdrawn.body.state, "withdrawn");

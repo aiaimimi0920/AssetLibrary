@@ -14,7 +14,7 @@ export async function listPublications(
   db: D1Database,
   url: URL,
   actor?: string,
-  release?: ScannerRelease,
+  release?: ScannerRelease | null,
 ) {
   const { after, limit } = pageInput(url);
   const library =
@@ -35,7 +35,7 @@ export async function listPublications(
   });
 }
 
-export async function publicDetail(db: D1Database, id: string, release?: ScannerRelease) {
+export async function publicDetail(db: D1Database, id: string, release?: ScannerRelease | null) {
   const row = await loadPublication(db, id);
   if (!isDistributable(row, release)) throw new HttpError(404, "NOT_FOUND");
   return json(publicationView(row));

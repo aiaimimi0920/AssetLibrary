@@ -106,6 +106,4 @@ def verify_scanner(cloud, activating=False):
 
 
 def distribution_status(config):
-    r = scanner_release(config)
-    return {'status': 'available', 'releaseId': r['id'], 'expiresAt': r['expiresAt']} if r else {
-        'status': 'blocked', 'reason': 'SCANNER_CLOUD_NOT_VALIDATED'}
+    return {'status': 'available', 'mode': 'unscanned-packages', 'malwareScanning': 'not_required'}

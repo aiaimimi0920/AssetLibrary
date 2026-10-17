@@ -55,12 +55,9 @@ test("真实生产 Worker：合成 clean/历史发布/请求或环境开关都�
     400,
   );
   const catalog = await f.request("GET", "/v1/catalog", undefined, { token: "" });
-  assert.equal(catalog.status, 503);
-  assert.deepEqual(catalog.body, { error: "SCANNER_CLOUD_NOT_VALIDATED" });
-  assert.equal(
-    (await f.request("GET", "/v1/me/library")).body.error,
-    "SCANNER_CLOUD_NOT_VALIDATED",
-  );
+  assert.equal(catalog.status, 200);
+  assert.deepEqual(catalog.body.items, []);
+  assert.deepEqual((await f.request("GET", "/v1/me/library")).body.items, []);
   assert.equal(
     (await f.request("POST", `/v1/publications/${publication.id}/tickets`, {})).body.error,
     "SCANNER_CLOUD_NOT_VALIDATED",

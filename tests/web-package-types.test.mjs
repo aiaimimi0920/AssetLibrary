@@ -31,8 +31,9 @@ test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
   upload.syncUploadForm(art);
   const select = nodes.get("inspection-policy");
   const file = nodes.get("package-file");
-  assert.equal(select.children.length, 3);
-  assert.equal(select.children[2].value, "loom-art-zip-clamav-v1");
+  assert.equal(select.children.length, 4);
+  assert.equal(select.children[0].value, "loom-art-zip-format-v1");
+  assert.equal(select.children[3].value, "loom-art-zip-clamav-v1");
   select.value = "art-zip-manifest-v1";
   file.value = "old.zip";
   upload.syncUploadForm(art);
@@ -43,8 +44,13 @@ test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
     assert.deepEqual(
       select.children.map((o) => o.value),
       kind === "capability"
-        ? ["capability-zip-clamav-v1", "loom-capability-zip-clamav-v1"]
-        : ["application-zip-clamav-v1"],
+        ? [
+            "loom-capability-zip-format-v1",
+            "capability-zip-format-v1",
+            "capability-zip-clamav-v1",
+            "loom-capability-zip-clamav-v1",
+          ]
+        : ["application-zip-format-v1", "application-zip-clamav-v1"],
     );
     assert.equal(file.value, "");
     assert.match(
@@ -97,6 +103,10 @@ test("上传前拒绝类型/策略失配与非 ZIP/超大文件，不读取文�
 });
 
 for (const [kind, policy] of [
+  ["art", "loom-art-zip-format-v1"],
+  ["capability", "loom-capability-zip-format-v1"],
+  ["capability", "capability-zip-format-v1"],
+  ["application", "application-zip-format-v1"],
   ["art", "art-zip-clamav-v1"],
   ["capability", "capability-zip-clamav-v1"],
   ["application", "application-zip-clamav-v1"],

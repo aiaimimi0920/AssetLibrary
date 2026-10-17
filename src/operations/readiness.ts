@@ -2,8 +2,7 @@ import { json } from "../http";
 import type { IdentityConfig } from "../identity";
 import { fixedVerificationKeys } from "../identity/keys";
 import { type NAccountEnv, naccountConfig } from "../identity/naccount-config";
-import { type DeploymentEnv, deploymentAdmission } from "../scanner/deployment";
-import { cloudScanBlocker } from "../scanner/facts";
+import type { DeploymentEnv } from "../scanner/deployment";
 import type { UploadEnv } from "../uploads/records";
 
 const tables = [
@@ -61,16 +60,17 @@ export async function readiness(env: UploadEnv & IdentityConfig & NAccountEnv & 
     }),
   ]);
   const ready = [identity, database, storage].every((state) => state === "available");
-  const release = deploymentAdmission(env);
   return json(
     {
       service: "assetlibrary",
       scope: "private_dependencies",
       status: ready ? "ready" : "degraded",
       checks: { identity, database, storage },
-      distribution: release
-        ? { status: "available", releaseId: release.id, expiresAt: release.expiresAt }
-        : { status: "blocked", reason: cloudScanBlocker },
+      distribution: {
+        status: "available",
+        mode: "unscanned-packages",
+        malwareScanning: "not_required",
+      },
     },
     ready ? 200 : 503,
   );

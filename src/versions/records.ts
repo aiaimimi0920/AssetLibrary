@@ -108,9 +108,10 @@ export function versionView(row: VersionRow, release: ScannerRelease | null = nu
     publicationEligible:
       row.state === "approved" &&
       row.binding_current === 1 &&
-      safety.cloudValidated &&
+      (safety.cloudValidated || safety.unscanned) &&
       row.publication_id === null,
     contentSafety: {
+      scanStatus: safety.unscanned ? "not_scanned" : safety.scanCurrent ? "scanned" : "unavailable",
       scan: safety.scan,
       scanCurrent: safety.scanCurrent,
       cloudValidated: safety.cloudValidated,

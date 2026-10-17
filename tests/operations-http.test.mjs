@@ -16,7 +16,11 @@ const ready = {
   scope: "private_dependencies",
   status: "ready",
   checks: { identity: "available", database: "available", storage: "available" },
-  distribution: { status: "blocked", reason: "SCANNER_CLOUD_NOT_VALIDATED" },
+  distribution: {
+    status: "available",
+    mode: "unscanned-packages",
+    malwareScanning: "not_required",
+  },
 };
 
 test("真实 Worker/D1/R2：只读依赖就绪不等于生产分发，存活与方法边界分开", async () => {
@@ -29,8 +33,8 @@ test("真实 Worker/D1/R2：只读依赖就绪不等于生产分发，存活与�
   assert.equal((await f.request("GET", "/healthz", undefined, { token: null })).status, 200);
   assert.equal((await f.request("POST", "/readyz", {}, { token: null })).status, 401);
   const catalog = await f.request("GET", "/v1/catalog", undefined, { token: null });
-  assert.equal(catalog.status, 503);
-  assert.deepEqual(catalog.body, { error: "SCANNER_CLOUD_NOT_VALIDATED" });
+  assert.equal(catalog.status, 200);
+  assert.deepEqual(catalog.body.items, []);
   assert.deepEqual(await identityData(f), baseline);
   assert.deepEqual((await f.bucket.list()).objects, []);
 });

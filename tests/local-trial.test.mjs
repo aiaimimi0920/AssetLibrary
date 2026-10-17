@@ -119,7 +119,7 @@ for (const kind of ["art", "capability", "application"])
     assert.equal(
       (
         await api("POST", `/v1/uploads/${upload.id}/inspection`, {
-          policy: `${kind}-zip-clamav-v1`,
+          policy: kind === "art" ? "art-zip-manifest-v1" : `${kind}-zip-format-v1`,
         })
       ).status,
       201,
@@ -254,8 +254,8 @@ test("普通候选字节不变且拒绝体验 token/登录/发布准入；内存
       401,
     );
     const catalog = await production.request("GET", "/v1/catalog");
-    assert.equal(catalog.status, 503);
-    assert.equal(catalog.body.error, "SCANNER_CLOUD_NOT_VALIDATED");
+    assert.equal(catalog.status, 200);
+    assert.deepEqual(catalog.body.items, []);
     assert.equal((await production.mf.dispatchFetch("http://localhost/__trial/login")).status, 401);
     assert.doesNotMatch(
       await (await production.mf.dispatchFetch("http://localhost/")).text(),

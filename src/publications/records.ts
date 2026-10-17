@@ -1,8 +1,9 @@
 import { HttpError } from "../http";
-import { scanPoliciesSql } from "../inspections/policy";
+import { distributionPoliciesSql } from "../inspections/policy";
 import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { parseScanFact, scanCurrent } from "../scanner/facts";
 import { currentSnapshot } from "../versions/records";
+import { unscannedPackage } from "./unscanned";
 
 export interface PublicationRow {
   id: string;
@@ -32,7 +33,7 @@ export const publicationSelect = `SELECT p.*, r.owner, versions.resource_id,
   versions.label, versions.title, versions.kind, versions.upload_id,
   versions.expected_size, versions.sha256, versions.etag, versions.inspection_policy,
   CASE WHEN versions.state = 'approved' AND versions.revision = p.version_revision
-    AND versions.inspection_policy IN (${scanPoliciesSql})
+    AND versions.inspection_policy IN (${distributionPoliciesSql})
     AND checked.result = p.scan_result AND ${currentSnapshot} THEN 1 ELSE 0 END AS binding_current
   FROM publications p JOIN versions ON versions.id = p.version_id
   JOIN resources r ON r.id = versions.resource_id
@@ -56,13 +57,18 @@ export function publicationScan(row: PublicationRow) {
   }
 }
 
-export function isDistributable(row: PublicationRow, release?: ScannerRelease) {
+export function isUnscanned(row: PublicationRow) {
+  return unscannedPackage(row.inspection_policy, row.scan_result, row.sha256, row.kind);
+}
+
+export function isDistributable(row: PublicationRow, release?: ScannerRelease | null) {
   const scan = publicationScan(row);
   return (
     row.state === "published" &&
     row.binding_current === 1 &&
-    scan !== null &&
-    (release === undefined || admittedScan(scan, release))
+    (isUnscanned(row) ||
+      (scan !== null &&
+        (release === undefined || (release !== null && admittedScan(scan, release)))))
   );
 }
 
@@ -80,6 +86,7 @@ export function publicationView(row: PublicationRow) {
     revision: row.revision,
     bindingCurrent: row.binding_current === 1,
     scanCurrent: publicationScan(row) !== null,
+    scanStatus: isUnscanned(row) ? "not_scanned" : publicationScan(row) ? "scanned" : "unavailable",
     policy: row.inspection_policy,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

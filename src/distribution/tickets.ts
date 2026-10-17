@@ -1,6 +1,7 @@
 import { HttpError, json } from "../http";
 import {
   isDistributable,
+  isUnscanned,
   type PublicationRow,
   publicationScan,
   publicationSelect,
@@ -19,18 +20,20 @@ export async function issueTicket(
   db: D1Database,
   id: string,
   actor: string,
-  release?: ScannerRelease,
+  release?: ScannerRelease | null,
 ) {
   const { row, grantRevision } = await downloadAuthority(db, id, actor);
   if (!isDistributable(row, release)) throw new HttpError(404, "NOT_FOUND");
   const scan = publicationScan(row);
-  if (!scan) throw new HttpError(404, "NOT_FOUND");
+  if (!scan && !isUnscanned(row)) throw new HttpError(404, "NOT_FOUND");
   const token = [...crypto.getRandomValues(new Uint8Array(32))]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   const hash = await ticketHash(token);
   const now = Date.now();
-  const expiresAt = Math.min(now + 300000, scan.expiresAt, release?.expiresAt ?? Infinity);
+  const expiresAt = isUnscanned(row)
+    ? now + 300000
+    : Math.min(now + 300000, scan?.expiresAt ?? 0, release?.expiresAt ?? Infinity);
   const result = await db
     .prepare(`INSERT INTO download_tickets
     (token_hash, principal, publication_id, publication_revision, version_revision,
@@ -69,7 +72,7 @@ export async function authorizeTicket(
   id: string,
   actor: string,
   token: string,
-  release?: ScannerRelease,
+  release?: ScannerRelease | null,
 ) {
   const hash = await ticketHash(token);
   // 主体/撤销/票据在一条 primary 查询内判断，避免多次读取之间的授权竞争。

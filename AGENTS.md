@@ -1,5 +1,7 @@
 # AssetLibrary 新项目开发规则
 
+2026-10-16 最新用户决定覆盖下文旧扫描前置要求：暂停扫描器开发及研究，允许正式业务上传、发布、下载未扫描包，扫描机制由用户后续实现。阶段完成以 A 上传“颜色迁移”Art、B 在 Loom 下载、安装并实际生成处理结果为准。用户已明确回复“同意”，授权为此新增策略执行保数据表结构迁移；仍须先备份、验证迁移与失败回滚、保留原业务记录和 R2 包体。不得伪造扫描 clean 或 cloudValidated。详见 `docs/UNSCANNED_DISTRIBUTION_STAGE.md`。当前新代码尚未上线，不把需求授权或本地通过当成线上完成。
+
 2026-10-16 当前状态：NAccount 正式接入已实现，AssetLibrary 已经 SpringBok 部署到
 `https://assetlibrary.aiaimimi.com`，线上为 `0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`。
 Loom 独立客户端 binding 已部署并读回；正式站点由应用版本管理默认绑定，保持 SpringBok 原 configuration，

@@ -20,7 +20,7 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.7',
+           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.8',
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
 native = copy.deepcopy(config)
@@ -143,7 +143,7 @@ with tempfile.TemporaryDirectory(prefix='sba-unit-', dir=scratch) as temp:
     except contract.Failure:
         assert not fake.calls
 ready = {'status': 'ready', 'checks': {'identity': 'available', 'database': 'available', 'storage': 'available'},
-         'distribution': {'status': 'blocked', 'reason': 'SCANNER_CLOUD_NOT_VALIDATED'}}
+         'distribution': {'status': 'available', 'mode': 'unscanned-packages', 'malwareScanning': 'not_required'}}
 responses = [{'sourceSha': request['sourceSha'], 'version': request['applicationVersion']}, ready,
              {'enabled': True, 'principal': None}]
 with patch.object(cloudflare, 'public_json', side_effect=responses) as get:

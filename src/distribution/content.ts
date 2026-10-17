@@ -17,7 +17,7 @@ export async function downloadContent(
   env: DistributionEnv,
   id: string,
   actor: string,
-  release?: ScannerRelease,
+  release?: ScannerRelease | null,
 ) {
   const token = request.headers.get("x-download-ticket") ?? "";
   const row = await authorizeTicket(env.DB, id, actor, token, release);

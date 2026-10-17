@@ -5,7 +5,7 @@ import { scanArchive } from "../scanner/client";
 import { objectMatches } from "../uploads/reconcile";
 import { loadUpload, objectKey, type UploadEnv } from "../uploads/records";
 import { ContentRejected, inspectPng } from "./png";
-import { inspectionKind, isLoomPolicy, isScanPolicy } from "./policy";
+import { inspectionKind, isFormatPolicy, isLoomPolicy, isScanPolicy } from "./policy";
 import { type InspectionRow, maxArchiveSize, maxObjectSize, policy } from "./records";
 
 /** 仅检查明确策略的受限对象；该缓冲是检查任务，不是元数据或下载路径。 */
@@ -76,6 +76,7 @@ export async function inspectObject(env: UploadEnv, row: InspectionRow) {
   return {
     ...result,
     ...(scan ? { scan } : {}),
+    ...(isFormatPolicy(row.policy) ? { scanStatus: "not_scanned" } : {}),
     bytesRead: bytes.length,
     sha256,
     elapsedMs: Math.round(performance.now() - started),

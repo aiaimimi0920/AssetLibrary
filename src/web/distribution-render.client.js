@@ -8,6 +8,8 @@ export function distributionList(name, items, handlers) {
     row.append(text("h4", `${publication.title} · ${publication.label}`));
     row.append(text("p", `发布 ID：${publication.id}`));
     row.append(text("p", `${publication.size} bytes · SHA-256 ${publication.sha256}`, "muted"));
+    if (publication.scanStatus === "not_scanned")
+      row.append(text("p", "未进行恶意代码扫描", "muted"));
     const toolbar = text("div", "", "toolbar");
     toolbar.append(action("查看公开详情", () => handlers.detail(publication.id), "", false));
     toolbar.append(action("申请授权并下载", () => handlers.download(publication)));

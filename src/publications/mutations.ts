@@ -3,6 +3,7 @@ import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { currentSnapshot, loadVersion } from "../versions/records";
 import { versionSafety } from "../versions/safety";
 import {
+  isUnscanned,
   loadPublication,
   type PublicationRow,
   publicationScan,
@@ -24,9 +25,9 @@ export async function publishVersion(
   if (version.state !== "approved") throw new HttpError(409, "VERSION_NOT_APPROVED");
   if (version.binding_current !== 1) throw new HttpError(409, "VERSION_BINDING_CHANGED");
   const safety = versionSafety(version);
-  if (!safety.scanCurrent || !safety.scan)
+  if (!safety.unscanned && (!safety.scanCurrent || !safety.scan))
     throw new HttpError(409, safety.blocker ?? "CONTENT_SCAN_EXPIRED_OR_INVALIDATED");
-  if (release && !admittedScan(safety.scan, release))
+  if (!safety.unscanned && release && !admittedScan(safety.scan, release))
     throw new HttpError(409, "SCANNER_CLOUD_NOT_VALIDATED");
   const publication = crypto.randomUUID();
   const operation = crypto.randomUUID();
@@ -40,7 +41,7 @@ export async function publishVersion(
       AND EXISTS (SELECT 1 FROM resources r WHERE r.id = versions.resource_id AND r.owner = ?)
       AND ${currentSnapshot}
       AND EXISTS (SELECT 1 FROM inspections i WHERE i.id = versions.inspection_id AND i.result = ?)
-      AND ? > ?
+      AND (? IS NULL OR ? > ?)
       AND (? IS NULL OR ? > CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
       ON CONFLICT(version_id) DO NOTHING`)
       .bind(
@@ -54,7 +55,8 @@ export async function publishVersion(
         version.inspection_policy,
         actor,
         version.inspection_result,
-        safety.scan.expiresAt,
+        safety.unscanned ? null : safety.scan?.expiresAt,
+        safety.unscanned ? null : safety.scan?.expiresAt,
         now,
         release?.expiresAt ?? null,
         release?.expiresAt ?? null,
@@ -69,7 +71,8 @@ export async function publishVersion(
   if (!row) throw new HttpError(409, "VERSION_BINDING_CHANGED");
   if (row.state !== "published") throw new HttpError(409, "PUBLICATION_STATE_CONFLICT");
   if (row.binding_current !== 1) throw new HttpError(409, "VERSION_BINDING_CHANGED");
-  if (!publicationScan(row)) throw new HttpError(409, "CONTENT_SCAN_EXPIRED_OR_INVALIDATED");
+  if (!isUnscanned(row) && !publicationScan(row))
+    throw new HttpError(409, "CONTENT_SCAN_EXPIRED_OR_INVALIDATED");
   return json(publicationView(row), row.last_operation === operation ? 201 : 200);
 }
 

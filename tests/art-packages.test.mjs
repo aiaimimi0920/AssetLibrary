@@ -22,7 +22,7 @@ after(async () => {
   await f?.dispose();
 });
 
-test("多 PNG Art ZIP：Stored/Deflate → 私有检查 → 不可变版本 → 独立批准，publish 仍拒绝", async () => {
+test("多 PNG Art ZIP：Stored/Deflate → 格式检查 → 不可变版本 → 独立批准 → 未扫描发布", async () => {
   for (const method of [0, 8]) {
     const bytes = packageBytes(images(), { method });
     const { upload, result } = await inspectPackage(f, bytes);
@@ -45,8 +45,8 @@ test("多 PNG Art ZIP：Stored/Deflate → 私有检查 → 不可变版本 → 
     const published = await f.request("POST", `/v1/versions/${created.body.id}/publish`, {
       revision: 2,
     });
-    assert.equal(published.status, 409);
-    assert.equal(published.body.error, "REQUIRED_CONTENT_CHECK_UNAVAILABLE");
+    assert.equal(published.status, 201);
+    assert.equal(published.body.scanStatus, "not_scanned");
     assert.equal((await f.request("GET", `/v1/uploads/${upload.id}`)).body.state, "quarantined");
     assert.ok(await f.bucket.head(keyOf(upload)));
     await cancel(f, upload);

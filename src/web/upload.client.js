@@ -9,16 +9,23 @@ import {
 export function packagePolicies(kind) {
   if (kind === "art")
     return [
+      ["loom-art-zip-format-v1", "Loom Art Node（未扫描）"],
       ["art-zip-clamav-v1", "格式 + ClamAV 内容检查"],
-      ["art-zip-manifest-v1", "仅格式检查（不可发布）"],
+      ["art-zip-manifest-v1", "素材包格式检查（未扫描）"],
       ["loom-art-zip-clamav-v1", "Loom Art Node + ClamAV"],
     ];
   if (kind === "capability")
     return [
+      ["loom-capability-zip-format-v1", "Loom 能力包（未扫描）"],
+      ["capability-zip-format-v1", "软件封装（未扫描）"],
       ["capability-zip-clamav-v1", "包体 + ClamAV 内容检查"],
       ["loom-capability-zip-clamav-v1", "Loom 能力包 + ClamAV"],
     ];
-  if (kind === "application") return [[`${kind}-zip-clamav-v1`, "包体 + ClamAV 内容检查"]];
+  if (kind === "application")
+    return [
+      ["application-zip-format-v1", "应用包（未扫描）"],
+      [`${kind}-zip-clamav-v1`, "包体 + ClamAV 内容检查"],
+    ];
   return [];
 }
 

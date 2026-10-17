@@ -78,7 +78,7 @@ with patch.object(scanner, 'load', return_value=document):
                 {'name': 'SCANNER_RELEASE_ID', 'type': 'plain_text', 'text': record['id']}]
     assert scanner.scanner_bindings(config) == expected
     assert config == original
-    assert scanner.distribution_status(config) == {'status': 'available', 'releaseId': record['id'], 'expiresAt': record['expiresAt']}
+    assert scanner.distribution_status(config) == {'status': 'available', 'mode': 'unscanned-packages', 'malwareScanning': 'not_required'}
     scanner.verify_scanner(Cloud(), activating=True)
     for field in ('accountId', 'worker', 'origin', 'scannerService'):
         bad = copy.deepcopy(config)
@@ -109,7 +109,7 @@ with patch.object(scanner, 'load', return_value=document):
 
 with patch.object(scanner, 'load', return_value={'schemaVersion': 1, 'release': None}):
     assert scanner.scanner_bindings(config) == []
-    assert scanner.distribution_status(config)['status'] == 'blocked'
+    assert scanner.distribution_status(config)['mode'] == 'unscanned-packages'
 
 # 远端读取和本地包组装均可能跨过窗口；拒绝必须发生在 Worker PUT 之前。
 for deadline, code in [(record['expiresAt'], 'RELEASE_EXPIRED'),
