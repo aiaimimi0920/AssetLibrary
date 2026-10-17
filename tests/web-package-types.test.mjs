@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { browserModules } from "./web-client-fixture.mjs";
 
-test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件，刷新保留 Art 合法选择", async (t) => {
+test("四类资源只显示匹配策略；换资源/清除身份丢弃旧文件，刷新保留 Art 合法选择", async (t) => {
   const original = globalThis.document;
   t.after(() => {
     globalThis.document = original;
@@ -59,6 +59,13 @@ test("三类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
     );
     file.value = "old.zip";
   }
+  upload.syncUploadForm({ id: "mcp", kind: "mcp" });
+  assert.deepEqual(
+    select.children.map((o) => o.value),
+    ["loom-mcp-zip-format-v1", "mcp-zip-format-v1"],
+  );
+  assert.equal(file.value, "");
+  assert.match(nodes.get("package-label").textContent, /MCP ZIP/);
   upload.syncUploadForm(null);
   assert.equal(file.value, "");
   assert.equal(select.children.length, 0);
@@ -83,6 +90,8 @@ test("上传前拒绝类型/策略失配与非 ZIP/超大文件，不读取文�
     ["application", "loom-capability-zip-clamav-v1"],
     ["art", "loom-capability-zip-clamav-v1"],
     ["capability", "loom-art-zip-clamav-v1"],
+    ["mcp", "application-zip-format-v1"],
+    ["application", "loom-mcp-zip-format-v1"],
   ]) {
     await assert.rejects(
       upload.uploadPackage({ id: "r", kind }, null, policy, new AbortController().signal, () => {}),

@@ -16,9 +16,14 @@ export function parseZip(bytes: Uint8Array): ZipEntry[] {
 }
 
 /** 原生包清单可位于任意条目；不重排或改写签名所覆盖的文件字节。 */
-export function parseLoomZip(bytes: Uint8Array, kind: "art" | "capability"): ZipEntry[] {
+export function parseLoomZip(bytes: Uint8Array, kind: "art" | "capability" | "mcp"): ZipEntry[] {
   const entries = parseArchive(bytes, kind);
-  const marker = kind === "art" ? "manifest.json" : "capability.manifest.json";
+  const marker =
+    kind === "art"
+      ? "manifest.json"
+      : kind === "mcp"
+        ? "mcp.server.json"
+        : "capability.manifest.json";
   const markers = [
     "manifest.json",
     "capability.manifest.json",
@@ -39,7 +44,10 @@ export function parseLoomZip(bytes: Uint8Array, kind: "art" | "capability"): Zip
   return entries;
 }
 
-function parseArchive(bytes: Uint8Array, nativeKind: "art" | "capability" | null): ZipEntry[] {
+function parseArchive(
+  bytes: Uint8Array,
+  nativeKind: "art" | "capability" | "mcp" | null,
+): ZipEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const invalid = () => {
     throw new ContentRejected("ZIP_STRUCTURE_INVALID");
@@ -131,7 +139,12 @@ function parseArchive(bytes: Uint8Array, nativeKind: "art" | "capability" | null
     if (!nativeKind && index === 0 && path !== "manifest.json")
       throw new ContentRejected("PACKAGE_LAYOUT_INVALID");
     const isManifest = nativeKind
-      ? ["manifest.json", "capability.manifest.json", "art.runtime.json"].includes(path)
+      ? [
+          "manifest.json",
+          "capability.manifest.json",
+          "art.runtime.json",
+          "mcp.server.json",
+        ].includes(path)
       : index === 0;
     const limit = isManifest ? 32768 : 1048576;
     total += size;

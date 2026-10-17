@@ -13,6 +13,8 @@ for (const [kind, policy] of [
   ["capability", "loom-capability-zip-format-v1"],
   ["capability", "capability-zip-format-v1"],
   ["application", "application-zip-format-v1"],
+  ["mcp", "mcp-zip-format-v1"],
+  ["mcp", "loom-mcp-zip-format-v1"],
 ]) {
   test(`${policy} 经真实 Worker 发布并由不同主体下载；撤销旧票据失效`, async () => {
     const f = await fixture({ reviewers: reviewerConfig });
@@ -29,7 +31,23 @@ for (const [kind, policy] of [
                 bytes: Buffer.from('{"protocolVersion":"loom.art.runtime.v1"}'),
               },
             ]
-          : [{ path: "capability.manifest.json", bytes: Buffer.from('{"kind":"capability"}') }];
+          : kind === "mcp"
+            ? [
+                {
+                  path: "mcp.server.json",
+                  bytes: Buffer.from(
+                    JSON.stringify({
+                      schemaVersion: 1,
+                      id: "echo",
+                      version: "1.0.0",
+                      publisher: { id: "example" },
+                      transport: "stdio",
+                      entry: { command: "runtime/main.py" },
+                    }),
+                  ),
+                },
+              ]
+            : [{ path: "capability.manifest.json", bytes: Buffer.from('{"kind":"capability"}') }];
       const bytes = policy.startsWith("loom-")
         ? artZip(
             [...markers, { path: "runtime/main.py", bytes: Buffer.from("print('fixture')") }],

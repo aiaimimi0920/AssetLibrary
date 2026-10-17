@@ -9,6 +9,8 @@ export const loomArtFormatPolicy = "loom-art-zip-format-v1";
 export const loomCapabilityFormatPolicy = "loom-capability-zip-format-v1";
 export const capabilityFormatPolicy = "capability-zip-format-v1";
 export const applicationFormatPolicy = "application-zip-format-v1";
+export const mcpFormatPolicy = "mcp-zip-format-v1";
+export const loomMcpFormatPolicy = "loom-mcp-zip-format-v1";
 
 const kinds = {
   [policy]: "art",
@@ -22,6 +24,8 @@ const kinds = {
   [loomCapabilityFormatPolicy]: "capability",
   [capabilityFormatPolicy]: "capability",
   [applicationFormatPolicy]: "application",
+  [mcpFormatPolicy]: "mcp",
+  [loomMcpFormatPolicy]: "mcp",
 } as const;
 
 export function inspectionKind(value: unknown) {
@@ -39,7 +43,8 @@ export function isLoomPolicy(value: unknown) {
     value === loomArtPolicy ||
     value === loomCapabilityPolicy ||
     value === loomArtFormatPolicy ||
-    value === loomCapabilityFormatPolicy
+    value === loomCapabilityFormatPolicy ||
+    value === loomMcpFormatPolicy
   );
 }
 
@@ -49,6 +54,8 @@ const formatPolicies = [
   loomCapabilityFormatPolicy,
   capabilityFormatPolicy,
   applicationFormatPolicy,
+  mcpFormatPolicy,
+  loomMcpFormatPolicy,
 ];
 
 export function isFormatPolicy(value: unknown) {

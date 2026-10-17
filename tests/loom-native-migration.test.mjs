@@ -29,7 +29,11 @@ async function snapshot(db) {
   return result;
 }
 
-for (const migrationName of ["0009_loom_native_packages.sql", "0010_unscanned_packages.sql"])
+for (const migrationName of [
+  "0009_loom_native_packages.sql",
+  "0010_unscanned_packages.sql",
+  "0011_mcp_packages.sql",
+])
   test(`${migrationName} 保留已有发布、检查、版本、票据和审计；失败原子回滚，重复应用不改事实`, async () => {
     const f = await fixture({ schema: false, reviewers: reviewerConfig });
     try {

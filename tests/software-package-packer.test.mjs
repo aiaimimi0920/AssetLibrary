@@ -57,6 +57,7 @@ for (const kind of ["capability", "application"])
       await readFile(path.join(result.output, "package-receipt.json"), "utf8"),
     );
     assert.equal(receipt.sha256, result.sha256);
+    assert.equal(receipt.policy, `${kind}-zip-format-v1`);
     const { checked } = await checkedSoftware(f, kind, bytes);
     assert.equal(checked.result.kind, kind);
     assert.equal(checked.result.files.length, 2);
@@ -64,6 +65,15 @@ for (const kind of ["capability", "application"])
     assert.notEqual(next.output, result.output);
     assert.equal(sha256(await readFile(path.join(result.output, "package.zip"))), result.sha256);
   });
+
+test("MCP 打包保持独立类型和未扫描策略", async () => {
+  const result = await packSoftware(await input("mcp"));
+  assert.equal(result.kind, "mcp");
+  assert.equal(result.policy, "mcp-zip-format-v1");
+  assert.equal(sha256(await readFile(path.join(result.output, "package.zip"))), result.sha256);
+  const manifest = JSON.parse(await readFile(path.join(result.output, "manifest.json"), "utf8"));
+  assert.equal(manifest.kind, "mcp");
+});
 
 test("软件 recipe 只允许显式安全路径、支持的 kind、1–32 文件；不读取链接和外根文件", async () => {
   const directory = await input("capability");

@@ -1,5 +1,5 @@
 import { HttpError, json } from "../http";
-import { pageInput } from "../page";
+import { pageInput, uuid } from "../page";
 import {
   isDistributable,
   loadPublication,
@@ -16,15 +16,27 @@ export async function listPublications(
   actor?: string,
   release?: ScannerRelease | null,
 ) {
-  const { after, limit } = pageInput(url);
+  const resourceId = url.searchParams.get("resourceId");
+  if (
+    resourceId !== null &&
+    (!uuid.test(resourceId) || url.searchParams.getAll("resourceId").length !== 1)
+  )
+    throw new HttpError(400, "INVALID_RESOURCE_ID");
+  const pagination = new URL(url);
+  pagination.searchParams.delete("resourceId");
+  const { after, limit } = pageInput(pagination);
   const library =
     actor === undefined
       ? ""
       : `AND (r.owner = ? OR EXISTS
     (SELECT 1 FROM download_grants g WHERE g.publication_id = p.id AND g.principal = ? AND g.state = 'active'))`;
-  const args = actor === undefined ? [after, limit + 1] : [after, actor, actor, limit + 1];
+  const args: (string | number)[] = [after];
+  if (resourceId !== null) args.push(resourceId);
+  if (actor !== undefined) args.push(actor, actor);
+  args.push(limit + 1);
   const result = await db
     .prepare(`${publicationSelect} WHERE p.state = 'published' AND p.id > ?
+    ${resourceId === null ? "" : "AND versions.resource_id = ?"}
     ${library} ORDER BY p.id LIMIT ?`)
     .bind(...args)
     .all<PublicationRow>();

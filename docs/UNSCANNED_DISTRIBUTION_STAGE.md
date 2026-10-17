@@ -47,3 +47,47 @@
 本轮实时读回正式站点仍为 `0.4.7` / `1d8a19fb9af220081d4fc8bcc9bc1b5511f5a5f6`，分发仍是旧扫描门禁。SpringBok 现有服务实例与旧独立 verify 可读。尚未提交、推送或部署本次源码，未修改线上数据库，也未更新运行中的桌面程序。
 
 后续完整本地回归 362 项通过、0 失败、0 跳过，日志 `linshi/assetlibrary-p3-F5Sk4J/tests.log`。Biome、TypeScript、有效行数、依赖审计及 diff 检查通过。准备版本 `0.4.8`；该版本号准备不等于已部署。
+
+## 发布及当前部署停点
+
+本次 33 个文件已独立提交并推送 `a11999ade90b775cb72c33105320e9e5ec9918c5`，远端 main 读回一致，GitHub Release `v0.4.8` 已发布。原有扫描器研究 dirty 文件没有进入该提交。
+
+从此提交创建的独立干净副本 `linshi/assetlibrary-v048-release-a11999a` 以原锁文件安装依赖，再通过四个未扫描策略、两项迁移及三项 SBA 合同，共 9 项；证据 `linshi/assetlibrary-p3-7Dqa6e/tests.log`。离线依赖缓存最初不完整，随后正常固定锁安装成功，没有升级依赖。
+
+SpringBok 升级表单实际请求返回 `Failed to fetch`；刷新明确转到 Cloudflare Access 登录页，确认旧会话已过期，已请用户在原标签页重新登录。没有发起部署任务、没有执行线上 `0010`，不得绕开 Access 或用重复提交猜测结果。用户完成登录后，按原实例升级至固定 `v0.4.8`，再独立 verify、交付新 Loom 桌面包并完成真实 Art 使用验收。
+
+## 登录恢复后的实际交付
+
+用户确认重新登录后，已在原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 完成升级，不重复申请已批准的迁移。
+
+- update：`dc-e878d41cad994dcbbee08452f9774e92`，GitHub run `38993209031`；版本 `0.4.8`、源码 `a11999ade90b775cb72c33105320e9e5ec9918c5`。回执 `deployed-unverified`，备份创建、数据保留、部署绑定等七项通过。
+- 独立 verify：`dc-9f5cde1f553b4884ac468a06e74285bb`，run `38993797217`；回执 `succeeded`，四项通过。检查 ID `scanner-admission-verified` 是沿用的历史名称，本版本核对未扫描分发模式，并不表示扫描器验收通过。
+- 实时 `/healthz` 与固定版本及 SHA 一致；`/readyz` 的身份、数据库、存储均 available，分发为 `available / unscanned-packages / malwareScanning:not_required`。
+- Loom 新桌面包：`linshi/loom-unscanned-20261016-r1/package/manual-20261016-unscanned-native-art-r1/Loom.exe`。完整重编译，未复用旧 EXE；1,713 个源码文件构建前后摘要一致，50 项包完整性通过。源码快照保留现有 dirty，未覆盖运行中的客户端或配置。
+- 包内 `packages/arts/custom-1770131241684.zip` 为颜色迁移原生包，18,647 字节，SHA-256 `f8622ef9b0478dda1aad28de344911bd61b4360a84ca275befba24ce64eee546`。真实结构预检通过，证据 `linshi/assetlibrary-loom-preflight-mryzPF/receipt.json`。
+- 新包 daemon 与 process 框架在独立临时状态中实际安装并执行颜色迁移，8×8 输入生成 314 字节 PNG；输出摘要 `284f34afb15cea023e6e6b4f3b673d3afc2acb28e92eb0384388260a9b7a69cc`，与输入不同。证据 `linshi/loom-unscanned-20261016-r1/color-art-runtime/execution.json`；测试进程已退出。
+
+上述实际运行使用隔离本地默认信任策略，不使用真实 A/B 账号，也没有走线上下载。未签名包不等于正式可信签名；没有变更用户信任库。最终双账号上传、独立审核、授权、Loom 下载并实际使用仍待人工验收。正式页面仍有少量旧“尚未开放”说明，不能据旧说明否定上述实际服务状态，也不能把 readiness 当成业务终点。
+
+## 2026-10-17 新桌面实际切换
+
+桌面控制成功读取 Loom。发现仍运行旧 `manual-20261016-live-refresh-fix-r2`，窗口显示空白。关闭按钮坐标失败，随后 Alt+F4 未终止进程（配置启用了关闭到托盘）；按精确旧包路径停止桌面和 daemon，没有删除任何文件或登录配置。启动新 `manual-20261016-unscanned-native-art-r1` 后，首个工具调用因尚未出现窗口返回超时，随后窗口与进程均确认正常。
+
+新桌面与 daemon 实际路径都指向 unscanned-native-art-r1。真实设置页面显示保留的 NAccount 账号 `vmjcv666@gmail.com`，无需重新登录。实际点击“读取可下载内容”，请求由“正在处理…”结束为“暂无可下载内容”，按钮恢复，未出现旧 scanner 分发阻断错误。这证明新客户端和真实账号的正式下载目录读取，不证明已下载、安装或运行线上发布包。旧包和用户配置保持保留，新客户端继续运行。下一步仍是另一真实账号上传、独立审核与发布授权，然后用当前下载账号完成安装和实际使用。
+
+## 2026-10-17 真实双账号业务链路验收
+
+已通过真实 Edge 页面使用 111 账号上传、666 账号独立审核，再由 111 发布并授予 666 下载权限。复用原空资源并改名为“颜色迁移 Art”，没有重复创建资源或删除历史数据。
+
+- owner：`308008d6-2fad-4585-950a-b9861530cc22`；审核者及下载者：`e7b183d6-a81f-485a-9c89-32750b1346d0`。
+- resource：`a66802da-1770-4e25-977d-5f3553ed72e6`，revision 2。
+- upload：`d605be31-b78c-43c8-8951-b1058698a1e7`；inspection：`222772bb-44ab-473c-95c5-fcbec17f676a`，`loom-art-zip-format-v1 / passed / not_scanned`。
+- version：`658314e9-e9f0-4c32-b284-5b9fe2056fb9`，`0.1.4 / approved / revision 2`。
+- publication：`99406bbd-98da-4e6c-9d67-295b82ba68a4`，`published / revision 1`；下载授权为 `active / revision 1`。
+- 包体仍为 18,647 字节，SHA-256 `f8622ef9b0478dda1aad28de344911bd61b4360a84ca275befba24ce64eee546`；未进行恶意代码或病毒检测，未伪造 clean 或 cloudValidated。
+
+本轮原生桌面控制未开放。启动已交付 Loom 后，通过其现有回环服务接口操作真实用户实例，不使用隔离模拟身份。初次目录读取因旧访问令牌返回 `naccount_login_required`，正常调用 refresh 后保留 666 身份并成功读取上述发布。随后 `/v1/asset-library/install` 从正式站点重新申请票据、下载并安装；下载磁盘文件摘要独立核对一致，安装回执 `trustStatus: unsigned`，未修改信任策略。调用实际 `/v1/tools/custom-1770131241684/execute`，输入源图和参考图，返回 `succeeded`，生成 314 字节 PNG，摘要 `284f34afb15cea023e6e6b4f3b673d3afc2acb28e92eb0384388260a9b7a69cc`，与源图不同。
+
+证据目录：`C:/Users/Public/nas_home/AI/GameEditor/linshi/assetlibrary-live-acceptance-20261017`，包含 `acceptance-evidence.json`、`loom-cloud-install.json`、`loom-execution.json`、输入/输出 PNG 和 `publication-and-grant.jpg`。实时线上仍为 `0.4.8 / a11999ade90b775cb72c33105320e9e5ec9918c5`，readiness 确认未扫描分发可用。
+
+结论：真实 A 上传、独立审核、发布授权、真实 B 经 Loom 服务下载、安装、运行的业务链路通过；Loom 原生界面的点击、刷新和结果展示尚未重新验收，不能把服务接口通过写成完整桌面交互通过。页面仍有旧“当前未准入”等误导文案，本轮未修改产品源码，也未新增提交或部署。

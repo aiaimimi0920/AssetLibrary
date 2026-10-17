@@ -5,7 +5,7 @@ import { entryBytes, parseZip } from "./zip";
 /** 资源库只验证传输封装和原字节完整性，不加载软件、解析宿主指令或验证其可执行性。 */
 export async function inspectSoftwarePackage(
   bytes: Uint8Array,
-  kind: "capability" | "application",
+  kind: "capability" | "application" | "mcp",
 ) {
   const entries = parseZip(bytes);
   const first = entries[0];

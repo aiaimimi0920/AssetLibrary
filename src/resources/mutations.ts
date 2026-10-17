@@ -2,7 +2,7 @@ import { HttpError, json } from "../http";
 import { resourceJson } from "./queries";
 
 export type Mutation =
-  | { action: "create"; kind: "art" | "capability" | "application"; title: string }
+  | { action: "create"; kind: "art" | "capability" | "application" | "mcp"; title: string }
   | { action: "update"; id: string; revision: number; title: string }
   | { action: "delete"; id: string; revision: number }
   | { action: "grant" | "revoke"; id: string; revision: number; member: string };

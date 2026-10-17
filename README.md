@@ -1,11 +1,18 @@
 # AssetLibrary
 
+当前实际线上为 0.4.8，已开放明确标记为未扫描的业务包分发；下文 0.4.7 及“尚未放开”是历史记录。0.4.9 正在准备 MCP 类型及同资源版本发现的保数据升级，生产执行结果以新的部署回执为准。
+
+2026-10-17 最新目标：统一托管官方与第三方 Art、Capability、MCP 和应用程序的下载与更新，四类各一个真实包完成首次使用及更新后使用才算全流程通过。扫描开发继续暂停；见 [当前验收标准与增量状态](docs/PLATFORM_DISTRIBUTION_ACCEPTANCE.md)。下文旧阶段状态不覆盖此要求。
+
+2026-10-16 最新方向：按用户要求暂停扫描器开发和研究，允许正式业务分发未扫描包，扫描机制后续由用户实现。阶段交付以 A 上传“颜色迁移”Art、B 在 Loom 下载并实际使用为准，见 [阶段合同与当前待办](docs/UNSCANNED_DISTRIBUTION_STAGE.md)。当前仅已确认需求和实现差距，尚未放开线上门禁或部署本次变更；以下扫描准入阻断描述保留为历史实现状态。
+
 2026-10-16 续进：生产准入代码及过期事务保护已本地验证，335 项测试通过；
 新受控 scanner 候选十场景和全量 APK 扫描通过，但原生风险及新云验收仍未关闭，
 线上分发未开放。精确停点与证据见 [Scanner 部署准入](docs/SCANNER_DEPLOYMENT_ADMISSION.md)。
 
 2026-10-16：**服务已上线：[assetlibrary.aiaimimi.com](https://assetlibrary.aiaimimi.com)**。
-当前 `0.4.6` 经 SpringBok 原实例正常升级，Loom 客户端 binding 已实际部署，见 [部署方案与证据](docs/LOOM_CLIENT_DEPLOYMENT.md)。
+当前 `0.4.7` 经 SpringBok 原实例正常升级，0009 保数据迁移及独立平台可用性验证通过；
+原 Loom 客户端 binding 保留，独立审核名单已部署，见 [部署方案与证据](docs/LOOM_CLIENT_DEPLOYMENT.md)。
 Loom 下载已补齐三类包的九项[真实本地 Worker 联合验收](docs/LOOM_DOWNLOAD_ACCEPTANCE.md)；正式分发仍阻断，不代表线上下载完成。
 备份、数据保全、原资源绑定及就绪检查通过；
 独立应用只读 verify 四项通过，真实 NAccount 登录、资源创建/改名/持久化、Art ZIP 私有上传及退出页面清理已有线上证据。

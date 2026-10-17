@@ -25,7 +25,12 @@ export async function resourceRoutes(request: Request, db: D1Database, principal
   if (url.pathname === "/v1/resources" && method === "POST") {
     const body = await readJson(request);
     exactFields(body, ["kind", "title"]);
-    if (body.kind !== "art" && body.kind !== "capability" && body.kind !== "application")
+    if (
+      body.kind !== "art" &&
+      body.kind !== "capability" &&
+      body.kind !== "application" &&
+      body.kind !== "mcp"
+    )
       throw new HttpError(400, "INVALID_KIND");
     input = { action: "create", kind: body.kind, title: title(body.title) };
   } else {

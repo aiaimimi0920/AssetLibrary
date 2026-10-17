@@ -7,6 +7,11 @@ import {
 } from "./api.client.js";
 
 export function packagePolicies(kind) {
+  if (kind === "mcp")
+    return [
+      ["loom-mcp-zip-format-v1", "Loom MCP（未扫描）"],
+      ["mcp-zip-format-v1", "MCP 软件封装（未扫描）"],
+    ];
   if (kind === "art")
     return [
       ["loom-art-zip-format-v1", "Loom Art Node（未扫描）"],
@@ -48,9 +53,11 @@ export function syncUploadForm(resource) {
       ? "Art ZIP（素材包或 Loom Art Node，最多 8 MiB）"
       : resource?.kind === "capability"
         ? "Capability ZIP（软件封装或 Loom 原生包，最多 8 MiB）"
-        : resource?.kind === "application"
-          ? "应用包 ZIP（1–32 个载荷，每个最多 1 MiB，整包最多 8 MiB；使用 pack:software）"
-          : "请选择资源后上传匹配类型的 ZIP。";
+        : resource?.kind === "mcp"
+          ? "MCP ZIP（Loom 原生包或软件封装，最多 8 MiB）"
+          : resource?.kind === "application"
+            ? "应用包 ZIP（1–32 个载荷，每个最多 1 MiB，整包最多 8 MiB；使用 pack:software）"
+            : "请选择资源后上传匹配类型的 ZIP。";
 }
 
 /** 仅已绑定 ID 的不可逆终态可释放意图，不能按摘要猜测未知预约或历史记录。 */

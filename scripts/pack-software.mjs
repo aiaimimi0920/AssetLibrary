@@ -20,7 +20,7 @@ export async function packSoftware(inputDirectory) {
     !recipe ||
     Array.isArray(recipe) ||
     Object.keys(recipe).length !== 2 ||
-    !["capability", "application"].includes(recipe.kind) ||
+    !["capability", "application", "mcp"].includes(recipe.kind) ||
     !Array.isArray(recipe.files) ||
     recipe.files.length < 1 ||
     recipe.files.length > 32
@@ -60,7 +60,7 @@ export async function packSoftware(inputDirectory) {
   const output = await mkdtemp(path.join(artifactRoot, "assetlibrary-software-package-"));
   const receipt = {
     kind: recipe.kind,
-    policy: `${recipe.kind}-zip-clamav-v1`,
+    policy: `${recipe.kind}-zip-format-v1`,
     size: archive.length,
     sha256: hash(archive),
     files: files.length,

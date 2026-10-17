@@ -23,7 +23,7 @@ export async function createVersion(
     .bind(input.resourceId, actor)
     .first<{ kind: string }>();
   if (!resource) throw new HttpError(404, "NOT_FOUND");
-  if (!["art", "capability", "application"].includes(resource.kind))
+  if (!["art", "capability", "application", "mcp"].includes(resource.kind))
     throw new HttpError(422, "VERSION_POLICY_UNAVAILABLE");
   const upload = await db
     .prepare(`SELECT id FROM uploads WHERE id = ? AND resource_id = ? AND owner = ?`)

@@ -1,6 +1,6 @@
 # Loom 原生客户端正式部署方案
 
-## 0.4.7 上线准备（尚未部署）
+## 0.4.7 实际上线与独立验证
 
 用户已明确要求实际部署与线上测试成功，并单独同意 `0009` 的备份后保数据迁移。
 本版本包含 Loom 原生包策略、迁移、下载票据时效修复和 scanner 部署准入保护；
@@ -13,7 +13,30 @@ NAccount 主体登记该授权，只在原正式 target 和网页 identity 全�
 发布后核验 `REVIEWER_PRINCIPALS` 必须与版本管理的有效名单一致；原生客户端、
 网页客户端、会话密钥和私有 D1/R2 的保留约束不变。
 
-## 2026-10-16 已部署结果
+2026-10-16 已在原实例完成正常升级：
+
+- `v0.4.7` / `1d8a19fb9af220081d4fc8bcc9bc1b5511f5a5f6`；本地完整 349 项通过，
+  精确提交 [CI 38955024244](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/38955024244) 两个 job 通过。
+- update task `dc-22405e075dfd4bb58c32fbb02fde6100`，
+  [run 38955900682](https://github.com/aiaimimi0920/SpringBok/actions/runs/38955900682)；
+  回执 `deployed-unverified`，备份、保数据、绑定及其余四项共七项通过。
+  artifact `12070397960`，已下载 ZIP 并核对 SHA256
+  `ae5695829c0250309ff1485e220af54cbf398a98260913e933bd623aabfe274e`。
+- 独立 Cloudflare 读回原 D1/R2、native client 和 session secret binding 保持；
+  审核主体名单已生效。0001–0009 迁移存在，0009 摘要与本地一致，foreign_key_check 为空。
+  当时 resources/uploads/inspections 各 1，versions 为 0，不将其外推为大量生产版本迁移证明。
+- 无云凭据的独立应用 verify 四项通过；随后真实平台 verify task
+  `dc-dd7006263e074c3ebdf8af4457b9fbf2`，
+  [run 38958057697](https://github.com/aiaimimi0920/SpringBok/actions/runs/38958057697)，
+  已读取业务回执 `succeeded`、精确版本/SHA 和四项 passed；平台显示“可用性已验证”。
+- 证据：`linshi/assetlibrary-run-38955900682/`、
+  `linshi/assetlibrary-independent-verify-v047/`、`linshi/assetlibrary-v047-online-progress.json`。
+
+服务部署与可用性验证已通过，但 scanner 仍未绑定，生产分发保持
+`SCANNER_CLOUD_NOT_VALIDATED`。真实双账号发布、审核及 Loom 下载、安装、运行仍未通过。
+后续扫描器修补属于未上线增量，不能用本次 349 项或线上版本证明新引擎通过。
+
+## 2026-10-16 历史 0.4.6 部署结果
 
 - 发布 `v0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`，精确提交 CI
   [38850067853](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/38850067853) 两项 job 通过；本地完整测试 329 项通过。
