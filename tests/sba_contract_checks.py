@@ -20,9 +20,15 @@ config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https
           'bucket': 'assetlibrary-objects', 'scannerService': '', 'reviewers': []}
 request = {'schemaVersion': 3, 'taskId': 'dc-' + 'b' * 32, 'action': 'deploy',
            'repository': 'aiaimimi0920/AssetLibrary', 'sourceSha': 'c' * 40,
-           'applicationId': 'assetlibrary-cloudflare', 'applicationVersion': '0.4.8',
+           'applicationId': 'assetlibrary-cloudflare',
+           'applicationVersion': contract.load(contract.ROOT / '.sba' / 'manifest.json')['version'],
            'environment': 'assetlibrary', 'configuration': config, 'previous': None}
 contract.validate(request, check_source=False)
+try:
+    contract.validate({**request, 'applicationVersion': '0.0.0-invalid'}, check_source=False)
+    raise AssertionError('mismatched application version accepted')
+except contract.Failure:
+    pass
 native = copy.deepcopy(config)
 native['identity']['nativeClientId'] = 'loom-client'
 assert contract.settings(native)['identity']['nativeClientId'] == 'loom-client'
