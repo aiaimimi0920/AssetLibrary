@@ -18,6 +18,18 @@
 
 ## 完成标准
 
+### 生产双账号验收发现与修复（2026-10-17，尚未发布修复）
+
+真实发布者 308008d6-2fad-4585-950a-b9861530cc22 创建 MCP 资源 5eb3c60c-f522-4fa0-84b4-abe51c0a1d91，并上传两个 830 字节的 stdio 版本工具包。两次 loom-mcp-zip-format-v1 格式检查均 passed、not_scanned，未恢复扫描。
+
+- 1.0.0 上传 204fca65-aade-4ea8-9abe-9afd4b94c027，SHA-256 8cc78fd5db04f8d91592e607c9036f6cd90dea514028e57ca82c1a4a3c339fbd；版本 f1d924b6-801e-4c7b-a92e-cf894f3145ec 已由另一真实账号 e7b183d6-a81f-485a-9c89-32750b1346d0 独立批准，尚未发布。
+- 1.1.0 包上传 e3ca335d-cfd3-4eaa-9656-94a46ca88c75，SHA-256 e4c2bb435e8d38019d06b911db7e602a769311b7f646c35dacdf7f17d0e8d8d0。检查未完成时创建版本收到 409 VERSION_BINDING_NOT_READY，未绕过检查。
+- 后续查询检查触发工作区重绘，上传选择静默退回第一项；错误版本 d5fb39a7-986e-4710-97dc-6e53e95b2868 的 1.1.0 标签实际绑定旧包。独立审核核对摘要发现问题，已拒绝，publication=null；不得发布或将其记为更新通过。记录和包体保留，后续使用新的版本标签及匹配的新包，不能重写不可变版本。
+- 修复 render.client.js：同资源重绘保留明确选中的上传；当前候选消失时清空选择，不自动改绑其他包；切换资源或清除身份不带入旧选择。新增回归先在旧实现复现 old !== new，修复后通过。扩展检查发现旧 DOM 测试夹具缺 dataset，补齐真实元素属性后五文件 23 项全部通过；Biome、类型、行数、diff 检查及 Worker 构建通过。
+- 证据目录：C:/Users/Public/nas_home/AI/GameEditor/linshi/assetlibrary-production-update-20261017，包含 packages.json、mcp-upload-ui.txt、两份审核回执、mcp-review.png、web-selection-tests-fixed.log；构建为 linshi/assetlibrary-p3-jRpMCa。
+
+修复仍为本地源码，生产继续运行 0.4.10；尚未完成此 MCP 资源的发布、消费者下载或新版实际执行。本次没有将本地 libaria2 运行结果替代生产双账号验收。
+
 Art、Capability、MCP、应用程序各至少一个真实可使用包，分别完成：
 
 1. 发布者 A 上传旧版，经既有业务审核发布，消费者 B 获得下载权限。

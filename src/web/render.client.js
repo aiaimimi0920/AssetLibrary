@@ -51,9 +51,13 @@ export function workspace(state, handlers) {
     ? `${resource.title} · ${resource.kind} · revision ${resource.revision}`
     : "未选择";
   facts("resource-detail", resource ?? "请选择左侧资源。");
+  const uploadSelect = element("version-upload");
+  const sameResource = uploadSelect.dataset.resourceId === resource?.id;
+  const selectedUpload = uploadSelect.value;
+  uploadSelect.dataset.resourceId = resource?.id ?? "";
   element("uploads").replaceChildren();
   element("versions").replaceChildren();
-  element("version-upload").replaceChildren();
+  uploadSelect.replaceChildren();
   if (!resource) return;
   if (!owned) {
     element("uploads").append(
@@ -77,9 +81,11 @@ export function workspace(state, handlers) {
     if (upload.state === "quarantined") {
       const option = text("option", upload.id);
       option.value = upload.id;
-      element("version-upload").append(option);
+      uploadSelect.append(option);
     }
   }
+  // 查询检查也会重绘；候选消失时留空，不静默改绑另一包。
+  if (sameResource) uploadSelect.value = selectedUpload;
   if (!state.versions.length)
     element("versions").append(text("p", "尚无版本；创建前必须有当前 passed 检查。", "muted"));
   for (const version of state.versions) {

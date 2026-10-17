@@ -39,7 +39,7 @@ test("清除身份时不保留上一主体的资源标题草稿", () => {
   const nodes = new Map();
   const node = (id) => {
     if (!nodes.has(id))
-      nodes.set(id, { value: "", textContent: "", replaceChildren() {}, append() {} });
+      nodes.set(id, { value: "", dataset: {}, textContent: "", replaceChildren() {}, append() {} });
     return nodes.get(id);
   };
   try {
