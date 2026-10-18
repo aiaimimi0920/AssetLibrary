@@ -4,6 +4,8 @@
 
 ## 授权与当前状态
 
+2026-10-18 续进：测试运行器日志缓冲故障已修复，固定提交 `9a66309fc4dc776480d7bdbad95f4baa620cf491` 的完整 GitHub CI 382 通过、0 失败、1 跳过，verify/secret_scan 成功；Windows 业务回归 286 通过、0 失败、1 跳过。已发布 [v0.4.12](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.12)，标签及发布页绑定该提交。发布不等于上线：SpringBok 原标签页刷新后进入 Cloudflare Access 验证码登录，尚未恢复会话，未发起生产升级、未执行 0012 生产迁移。运行中自更新、原生 UI 与正式组合源码边界仍按下文保留。
+
 用户已对本次新的生产保数据迁移及配套上线明确回复“同意”。允许调整 uploads、inspections、versions 的大小及策略约束；执行前必须备份、验证保全与失败回滚，保留业务记录和 R2 文件。此前 0011 授权不作为本次授权来源。扫描器开发、研究和病毒扫描继续暂停。
 
 已新增本地候选 `db/0012_large_application_packages.sql`，未应用生产。新策略命名为 `application-large-zip-format-v1`，仅 application 可用；包体预算 96,000,000 字节，覆盖当前约 80 MB 的 Loom 包。不是无限尺寸，也不宣称已支持超过此预算的文件或 multipart。

@@ -1,5 +1,13 @@
 # AssetLibrary 新版 CI
 
+## 2026-10-18 完整回归日志修复
+
+0.4.12 首次 CI 运行 39098603162 在测试运行器报 `spawnSync ... ENOBUFS`，并非已确认的业务断言失败：同步管道累计输出超过默认预算，进程提前终止，不能算完整测试通过。现将子进程 stdout/stderr 直接写入独占 `tests.log`，关闭句柄后流式输出日志，保留十分钟超时、原退出码和信号诊断；不增加内存缓冲、不跳过失败或修改扫描策略。
+
+新增三项回归覆盖超过 2 MiB 的完整输出、非零退出/拒绝覆盖日志和超时失败。固定提交 `9a66309fc4dc776480d7bdbad95f4baa620cf491` 的 [运行 39099051565](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/39099051565) 已通过 verify 与 secret_scan，完整测试 383 项中 382 通过、0 失败、1 个完整包专用场景默认跳过；完整包联合场景此前已另行显式通过。活动锁审计返回 `No known vulnerabilities found`，不等于旧目录或整个仓库无历史告警。
+
+同次 Windows 非 scanner-* 业务回归为 286 通过、0 失败、1 跳过，日志 `C:/Users/Public/nas_home/AI/GameEditor/linshi/assetlibrary-p3-FL08Lr/tests.log`。类型、行数与修改文件 Biome 检查通过。没有启动病毒扫描服务或修改现有 scanner 工作区改动。
+
 `.github/workflows/ci.yml` 仅验证当前 TypeScript Workers/D1/R2 项目，不执行 `old/` 的 Rust/Web/部署工作流，不申请 Cloudflare 凭据，不部署或修改云资源。触发条件为 `main` 推送、Pull Request 和手动运行；仓库权限仅为 `contents: read`，checkout 不持久化凭据。
 
 `verify` 使用固定 Node 22.23.1、pnpm 10.33.0 和锁文件执行 `pnpm check`、`pnpm typecheck`、`pnpm sizecheck`、`pnpm test` 及 `pnpm audit --audit-level=low`。`pnpm test` 会先对主 Worker 和扫描 Worker 做 `wrangler deploy --dry-run --containers-rollout none`，再运行现有完整测试；不启动 Docker 或真实部署。依赖审计只覆盖当前活动锁文件，不能据此关闭 GitHub 针对整个仓库显示的历史告警。
