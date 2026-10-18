@@ -12,20 +12,29 @@ export function crc32(bytes) {
 
 /** 明确的单卷、无 extra/comment/descriptor 格式；输入由打包入口约束。 */
 export function artZip(entries, method = 8) {
-  if (method !== 0 && method !== 8) throw new Error("ZIP_METHOD_UNSUPPORTED");
+  if (method !== 0 && method !== 8 && method !== "bounded-auto")
+    throw new Error("ZIP_METHOD_UNSUPPORTED");
   const local = [];
   const central = [];
   let offset = 0;
   for (const entry of entries) {
     const name = Buffer.from(entry.path, "utf8");
     const raw = Buffer.from(entry.bytes);
-    const data = method === 0 ? raw : deflateRawSync(raw);
+    let entryMethod = method === "bounded-auto" ? 8 : method;
+    let data = entryMethod === 0 ? raw : deflateRawSync(raw);
+    if (
+      method === "bounded-auto" &&
+      (data.length >= raw.length || raw.length > data.length * 100)
+    ) {
+      entryMethod = 0;
+      data = raw;
+    }
     const crc = crc32(raw);
     const header = Buffer.alloc(30);
     header.writeUInt32LE(0x04034b50);
     header.writeUInt16LE(20, 4);
     header.writeUInt16LE(0x800, 6);
-    header.writeUInt16LE(method, 8);
+    header.writeUInt16LE(entryMethod, 8);
     header.writeUInt16LE(0x21, 12);
     header.writeUInt32LE(crc, 14);
     header.writeUInt32LE(data.length, 18);
@@ -37,7 +46,7 @@ export function artZip(entries, method = 8) {
     record.writeUInt16LE(0x314, 4);
     record.writeUInt16LE(20, 6);
     record.writeUInt16LE(0x800, 8);
-    record.writeUInt16LE(method, 10);
+    record.writeUInt16LE(entryMethod, 10);
     record.writeUInt16LE(0x21, 14);
     record.writeUInt32LE(crc, 16);
     record.writeUInt32LE(data.length, 20);

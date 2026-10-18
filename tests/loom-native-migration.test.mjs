@@ -33,6 +33,7 @@ for (const migrationName of [
   "0009_loom_native_packages.sql",
   "0010_unscanned_packages.sql",
   "0011_mcp_packages.sql",
+  "0012_large_application_packages.sql",
 ])
   test(`${migrationName} 保留已有发布、检查、版本、票据和审计；失败原子回滚，重复应用不改事实`, async () => {
     const f = await fixture({ schema: false, reviewers: reviewerConfig });
@@ -58,7 +59,13 @@ for (const migrationName of [
       const indexes = (
         await f.db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all()
       ).results.map((row) => row.name);
-      for (const name of ["inspections_due", "versions_resource_page", "versions_review_page"])
+      for (const name of [
+        "uploads_reconcile",
+        "uploads_resource",
+        "inspections_due",
+        "versions_resource_page",
+        "versions_review_page",
+      ])
         assert.ok(indexes.includes(name));
       await f.db.batch(statements(f.db, migration));
       assert.deepEqual(await snapshot(f.db), before);

@@ -1,9 +1,17 @@
 import { HttpError } from "../http";
-import { inspectionKind, policyKindSql } from "./policy";
+import { largeArchiveLimit } from "../packages/archive-stream";
+import { inspectionKind, largeApplicationFormatPolicy, policy, policyKindSql } from "./policy";
 
 export { packagePolicy, policy } from "./policy";
 export const maxObjectSize = 1024 * 1024;
 export const maxArchiveSize = 8 * 1024 * 1024;
+export function inspectionSizeLimit(value: unknown) {
+  return value === largeApplicationFormatPolicy
+    ? largeArchiveLimit
+    : value === policy
+      ? maxObjectSize
+      : maxArchiveSize;
+}
 export type InspectionState =
   | "queued"
   | "running"

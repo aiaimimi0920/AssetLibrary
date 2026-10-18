@@ -28,7 +28,10 @@ async function putOnce(request: Request, env: UploadEnv, row: UploadRow): Promis
   if (!request.body) throw new HttpError(400, "UPLOAD_BODY_REQUIRED");
   const fixed = new FixedLengthStream(row.expected_size);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
+  const timer = setTimeout(
+    () => controller.abort(),
+    row.expected_size > 16 * 1024 * 1024 ? 300000 : 60000,
+  );
   const transfer = request.body
     .pipeThrough(exactInput(row.expected_size))
     .pipeTo(fixed.writable, { signal: controller.signal })

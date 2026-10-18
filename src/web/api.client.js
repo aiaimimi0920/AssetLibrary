@@ -105,7 +105,7 @@ export async function withResponse(
       !Number.isSafeInteger(end) ||
       start < 0 ||
       end < start ||
-      end >= 8 * 1024 * 1024 ||
+      end >= 96_000_000 ||
       end - start + 1 > 256 * 1024 ||
       (ifRange !== undefined &&
         (typeof ifRange !== "string" || !/^"[\x21\x23-\x7e]{1,126}"$/.test(ifRange)))

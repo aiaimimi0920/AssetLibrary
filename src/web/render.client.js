@@ -94,13 +94,21 @@ export function workspace(state, handlers) {
       text("p", `${version.label} · ${version.state} · revision ${version.revision}`, "status"),
     );
     row.append(text("p", `版本 ID：${version.id}`));
-    row.append(text("p", `当前发布阻断：${version.publicationBlockers.join(" / ")}`, "muted"));
+    row.append(
+      text(
+        "p",
+        version.publicationBlockers.length
+          ? `当前发布阻断：${version.publicationBlockers.join(" / ")}`
+          : "无发布阻断",
+        "muted",
+      ),
+    );
     const toolbar = text("div", "", "toolbar");
     toolbar.append(action("查看版本", () => handlers.readVersion(version.id)));
     if (version.state !== "withdrawn")
       toolbar.append(action("撤回版本", () => handlers.withdraw(version), "danger"));
     if (version.state === "approved")
-      toolbar.append(action("请求发布（当前未准入）", () => handlers.publish(version)));
+      toolbar.append(action("请求发布", () => handlers.publish(version)));
     if (version.publication)
       toolbar.append(
         action(`管理发布 · ${version.publication.state}`, () =>

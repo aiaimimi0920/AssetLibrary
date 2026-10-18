@@ -1,4 +1,5 @@
 import { exactFields, HttpError, json, readJson } from "../http";
+import { largeArchiveLimit } from "../packages/archive-stream";
 import { uploadJson } from "./records";
 
 export async function reserveUpload(
@@ -12,9 +13,17 @@ export async function reserveUpload(
   if (
     !Number.isSafeInteger(body.size) ||
     Number(body.size) < 1 ||
-    Number(body.size) > 16 * 1024 * 1024
+    Number(body.size) > largeArchiveLimit
   )
     throw new HttpError(400, "INVALID_UPLOAD_SIZE");
+  if (Number(body.size) > 16 * 1024 * 1024) {
+    const resource = await db
+      .prepare("SELECT kind FROM resources WHERE id = ? AND owner = ? AND state = 'draft'")
+      .bind(resourceId, principal)
+      .first<{ kind: string }>();
+    if (!resource) throw new HttpError(404, "NOT_FOUND");
+    if (resource.kind !== "application") throw new HttpError(400, "INVALID_UPLOAD_SIZE");
+  }
   if (typeof body.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(body.sha256))
     throw new HttpError(400, "INVALID_SHA256");
   const key = request.headers.get("idempotency-key") ?? "";

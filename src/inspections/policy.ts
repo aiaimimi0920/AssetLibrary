@@ -9,6 +9,7 @@ export const loomArtFormatPolicy = "loom-art-zip-format-v1";
 export const loomCapabilityFormatPolicy = "loom-capability-zip-format-v1";
 export const capabilityFormatPolicy = "capability-zip-format-v1";
 export const applicationFormatPolicy = "application-zip-format-v1";
+export const largeApplicationFormatPolicy = "application-large-zip-format-v1";
 export const mcpFormatPolicy = "mcp-zip-format-v1";
 export const loomMcpFormatPolicy = "loom-mcp-zip-format-v1";
 
@@ -24,6 +25,7 @@ const kinds = {
   [loomCapabilityFormatPolicy]: "capability",
   [capabilityFormatPolicy]: "capability",
   [applicationFormatPolicy]: "application",
+  [largeApplicationFormatPolicy]: "application",
   [mcpFormatPolicy]: "mcp",
   [loomMcpFormatPolicy]: "mcp",
 } as const;
@@ -54,6 +56,7 @@ const formatPolicies = [
   loomCapabilityFormatPolicy,
   capabilityFormatPolicy,
   applicationFormatPolicy,
+  largeApplicationFormatPolicy,
   mcpFormatPolicy,
   loomMcpFormatPolicy,
 ];

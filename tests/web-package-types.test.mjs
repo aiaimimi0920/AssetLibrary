@@ -50,12 +50,16 @@ test("四类资源只显示匹配策略；换资源/清除身份丢弃旧文件�
             "capability-zip-clamav-v1",
             "loom-capability-zip-clamav-v1",
           ]
-        : ["application-zip-format-v1", "application-zip-clamav-v1"],
+        : [
+            "application-zip-format-v1",
+            "application-large-zip-format-v1",
+            "application-zip-clamav-v1",
+          ],
     );
     assert.equal(file.value, "");
     assert.match(
       nodes.get("package-label").textContent,
-      kind === "capability" ? /Loom 原生包/ : /pack:software/,
+      kind === "capability" ? /Loom 原生包/ : /大型应用策略最多 96 MB/,
     );
     file.value = "old.zip";
   }
@@ -92,6 +96,7 @@ test("上传前拒绝类型/策略失配与非 ZIP/超大文件，不读取文�
     ["capability", "loom-art-zip-clamav-v1"],
     ["mcp", "application-zip-format-v1"],
     ["application", "loom-mcp-zip-format-v1"],
+    ["art", "application-large-zip-format-v1"],
   ]) {
     await assert.rejects(
       upload.uploadPackage({ id: "r", kind }, null, policy, new AbortController().signal, () => {}),
@@ -116,6 +121,7 @@ for (const [kind, policy] of [
   ["capability", "loom-capability-zip-format-v1"],
   ["capability", "capability-zip-format-v1"],
   ["application", "application-zip-format-v1"],
+  ["application", "application-large-zip-format-v1"],
   ["art", "art-zip-clamav-v1"],
   ["capability", "capability-zip-clamav-v1"],
   ["application", "application-zip-clamav-v1"],

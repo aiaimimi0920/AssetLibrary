@@ -16,7 +16,7 @@
       <aside>
         <p class="kicker">01 / 私有工作区</p>
         <h1>资源库</h1>
-        <p class="muted">Art、Capability 与小型应用包的上传、检查和版本审核。对象保持私有，尚未开放生产发布或下载。</p>
+        <p class="muted">Art、Capability、MCP 与应用包的上传、版本审核和授权分发。业务包未进行病毒扫描。</p>
         <form id="naccount-login" action="/auth/login" method="post" hidden>
           <button class="primary" type="submit">使用 NAccount 登录</button>
         </form>
@@ -137,7 +137,7 @@
         <section aria-labelledby="distribution-heading">
           <p class="kicker">04 / 授权分发</p>
           <h3 id="distribution-heading">公开目录与我的下载资源库</h3>
-          <p class="muted">目录元数据和下载权限分别判断。生产尚未准入时显示服务器错误，不将不可用写成空目录或下载成功。</p>
+          <p class="muted">目录可见不等于获得下载授权；下载权限按当前发布版本独立校验。</p>
           <div class="toolbar"><h4>公开目录</h4><button id="refresh-catalog" data-public type="button">读取公开目录</button></div>
           <p id="catalog-state" class="muted" role="status"></p>
           <div id="catalog" class="rows"></div>
@@ -152,7 +152,7 @@
             <button id="resume-download" data-protected type="button" disabled>继续下载</button>
             <button id="discard-download" type="button" disabled>放弃未完成下载</button>
           </div>
-          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的最多 8 MiB 资源 ZIP。传输中断只在当前页保留完整分段，可手动继续并重新申请授权；最多尝试三次，不自动重试。停止、切换身份或放弃会丢弃未完成字节；保存不等于安装或执行。</p>
+          <p class="muted">下载需当前身份和短期票据；本页仅保存已通过长度及 SHA-256 校验的资源 ZIP：普通包最多 8 MiB，大型应用策略最多 96 MB。传输中断只在当前页保留完整分段，可手动继续并重新申请授权；最多尝试三次，不自动重试。停止、切换身份或放弃会丢弃未完成字节；保存不等于安装或执行。</p>
         </section>
         <section aria-labelledby="publication-heading">
           <p class="kicker">05 / PUBLISHER OPERATIONS</p>

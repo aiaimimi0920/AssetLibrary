@@ -47,7 +47,7 @@ function limitedBody(request, maximum) {
 }
 
 /** 仅监听回环；Host/Origin/Fetch Metadata 限制阻止外部网页借用本地无注册入口。 */
-export async function serveTrial(runtime, { port = 0, onStop } = {}) {
+export async function serveTrial(runtime, { port = 0, onStop, largeApplications = false } = {}) {
   const client = await trialClient();
   const samples = new Map([
     ["/__trial/sample.zip", { name: "two-png.zip", bytes: packageBytes() }],
@@ -77,7 +77,13 @@ export async function serveTrial(runtime, { port = 0, onStop } = {}) {
     if (!request.url.startsWith("/") || request.url.startsWith("//"))
       return send(400, { error: "INVALID_PATH" });
     if (active.size >= 8) return send(503, { error: "TRIAL_BUSY" });
-    if (Number(request.headers["content-length"] ?? 0) > limit)
+    const bodyLimit =
+      largeApplications &&
+      request.method === "PUT" &&
+      /^\/v1\/uploads\/[0-9a-f-]+\/content$/.test(request.url)
+        ? 96_000_000
+        : limit;
+    if (Number(request.headers["content-length"] ?? 0) > bodyLimit)
       return send(413, { error: "TRIAL_BODY_TOO_LARGE" });
     const controller = new AbortController();
     active.add(controller);
@@ -151,7 +157,7 @@ export async function serveTrial(runtime, { port = 0, onStop } = {}) {
           ),
           signal: controller.signal,
           ...(!["GET", "HEAD"].includes(request.method)
-            ? { body: limitedBody(request, limit), duplex: "half" }
+            ? { body: limitedBody(request, bodyLimit), duplex: "half" }
             : {}),
         },
       );

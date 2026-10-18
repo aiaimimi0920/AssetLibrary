@@ -29,6 +29,7 @@ export function packagePolicies(kind) {
   if (kind === "application")
     return [
       ["application-zip-format-v1", "应用包（未扫描）"],
+      ["application-large-zip-format-v1", "大型应用包（最多 96 MB，未扫描）"],
       [`${kind}-zip-clamav-v1`, "包体 + ClamAV 内容检查"],
     ];
   return [];
@@ -56,7 +57,7 @@ export function syncUploadForm(resource) {
         : resource?.kind === "mcp"
           ? "MCP ZIP（Loom 原生包或软件封装，最多 8 MiB）"
           : resource?.kind === "application"
-            ? "应用包 ZIP（1–32 个载荷，每个最多 1 MiB，整包最多 8 MiB；使用 pack:software）"
+            ? "应用包 ZIP（普通策略最多 8 MiB；大型应用策略最多 96 MB）"
             : "请选择资源后上传匹配类型的 ZIP。";
 }
 
@@ -75,13 +76,14 @@ export async function uploadPackage(resource, file, policy, signal, reserved) {
   if (!resource) throw new Error("SELECT_RESOURCE_REQUIRED");
   if (!packagePolicies(resource.kind).some(([value]) => value === policy))
     throw new Error("RESOURCE_INSPECTION_POLICY_MISMATCH");
+  const large = policy === "application-large-zip-format-v1";
   if (
     !file ||
     file.size < 1 ||
-    file.size > 8 * 1024 * 1024 ||
+    file.size > (large ? 96_000_000 : 8 * 1024 * 1024) ||
     !file.name.toLowerCase().endsWith(".zip")
   )
-    throw new Error("PACKAGE_ZIP_REQUIRED_MAX_8_MIB");
+    throw new Error(large ? "PACKAGE_ZIP_REQUIRED_MAX_96_MB" : "PACKAGE_ZIP_REQUIRED_MAX_8_MIB");
   signal.throwIfAborted();
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   signal.throwIfAborted();

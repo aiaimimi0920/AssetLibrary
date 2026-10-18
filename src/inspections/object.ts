@@ -1,12 +1,19 @@
 import { inspectArtPackage } from "../packages/art";
+import { inspectLargeSoftware } from "../packages/large-software";
 import { inspectLoomPackage } from "../packages/loom";
 import { inspectSoftwarePackage } from "../packages/software";
 import { scanArchive } from "../scanner/client";
 import { objectMatches } from "../uploads/reconcile";
 import { loadUpload, objectKey, type UploadEnv } from "../uploads/records";
 import { ContentRejected, inspectPng } from "./png";
-import { inspectionKind, isFormatPolicy, isLoomPolicy, isScanPolicy } from "./policy";
-import { type InspectionRow, maxArchiveSize, maxObjectSize, policy } from "./records";
+import {
+  inspectionKind,
+  isFormatPolicy,
+  isLoomPolicy,
+  isScanPolicy,
+  largeApplicationFormatPolicy,
+} from "./policy";
+import { type InspectionRow, inspectionSizeLimit, policy } from "./records";
 
 /** 仅检查明确策略的受限对象；该缓冲是检查任务，不是元数据或下载路径。 */
 async function readLimited(body: ReadableStream<Uint8Array>, expected: number, limit: number) {
@@ -42,7 +49,7 @@ export async function inspectObject(env: UploadEnv, row: InspectionRow) {
   const kind = inspectionKind(row.policy);
   if (!kind || kind !== row.resource_kind)
     throw new ContentRejected("INSPECTION_POLICY_UNAVAILABLE");
-  const limit = row.policy === policy ? maxObjectSize : maxArchiveSize;
+  const limit = inspectionSizeLimit(row.policy);
   if (row.expected_size < 1 || row.expected_size > limit)
     throw new ContentRejected("OBJECT_SIZE_MISMATCH");
   const upload = await loadUpload(env.DB, row.upload_id);
@@ -57,6 +64,10 @@ export async function inspectObject(env: UploadEnv, row: InspectionRow) {
   ) {
     await object.body.cancel();
     throw new ContentRejected("OBJECT_IDENTITY_CHANGED");
+  }
+  if (row.policy === largeApplicationFormatPolicy) {
+    const result = await inspectLargeSoftware(object.body, row.expected_size, row.sha256);
+    return { ...result, elapsedMs: Math.round(performance.now() - started) };
   }
   const bytes = await readLimited(object.body, row.expected_size, limit);
   const digest = await crypto.subtle.digest("SHA-256", bytes);

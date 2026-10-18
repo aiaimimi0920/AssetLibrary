@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "id": "assetlibrary-cloudflare",
   "name": "AssetLibrary",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "entrypoint": "springbok.ps1",
   "runtime": { "runner": "windows-2025", "powershell": "5.1", "python": "3.12", "node": "22" },
   "actions": {

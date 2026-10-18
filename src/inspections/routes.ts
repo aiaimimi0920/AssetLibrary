@@ -4,10 +4,9 @@ import { inspectionKind } from "./policy";
 import {
   findInspection,
   inspectionEvent,
+  inspectionSizeLimit,
   inspectionView,
   loadInspection,
-  maxArchiveSize,
-  maxObjectSize,
   policy,
 } from "./records";
 
@@ -33,7 +32,7 @@ export async function inspectionRoutes(
   if (upload.state !== "quarantined" || upload.resource_state !== "draft")
     throw new HttpError(409, "INSPECTION_NOT_ELIGIBLE");
   if (upload.resource_kind !== kind) throw new HttpError(422, "INSPECTION_POLICY_UNAVAILABLE");
-  const limit = requestedPolicy === policy ? maxObjectSize : maxArchiveSize;
+  const limit = inspectionSizeLimit(requestedPolicy);
   if (upload.expected_size > limit) {
     const prior = await findInspection(env.DB, upload.id);
     if (prior && prior.policy !== requestedPolicy)

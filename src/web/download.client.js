@@ -1,6 +1,9 @@
 import { api, withResponse } from "./api.client.js";
 
-const maxSize = 8 * 1024 * 1024;
+const maxSize = (publication) =>
+  publication.kind === "application" && publication.policy === "application-large-zip-format-v1"
+    ? 96_000_000
+    : 8 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 /** 仅浏览器在包体上限内汇集字节以做 WebCrypto 摘要；Worker 仍流式返回。 */
@@ -28,7 +31,8 @@ export async function readPackage(response, signal, publication, progress = () =
       signal.throwIfAborted();
       if (done) break;
       size += value.byteLength;
-      if (size > publication.size || size > maxSize) throw new Error("DOWNLOAD_SIZE_EXCEEDED");
+      if (size > publication.size || size > maxSize(publication))
+        throw new Error("DOWNLOAD_SIZE_EXCEEDED");
       chunks.push(value);
       progress(size, publication.size);
     }
@@ -61,7 +65,7 @@ export function validatePublication(publication) {
     !uuid.test(publication.versionId) ||
     !Number.isSafeInteger(publication.size) ||
     publication.size < 1 ||
-    publication.size > maxSize ||
+    publication.size > maxSize(publication) ||
     !/^[0-9a-f]{64}$/.test(publication.sha256)
   )
     throw new Error("INVALID_DOWNLOAD_METADATA");

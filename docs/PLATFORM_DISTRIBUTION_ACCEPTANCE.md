@@ -1,6 +1,19 @@
 # 平台统一分发与更新验收
 
-当前生产版本为 0.4.10，源码 b37ea47b5d4a2a8250bdbc50a7f7cfae1126b2fb。用户明确同意的 0011 保数据生产迁移及 SpringBok 更新已完成，独立可用性验证通过；四类真实账号更新使用验收仍未完成。下文早期批次的“未部署”仅描述当时状态。
+当前生产版本为 0.4.11，源码 a23e0f2f0dd02d03ec996a63969bd3f9bcaa0ca4。四类小包已完成真实双账号发布及消费者双版本实际运行；Art 使用原运行中的 Loom daemon，其余三类使用新 libaria2 daemon。原生桌面 UI 全路径、大包托管、Loom 自更新及正式组合源码发行仍未完成，不将四类小包通过外推为平台全部交付。下文早期批次的“未部署”仅描述当时状态。
+
+## 0.4.11 恢复升级与独立验证（2026-10-17）
+
+- SpringBok PR #100 的许可前失败恢复已上线；原任务 dc-84474230b8904fd78a90e2bb1b714681 保持目标源码、请求摘要、配置和实例不变，新派发运行 39044842767，未重跑旧运行 39035298532，也未删除原失败证据。
+- 新运行成功，应用回执 deployed-unverified，backup-created、data-preserved、deployed-bindings 及四项应用检查均通过。旧源码 403 本次未重现；成功恢复不反向证明旧 403 的具体原因。
+- 独立 verify 任务 dc-3a313238afb944b5a9ad40db3f390f8e / 运行 39045314836 返回 succeeded，四项检查通过。scanner-admission-verified 为历史检查名称，本次仍验证未扫描分发策略，不是病毒扫描通过。
+- 2026-10-17T15:30:26Z 线上 healthz 返回上述 0.4.11 与完整 SHA；readyz 的身份、数据库、存储均 available，分发模式 unscanned-packages，malwareScanning=not_required。
+- 证据：C:/Users/Public/nas_home/AI/GameEditor/linshi/springbok-sv10-recovery/assetlibrary-update-ui.txt、assetlibrary-verify-ui.txt、assetlibrary-live-health.json、assetlibrary-verified.png。SpringBok 控制面配置六项及绑定保持，独立 release-receipt.json 记录其版本，不与 AssetLibrary 版本混用。
+- 随后真实发布者完成 MCP 1.0.0 发布：publication=0af9ca36-3f2c-46e9-9777-efda412536e0，消费者 e7b183d6-a81f-485a-9c89-32750b1346d0 的下载授权 active / revision 1。版本、摘要与已独立批准的旧包一致。
+- 正确新版 1.1.1 已上传：upload=925b6a29-b023-424a-b028-b174fb063dfe，SHA-256=8703fe974ae00a22753d999f39347ab178d0d9f56eb8e19afeed39508c0e0d9c；inspection=62bbce19-8685-41b8-86ef-bc23270c4d82，passed / not_scanned。真实页面先选择新上传再查询检查，重绘后仍保留新上传，确认生产修复有效。
+- 新 version=64ba4d34-0ab4-4e0b-958a-4f7e52d205d6，1.1.1 已由另一真实账号 e7b183d6-a81f-485a-9c89-32750b1346d0 独立批准，approved / revision 2，publicationEligible=true，publication=null；尚未发布，错误的 1.1.0 拒绝记录保持原样。证据在 linshi/assetlibrary-production-update-20261017/mcp-1.0.0-publication-grant.txt、mcp-1.1.1-upload-version.txt、mcp-1.1.1-review.txt 和 mcp-1.1.1-approved.png。
+- 实际运行中的 Loom 原用户实例通过正常 refresh 恢复 666 账号，并从正式站点读取到 MCP 1.0.0 与既有 Art 的独立下载目录；记录为同目录 loom-consumer-library.json。当前进程仍是此前旧交付包，不把目录读回说成新 libaria2 二进制验收。
+- 消费者下载安装、运行和新版切换仍待完成；不以部署恢复或发布授权替代四类包的业务验收。
 
 ## 生产更新与独立验证（2026-10-17）
 
@@ -18,7 +31,54 @@
 
 ## 完成标准
 
-### 生产双账号验收发现与修复（2026-10-17，尚未发布修复）
+### 2026-10-18 Art 生产双版本实际图像处理
+
+发布者 308008d6-2fad-4585-950a-b9861530cc22 在原资源 a66802da-1770-4e25-977d-5f3553ed72e6 上传 0.1.5；消费者 e7b183d6-a81f-485a-9c89-32750b1346d0 独立审核。格式策略 loom-art-zip-format-v1 通过，始终 not_scanned、cloudValidated=false。0.1.5 仅增加实际进程返回的 packageVersion 标记，图像算法未变，不冒称算法升级；包为 unsigned 验收包。
+
+- 新 upload=acab6ead-9157-4b08-a345-ae9d07935ecd，inspection=69b2322e-e0f6-4c55-8f06-a16cb1c9c4ea，version=b2df7118-3c62-4a7a-a6dc-bcee2f593476。
+- 新 publication=23146925-a79d-45a9-953a-35d371f45f27，published/revision 1，18670 bytes，SHA-256=67b07afc607b929c92c4d6832533bfe23291db38736664df3109743aff13c7de。
+- 新版未授权时正常安装接口返回 asset_library_request_rejected；独立下载授权 active/revision 1 后成功。用户原实例经 /v1/asset-library/install 安装，未复制凭据或替换 daemon。
+- 本轮先运行旧 0.1.4，再安装运行 0.1.5；两次均通过产品 /v1/tools/custom-1770131241684/execute 实际执行 Python 图像处理。新版返回 succeeded、packageVersion=0.1.5、8×8 PNG；输出 SHA-256=284f34afb15cea023e6e6b4f3b673d3afc2acb28e92eb0384388260a9b7a69cc，与算法未变的旧版一致。
+- 新版安装目录 versions/0.1.5-6082eb19d61d，旧版两个目录均保留。此次使用原用户运行中的旧交付 daemon，不作为 Art 的新 libaria2 或原生窗口交互证明。
+
+证据：C:/Users/Public/nas_home/AI/GameEditor/linshi/art-production-update-20261018，含原包来源/摘要、review-0.1.5.txt、production-0.1.5-grant.txt、art-0.1.5-install.json、两版 execution.json、新版 output.png 和 art-published.png。新包来自临时验收变体，没有修改仓库中的图像算法。
+
+验收同时发现线上旧文案仍称“尚未开放生产发布或下载”“当前未准入”。本地已改为真实四类型、未扫描提示和中性发布操作；新增真实阻断/无阻断回归，不改授权或发布门禁。该文案修复尚未部署，不能以源码修改冒称线上已修复。
+
+### 2026-10-18 Capability 生产双版本实际运行
+
+真实发布者 308008d6-2fad-4585-950a-b9861530cc22 创建资源 ad778f57-7501-4d6c-9e1d-b55a1e8e5f99；另一账号 e7b183d6-a81f-485a-9c89-32750b1346d0 独立审核并消费。两版均为 loom-capability-zip-format-v1、not_scanned，没有恢复扫描器。
+
+首包上传 6abb5ce9-62c2-4f8a-b6bc-fe0a10687dcb 被 ZIP_FILE_TYPE_UNSUPPORTED 拒绝：Windows 上 zip 9.0.4 默认使用 DOS 来源，但生成器同时写入 Unix 0o100644 权限。修复 Loom 测试包生成器，明确 system=Unix，并补充中央目录来源/权限回归；没有放宽服务端规则。现有签名包仅修正中央目录来源字节，逐文件证明解压后的签名和载荷字节不变；旧失败记录和原包保留。
+
+| 版本 | version | publication | 包 SHA-256 |
+| --- | --- | --- | --- |
+| 1.0.0 | bcac50d1-c9b8-4a5c-8772-8cad70579b40 | 8086f5d7-7bd1-4ef0-b560-52292dc420b0 | a30f2168c816d8523aea8cd124c893c60e7f257e9440c8d1fd9dc61d4d506dc3 |
+| 1.1.0 | 53e962e5-fbf0-4a58-9448-e88d241e60ea | b59a4ba0-a0f9-4c20-bad1-d2c740e74511 | 719ff60a0f8041cb221d992bdaf36bb5226c02ef80e4433e28f37bec277665ea |
+
+B 在隔离数据根中的产品 daemon 经正式站点、真实身份和 libaria2 下载、验签并安装两版。发布者测试公钥仅进入该临时数据根，没有修改用户日常信任库。未经权限批准的启用/升级被拒绝；按各版 digest 明确批准后，通过 /v1/invoke 调用实际插件进程，两版分别返回 1.0.0、1.1.0，并生成 attachment.upsert 和 notice.show 业务结果。新版 activeDigest=e9947af3afe088dd2d8e0969e71dbff570251dab7a3b0f958eb52c0a2cbe20be，旧版 EXE 保留。
+
+新版尚未取得独立下载授权时，安装请求返回 404 asset_library_request_rejected；授权 active/revision 1 后成功，旧版授权没有自动继承。新版未批准权限的升级返回 409，未误报成功。旧临时 access token 过期时返回 naccount_login_required，通过原用户实例正常 refresh 后更新加密测试副本再验收；没有调用副本 refresh/logout，没有撤销原用户会话。
+
+生产发布/审核及 ZIP 修复证据位于 C:/Users/Public/nas_home/AI/GameEditor/linshi/capability-update-20261018-v3；两版安装、执行和拒绝回执位于 C:/Users/Public/nas_home/AI/GameEditor/linshi/loom-production-consumer-20261018/capability-*.json。生成器聚焦 Rust 测试 1 项通过，rustfmt、strict 行数和 diff 检查通过。本次修改只涉及测试包生成器，不需要重新构建已交付 daemon；不是原生桌面 UI 或 Hook 可视化渲染验收。
+
+四类目标当前为 MCP、应用程序、Capability 的生产双版本实际运行通过；Art 已有单版实际图像处理，新版更新仍待完成。较大程序托管、Loom 自更新和正式组合源码发行仍未完成，不以本切片宣称全部交付。
+
+### 2026-10-18 生产 MCP 双版本消费者实测
+
+新版 1.1.1 已由真实发布者发布，publication 为 a2ed9ada-d081-43ef-a6a0-7363fb0f1682；消费者 e7b183d6-a81f-485a-9c89-32750b1346d0 的独立下载授权 active / revision 1。此前错误 1.1.0 的拒绝记录保留。
+
+在独立临时数据根启动源码绑定的新 daemon，使用真实消费者账号，访问正式站点；没有替换原运行中的旧 Loom。通过正常 /v1/asset-library/install 接口先安装 1.0.0，再安装 1.1.1，两次回执 downloadEngine=libaria2，包摘要分别与生产发布记录一致。随后通过 daemon MCP 调用接口执行各次安装路径的 version 工具，分别真实返回 1.0.0 和 1.1.1；更新后旧版文件仍存在。进程模块读回确认实际加载 loom_aria2.dll，摘要为 6f8b8cc51aca77af7c2275bca95933f815aac29faf5919e2dd06c49a7cefb732。
+
+证据位于 C:/Users/Public/nas_home/AI/GameEditor/linshi/loom-production-consumer-20261018，含两份安装回执、两份执行回执和 mcp-production-evidence.json。本次不是合成账号，也不是仅下载 ZIP；但仍是 daemon 接口验收，不是原生桌面窗口交互验收。所有包仍标记 not_scanned，未恢复扫描器。
+
+同批次已创建应用资源 8f08ba50-89ab-40c1-9cf0-06f6fd6fbca8，真实编译的文本整理 EXE 两版上传和格式检查通过，并由另一账号独立批准。1.0.0 version=b6df4345-fc8e-4979-8456-c8e6e422bfb3，1.1.0 version=6d3c3b10-151f-4655-9559-d14b0297abf2；发布及消费者执行以后续回执为准，不能把审核通过写成运行通过。
+
+随后两版均正式发布并各自授予 B 账号下载：1.0.0 publication=d13481ac-2881-42d2-9b2d-cc48f0e41c41，1.1.0 publication=d848d2f5-baf6-4086-8c3b-b4c6b6eb3e9e。B 在上述新 daemon 中经 libaria2 下载、安装，然后实际运行各安装目录里的 TextNormalize.exe；同一输入 `  hello   world  `，旧版输出 `hello   world`，新版输出 `hello world`，退出码均 0。active.json 指向新版 1.1.0，旧版 EXE 保留；不是仅比较版本字符串，也不是 Loom 自更新。生产授权截图和审核回执位于 linshi/assetlibrary-production-update-20261018，安装与运行 JSON 位于 linshi/loom-production-consumer-20261018。
+
+新客户端开发包 Loom-libaria2-complete-dev-20261018.zip 已补齐本次重建的 4 framework、2 MCP 和 7 Art，13 份模块摘要核对通过，独立解压后 47 个载荷文件逐项验摘要通过。桌面/daemon 仍为源码绑定 debug，正式发行、完整组合源码审查、大包托管和 Loom 自更新未完成；未放开 releaseApproved。
+
+### 生产双账号验收发现与修复（2026-10-17，修复已随 0.4.11 上线）
 
 真实发布者 308008d6-2fad-4585-950a-b9861530cc22 创建 MCP 资源 5eb3c60c-f522-4fa0-84b4-abe51c0a1d91，并上传两个 830 字节的 stdio 版本工具包。两次 loom-mcp-zip-format-v1 格式检查均 passed、not_scanned，未恢复扫描。
 
@@ -28,7 +88,7 @@
 - 修复 render.client.js：同资源重绘保留明确选中的上传；当前候选消失时清空选择，不自动改绑其他包；切换资源或清除身份不带入旧选择。新增回归先在旧实现复现 old !== new，修复后通过。扩展检查发现旧 DOM 测试夹具缺 dataset，补齐真实元素属性后五文件 23 项全部通过；Biome、类型、行数、diff 检查及 Worker 构建通过。
 - 证据目录：C:/Users/Public/nas_home/AI/GameEditor/linshi/assetlibrary-production-update-20261017，包含 packages.json、mcp-upload-ui.txt、两份审核回执、mcp-review.png、web-selection-tests-fixed.log；构建为 linshi/assetlibrary-p3-jRpMCa。
 
-修复仍为本地源码，生产继续运行 0.4.10；尚未完成此 MCP 资源的发布、消费者下载或新版实际执行。本次没有将本地 libaria2 运行结果替代生产双账号验收。
+修复已发布并部署为 0.4.11，独立验证与后续首版发布、新版上传进展见上文；消费者下载或新版实际执行仍未完成。本次没有将本地 libaria2 运行结果替代生产双账号验收。
 
 Art、Capability、MCP、应用程序各至少一个真实可使用包，分别完成：
 
