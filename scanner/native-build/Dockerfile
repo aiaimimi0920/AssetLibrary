@@ -10,6 +10,8 @@ RUN --mount=type=cache,id=assetlibrary-native-apk-v3.24-amd64,target=/var/cache/
     openssl-dev pcre2-dev zlib-dev python3 cargo rust git
 ADD source.tar /src/
 COPY source-tree.json /opt/native/source-tree.json
+COPY source-patches.mjs source-exports.mjs 7z-pack-streams.patch /opt/native/
+RUN --network=none node /opt/native/source-patches.mjs
 WORKDIR /src
 RUN mkdir -p /src/.cargo /evidence && cargo vendor --locked --versioned-dirs /src/.cargo/vendor > /src/.cargo/config.toml \
     && cargo metadata --frozen --format-version 1 > /evidence/cargo-metadata.json
@@ -17,6 +19,7 @@ RUN mkdir -p /src/.cargo /evidence && cargo vendor --locked --versioned-dirs /sr
 FROM materials AS compiled
 ENV CARGO_NET_OFFLINE=true CARGO_BUILD_JOBS=2
 COPY --chmod=755 cargo-record.mjs /opt/native/
+COPY 7z-pack-streams-test.c /opt/native/
 # 编译和安装完全断网；保留默认扫描能力，仅关闭不影响 clamscan 的文档、示例和测试构建。
 RUN --network=none /sbin/tini -g -- timeout -s KILL 1800 sh -c 'cmake -S /src -B /build -D CMAKE_BUILD_TYPE=Release \
     -D CMAKE_INSTALL_PREFIX=/usr -D CMAKE_INSTALL_LIBDIR=/usr/lib \
@@ -26,9 +29,16 @@ RUN --network=none /sbin/tini -g -- timeout -s KILL 1800 sh -c 'cmake -S /src -B
     -D ENABLE_JSON_SHARED=ON -D CMAKE_EXPORT_COMPILE_COMMANDS=ON \
     -D cargo_EXECUTABLE=/opt/native/cargo-record.mjs \
     && cmake --build /build --parallel 2 \
+    && cc -O1 -g -DHAVE_CONFIG_H -DTHIS_IS_LIBCLAMAV -ffunction-sections -fdata-sections \
+       -fsanitize=address,undefined -I/src/libclamav/7z -I/src/libclamav -I/src -I/build \
+       -I/build/libclamav -I/src/libclamunrar_iface -I/usr/include/json-c -I/usr/include/libxml2 \
+       /opt/native/7z-pack-streams-test.c -Wl,--gc-sections -o /tmp/pack-streams-test \
+    && /tmp/pack-streams-test > /evidence/7z-pack-streams-test.log \
     && DESTDIR=/install cmake --install /build'
+RUN --network=none ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
+    /tmp/pack-streams-test > /evidence/7z-pack-streams-sanitizer.log 2>&1
 # 证明收集独立于昂贵编译层；它逐字节核对原源码和锁文件，不修改任何编译材料。
-COPY collect.mjs source-exports.mjs /opt/native/
+COPY collect.mjs /opt/native/
 RUN --network=none node /opt/native/collect.mjs inputs && node /opt/native/collect.mjs outputs
 
 FROM scratch AS proof

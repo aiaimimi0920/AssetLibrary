@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceExportLayout } from "../scanner/native-build/source-exports.mjs";
+import { nativePatch } from "../scanner/native-build/source-patches.mjs";
 import { verifyInstalledEngine } from "./scanner-native-installation.mjs";
 import { sha256 } from "./scanner-release-policy.mjs";
 
@@ -41,7 +42,18 @@ export function assessNativeProof({
   const layout = sourceExportLayout(tree, Object.keys(source));
   for (const entry of layout.exported) {
     const file = source[entry.path];
-    assert.equal(file.gitBlob, entry.blob, "NATIVE_SOURCE_BLOB_MISMATCH");
+    if (entry.path === nativePatch.file) {
+      assert.equal(entry.blob, nativePatch.upstream, "NATIVE_PATCH_UPSTREAM_CHANGED");
+      assert.equal(file.upstreamGitBlob, entry.blob, "NATIVE_PATCH_ORIGIN_MISSING");
+      assert.equal(file.patchId, nativePatch.id, "NATIVE_PATCH_ID_MISMATCH");
+      assert.equal(file.patchSha256, nativePatch.patchSha256, "NATIVE_PATCH_BYTES_CHANGED");
+      assert.equal(file.sha256, nativePatch.sha256, "NATIVE_PATCH_OUTPUT_CHANGED");
+      assert.equal(file.gitBlob, nativePatch.patched, "NATIVE_PATCH_BLOB_MISMATCH");
+      assert.equal(dependencies[`/src/${entry.path}`], file.sha256, "NATIVE_PATCH_NOT_COMPILED");
+    } else {
+      assert.equal(file.gitBlob, entry.blob, "NATIVE_SOURCE_BLOB_MISMATCH");
+      assert.equal(file.patchId, undefined, "NATIVE_PATCH_UNDECLARED");
+    }
     assert.match(file.sha256, /^[0-9a-f]{64}$/, "NATIVE_SOURCE_DIGEST_INVALID");
     assert.match(file.rawGitBlob, /^[0-9a-f]{40}$/, "NATIVE_SOURCE_RAW_BLOB_INVALID");
     assert(
@@ -138,6 +150,11 @@ export async function verifyNativeProof(output) {
   const evidence = path.join(output, "proof/evidence");
   const json = async (name) => JSON.parse(await readFile(path.join(evidence, name), "utf8"));
   const input = await json("build-proof.json");
+  assert.equal(
+    await readFile(path.join(evidence, "7z-pack-streams-sanitizer.log"), "utf8"),
+    "CLAM-3065: 7 boundary cases passed\n",
+    "NATIVE_PATCH_SANITIZER_FAILED",
+  );
   assert.equal(
     sha256(await readFile(path.join(evidence, "install.tar"))),
     input.installArchiveSha256,

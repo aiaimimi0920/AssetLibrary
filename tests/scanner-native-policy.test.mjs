@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { nativePatch } from "../scanner/native-build/source-patches.mjs";
 import { assessNativeProof } from "../scripts/scanner-native-policy.mjs";
 import { parseNativeTree } from "../scripts/scanner-native-tools.mjs";
 
@@ -82,6 +83,30 @@ test("完整本地构建身份不会授予供应链、云或发布准入", () =>
   assert.equal(result.supplyChainValidated, false);
   assert.equal(result.cloudValidationEligible, false);
   assert.equal(result.publicationEligible, false);
+});
+
+test("7z 补丁必须绑定上游、补丁字节、实际源码和编译依赖", () => {
+  const value = proof();
+  value.tree.push({ mode: "100644", path: nativePatch.file, blob: nativePatch.upstream });
+  value.source[nativePatch.file] = {
+    gitBlob: nativePatch.patched,
+    rawGitBlob: nativePatch.patched,
+    exportTransform: "none",
+    sha256: nativePatch.sha256,
+    upstreamGitBlob: nativePatch.upstream,
+    patchId: nativePatch.id,
+    patchSha256: nativePatch.patchSha256,
+  };
+  value.dependencies[`/src/${nativePatch.file}`] = nativePatch.sha256;
+  assert.equal(assessNativeProof(value).buildIdentityPassed, true);
+  for (const field of ["upstreamGitBlob", "patchId", "patchSha256", "sha256", "gitBlob"]) {
+    const changed = structuredClone(value);
+    changed.source[nativePatch.file][field] = "changed";
+    assert.throws(() => assessNativeProof(changed), /NATIVE_PATCH_/);
+  }
+  const stale = structuredClone(value);
+  stale.dependencies[`/src/${nativePatch.file}`] = digest;
+  assert.throws(() => assessNativeProof(stale), /NATIVE_PATCH_NOT_COMPILED/);
 });
 
 test("源码树拒绝符号链接、子模块、路径穿越和重复条目", () => {

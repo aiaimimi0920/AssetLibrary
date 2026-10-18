@@ -11,7 +11,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
-import { bindSourceBlob, sourceExportLayout } from "./source-exports.mjs";
+import { sourceExportLayout } from "./source-exports.mjs";
+import { bindNativeSource } from "./source-patches.mjs";
 
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const json = async (file) => JSON.parse(await readFile(file, "utf8"));
@@ -52,7 +53,7 @@ if (process.argv[2] === "inputs") {
   for (const entry of layout.exported) {
     assert(["100644", "100755"].includes(entry.mode), "SOURCE_MODE_UNSUPPORTED");
     const bytes = await readFile(`/src/${entry.path}`);
-    Object.assign(source[entry.path], bindSourceBlob(bytes, entry.blob));
+    Object.assign(source[entry.path], bindNativeSource(bytes, entry.blob, entry.path));
   }
   await save("source-files.json", source);
   await copyFile("/opt/native/source-tree.json", "/evidence/source-tree.json");

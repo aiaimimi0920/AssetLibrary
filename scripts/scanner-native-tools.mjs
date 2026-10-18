@@ -153,6 +153,9 @@ export async function prepareNativeContext(output, cmakeFile, sourceRepository) 
     "Dockerfile",
     "collect.mjs",
     "source-exports.mjs",
+    "source-patches.mjs",
+    "7z-pack-streams.patch",
+    "7z-pack-streams-test.c",
     "cargo-record.mjs",
     "runtime-probe.mjs",
   ]) {
