@@ -4,6 +4,12 @@
 
 ## 授权与当前状态
 
+2026-10-18 生产升级已完成：用户恢复 SpringBok 会话后，以 `vmjcv666@gmail.com` 对应账户在原实例升级到固定 `v0.4.12 / 9a66309fc4dc776480d7bdbad95f4baa620cf491`。更新任务 `dc-e329020c0aef499bb8b67cb2101c58f1` 的七项检查通过，包含 `backup-created`、`data-preserved`、`deployed-bindings`，0012 随固定版本迁移链应用。部署执行 [39099963419](https://github.com/aiaimimi0920/SpringBok/actions/runs/39099963419) 成功，原实例、D1 和 R2 保留。随后独立验证任务 `dc-83903254b69740be9b1e50b62dd54164` 返回 `succeeded`、四项通过，见 [39100106020](https://github.com/aiaimimi0920/SpringBok/actions/runs/39100106020)。下段登录阻塞已经解除，保留为先前停点。
+
+本机独立无凭据读取 healthz、readyz、auth/session：线上版本及 SHA 精确匹配，identity/database/storage 均 available，distribution 为 `available / unscanned-packages / malwareScanning:not_required`，匿名 principal 为 null。历史检查 ID `scanner-admission-verified` 在当前路径只验证分发状态，不代表执行病毒扫描。浏览器已读到新版四类包文案及 96 MB 大包说明；双账号完整大包业务、新版原生 UI、运行中 Loom 自更新和正式组合源码仍未完成，不能据此结束全部验收。
+
+账号操作约束：SpringBok 发布账户只有 `vmjcv666@gmail.com`；NAccount 双账号业务测试可使用 `vmjcv666@gmail.com` 与 `vmjcv111@gmail.com`。不得将两者登录权限混同。
+
 2026-10-18 续进：测试运行器日志缓冲故障已修复，固定提交 `9a66309fc4dc776480d7bdbad95f4baa620cf491` 的完整 GitHub CI 382 通过、0 失败、1 跳过，verify/secret_scan 成功；Windows 业务回归 286 通过、0 失败、1 跳过。已发布 [v0.4.12](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.12)，标签及发布页绑定该提交。发布不等于上线：SpringBok 原标签页刷新后进入 Cloudflare Access 验证码登录，尚未恢复会话，未发起生产升级、未执行 0012 生产迁移。运行中自更新、原生 UI 与正式组合源码边界仍按下文保留。
 
 用户已对本次新的生产保数据迁移及配套上线明确回复“同意”。允许调整 uploads、inspections、versions 的大小及策略约束；执行前必须备份、验证保全与失败回滚，保留业务记录和 R2 文件。此前 0011 授权不作为本次授权来源。扫描器开发、研究和病毒扫描继续暂停。
