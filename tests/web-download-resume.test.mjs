@@ -173,9 +173,20 @@ test("停止、切换身份、放弃清空待续传；三次手动失败耗尽�
   });
 });
 
-test("整轮超时或外部取消丢弃完整段并释放计时器与流", async () => {
-  for (const action of ["timeout", "abort"])
+test("小包超时和取消清空；大包截止保留完整段、重申票据续传且释放流和计时器", async () => {
+  for (const action of [
+    "timeout",
+    "abort",
+    "large-timeout",
+    "large-abort",
+    "large-stop",
+    "large-identity",
+  ])
     await harness(async (h) => {
+      if (action.startsWith("large-")) {
+        h.row.kind = "application";
+        h.row.policy = "application-large-zip-format-v1";
+      }
       const originalSet = globalThis.setTimeout;
       const originalClear = globalThis.clearTimeout;
       const timers = new Map();
@@ -215,15 +226,31 @@ test("整轮超时或外部取消丢弃完整段并释放计时器与流", async
       const controller = new AbortController();
       try {
         const pending = h.transfer.fetch(h.row, controller.signal);
-        const rejected = assert.rejects(pending, { name: "AbortError" });
+        const rejected = assert.rejects(
+          pending,
+          action === "large-timeout" ? /已保留完整分段/ : { name: "AbortError" },
+        );
         await waiting;
-        if (action === "timeout") {
+        if (action.endsWith("timeout")) {
           assert.equal(timers.get(1).delay, 120000);
           timers.get(1).callback();
-        } else controller.abort();
+        } else if (action === "large-stop") h.api.stopRequests();
+        else if (action === "large-identity") h.api.setCredential("replacement-identity");
+        else controller.abort();
         await rejected;
-        assert.equal(h.transfer.snapshot(), null);
         assert.equal(cancelled, 1);
+        assert.equal(timers.size, 0);
+        if (action === "large-timeout") {
+          assert.equal(h.transfer.snapshot().offset, 262144);
+          assert.equal(h.transfer.snapshot().resumable, true);
+          assert.equal(h.tickets(), 1);
+          h.content((options) => segment(options, h.row));
+          const result = await h.transfer.fetch(null, undefined, true);
+          assert.deepEqual(Buffer.from(await result.blob.arrayBuffer()), bytes);
+          assert.equal(h.requests[2].headers.Range, "bytes=262144-524287");
+          assert.equal(h.tickets(), 2);
+        }
+        assert.equal(h.transfer.snapshot(), null);
         assert.equal(timers.size, 0);
       } finally {
         globalThis.setTimeout = originalSet;

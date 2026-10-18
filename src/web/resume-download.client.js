@@ -88,7 +88,11 @@ export function createDownloadTransfer(changed = () => {}) {
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    const timer = setTimeout(abort, 120000);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      abort();
+    }, 120000);
     const check = () => {
       controller.signal.throwIfAborted();
       if (current !== epoch || state !== active) throw new DOMException("Aborted", "AbortError");
@@ -132,14 +136,23 @@ export function createDownloadTransfer(changed = () => {}) {
       state = null;
       return result;
     } catch (error) {
-      // 仅传输故障允许用户手动继续；取消、权限或协议失败一律丢弃。
+      // 大包整轮截止可保留完整段；用户停止、身份变化仍必须清空。
+      const resumableTimeout =
+        timedOut &&
+        !signal?.aborted &&
+        active.publication.kind === "application" &&
+        active.publication.policy === "application-large-zip-format-v1";
       const transport =
         error instanceof TypeError || error.message === "DOWNLOAD_TRUNCATED" || error.status >= 500;
       if (
         current === epoch &&
-        (!transport || controller.signal.aborted || active.offset === 0 || active.attempts >= 3)
+        ((!resumableTimeout && (!transport || controller.signal.aborted)) ||
+          active.offset === 0 ||
+          active.attempts >= 3)
       )
         clear();
+      if (resumableTimeout && current === epoch && state === active)
+        throw new Error("下载达到本次时间上限；已保留完整分段，请点击继续下载。");
       throw error;
     } finally {
       clearTimeout(timer);

@@ -4,11 +4,17 @@
 
 ## 授权与当前状态
 
+2026-10-18 下载修复候选 0.4.13：补充大包下载中全局停止与身份切换测试，均清空完整段且释放流；6 文件 25 项聚焦通过。非 scanner-* 全业务回归 287 项，286 通过、0 失败、1 项完整包专用场景默认跳过，日志 `linshi/assetlibrary-p3-0ohi5T/tests.log`（332 秒）。类型、Biome、行数与 diff 检查通过。此为修复候选验证，生产仍需固定版本升级后复测，不代表已完成下载或原生更新。
+
 2026-10-18 生产升级已完成：用户恢复 SpringBok 会话后，以 `vmjcv666@gmail.com` 对应账户在原实例升级到固定 `v0.4.12 / 9a66309fc4dc776480d7bdbad95f4baa620cf491`。更新任务 `dc-e329020c0aef499bb8b67cb2101c58f1` 的七项检查通过，包含 `backup-created`、`data-preserved`、`deployed-bindings`，0012 随固定版本迁移链应用。部署执行 [39099963419](https://github.com/aiaimimi0920/SpringBok/actions/runs/39099963419) 成功，原实例、D1 和 R2 保留。随后独立验证任务 `dc-83903254b69740be9b1e50b62dd54164` 返回 `succeeded`、四项通过，见 [39100106020](https://github.com/aiaimimi0920/SpringBok/actions/runs/39100106020)。下段登录阻塞已经解除，保留为先前停点。
 
 本机独立无凭据读取 healthz、readyz、auth/session：线上版本及 SHA 精确匹配，identity/database/storage 均 available，distribution 为 `available / unscanned-packages / malwareScanning:not_required`，匿名 principal 为 null。历史检查 ID `scanner-admission-verified` 在当前路径只验证分发状态，不代表执行病毒扫描。浏览器已读到新版四类包文案及 96 MB 大包说明；双账号完整大包业务、新版原生 UI、运行中 Loom 自更新和正式组合源码仍未完成，不能据此结束全部验收。
 
 账号操作约束：SpringBok 发布账户只有 `vmjcv666@gmail.com`；NAccount 双账号业务测试可使用 `vmjcv666@gmail.com` 与 `vmjcv111@gmail.com`。不得将两者登录权限混同。
+
+2026-10-18 生产大包业务续验：666 账号上传的完整 Loom 包为 80,166,238 字节，SHA-256 与下文新开发封装一致；检查 `2230f7e5-888f-4583-a1dc-1abce92d94c1` 首次 passed，41 个载荷，`scanStatus:not_scanned`。资源 `d88e8e1a-6ca7-42b2-9d3f-0d91c7c3b352` 的版本 `01455377-e435-4b43-a2be-e67013998cc7` 保持 pending_review，未发布。切换 111 读取返回 404；核对 `.sba/reviewers.py`，默认独立审核主体实际只有 666，111 不是审核者。该结果不能冒充双账号审核成功。
+
+不扩展审核权限、不绕过自审限制；改用 111 上传、666 独立审核的现有角色安排。111 新建资源 `30d17944-1039-4ac3-9b1b-b6120a948ea7`，新包上传 `52b8cc39-fb82-401c-be33-ee163f3b2dd7` 已完成，检查任务 `1be54755-3d72-4e50-8923-61ba22dacf73` 首次 passed（2,744 ms，41 个载荷，not_scanned），新版 `f120b693-d2f1-4bd3-a981-718fb9607c92` 已创建、待独立审核。同资源旧完整包 80,150,741 字节亦已上传，upload 为 `2d03103d-518b-4843-9100-6955eb319caa`，检查 `e9e0d70d-0ebb-4385-9387-61c99d4c1036` 已排队。上述 666 资源及包体保留，不做删除或替换。
 
 2026-10-18 续进：测试运行器日志缓冲故障已修复，固定提交 `9a66309fc4dc776480d7bdbad95f4baa620cf491` 的完整 GitHub CI 382 通过、0 失败、1 跳过，verify/secret_scan 成功；Windows 业务回归 286 通过、0 失败、1 跳过。已发布 [v0.4.12](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.12)，标签及发布页绑定该提交。发布不等于上线：SpringBok 原标签页刷新后进入 Cloudflare Access 验证码登录，尚未恢复会话，未发起生产升级、未执行 0012 生产迁移。运行中自更新、原生 UI 与正式组合源码边界仍按下文保留。
 
@@ -19,6 +25,24 @@
 后续本地实现已接通：application 超过原 16 MiB 上传预算时仍检查 owner/draft/type；新策略采用顺序 ZIP 解析和原生 DigestStream，校验 local/central/EOCD、CRC、清单逐文件摘要与整包摘要。最多 64 个载荷，单文件 128 MiB、总解压 256 MiB、清单 32 KiB、路径 180 字节、压缩比 100；既有小包解析器和预算不变。Web 新增大型应用策略并按策略校验上传/下载预算，Range 单段仍最多 256 KiB。浏览器端摘要仍在有界预算内汇集文件，不能称浏览器零缓冲。
 
 ## 兼容与发布顺序
+
+### 生产双版本发布实测（2026-10-18）
+
+旧包检查 `e9e0d70d-0ebb-4385-9387-61c99d4c1036` 首次 passed，读取 80,150,741 字节、41 个载荷，耗时 7,756 ms。111 上传、666 独立审核后，两版均 approved/revision 2，原主体和包体绑定保持 current；not_scanned、scanCurrent:false、cloudValidated:false 保持真实。
+
+| 项目 | 旧版 | 新版 |
+| --- | --- | --- |
+| 标签 | `0.2.2-dev.20261018` | `0.2.2-dev.20261018-large` |
+| 版本 ID | `67bc1d5d-2e18-498c-a061-fa80d924434e` | `f120b693-d2f1-4bd3-a981-718fb9607c92` |
+| 发布 ID | `20f77cce-f528-4451-9a2d-777aee0cc081` | `b0a89eb0-e07e-4566-bbd2-c73eb1033099` |
+
+111 已分别发布两版，服务器均返回 published/revision 1。随后分别查询 666 消费者的 absent/revision 0 权限，再通过正式 Web 授予两版下载权限，均读回 active/revision 1。未授予目录写权或新增审核角色。截图：`linshi/assetlibrary-large-published-grant-20261018.jpg`。此处证明上传、检查、独立审核、发布和授权，不代表消费者下载、安装或自更新完成。
+
+666 正式登录后，下载资源库返回 10 项，包含上述两版完整包。旧包点击下载后观察到至少 1,572,864 字节完整接收，随后页面显示请求停止或超时且无未完成下载，不能保存或继续。失败截图：`linshi/assetlibrary-large-download-timeout-20261018.jpg`。新版下载观察工具曾超时重置，结果未知，不计为通过。
+
+定位到 `resume-download.client.js` 的整轮 120 秒截止，无论是否已接收完整段都会按取消清空。已做本地窄修：仅大型应用策略在本轮截止时保留完整段并提示手动继续；继续仍重申票据、核验 ETag/Range/最终 SHA-256，最多三次；用户停止、切换身份、协议错误和权限撤销仍清空，小包行为不变。不延长服务器票据、不自动重试、不修改扫描策略。新增模拟计时回归同时覆盖大包截止后续传及显式取消清空。
+
+本地配置运行器已完成 6 文件 25 项回归（含真实 D1/R2 撤销及下架阻断），0 失败、0 跳过；日志 `linshi/assetlibrary-p3-SXaVz6/tests.log`，同时 Worker 构建、类型、Biome、行数及 diff 检查通过。首次直接 node 调用遗漏构建环境，3 项返回 ASSETLIBRARY_BUNDLE_REQUIRED，已改用仓库运行器重跑而非跳过测试。修复尚未上线；生产下载完整字节、Loom 原生安装与更新仍未验收通过。
 
 - 不改写已应用迁移；0012 在一个 D1 batch 内复制并替换三张表，恢复全部索引。资源、审核、授权和审计记录不重置，R2 文件不搬移或删除。
 - 旧检查策略仍保持 8 MiB，PNG 保持 1 MiB；只新增应用策略获得扩大预算。新策略 passed 仍要求软件包 schema、application kind、原摘要和 not_scanned，禁止出现 scan 字段。
