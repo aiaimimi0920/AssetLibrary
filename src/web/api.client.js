@@ -4,6 +4,7 @@ let generation = 0;
 const controllers = new Set();
 const keys = new Map();
 const stopObservers = new Set();
+let logoutJob = null;
 
 export function observeRequestStops(observer) {
   stopObservers.add(observer);
@@ -26,20 +27,51 @@ export function setSession(csrf) {
   if (!/^[0-9a-f]{64}$/.test(csrf)) throw new Error("INVALID_SESSION");
   sessionCsrf = csrf;
 }
-export async function logoutSession() {
-  const response = await fetch("/auth/logout", {
-    method: "POST",
-    credentials: "same-origin",
-    redirect: "error",
-    headers: { "X-AssetLibrary-CSRF": sessionCsrf },
+async function authJson(path, options = {}) {
+  const current = generation;
+  const controller = new AbortController();
+  controllers.add(controller);
+  const timer = setTimeout(() => controller.abort(), 10000);
+  let response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "error",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error("SESSION_REQUEST_FAILED");
+    const result = await response.json();
+    if (controller.signal.aborted || current !== generation)
+      throw new DOMException("Aborted", "AbortError");
+    return result;
+  } finally {
+    if (response?.body && !response.bodyUsed && !response.body.locked)
+      await response.body.cancel().catch(() => {});
+    clearTimeout(timer);
+    controllers.delete(controller);
+  }
+}
+export function readSession() {
+  return authJson("/auth/session");
+}
+export function logoutSession() {
+  if (logoutJob) return logoutJob;
+  logoutJob = (async () => {
+    const result = await authJson("/auth/logout", {
+      method: "POST",
+      headers: { "X-AssetLibrary-CSRF": sessionCsrf },
+    });
+    const url = new URL(result.logoutUrl);
+    if (url.protocol !== "https:" || url.pathname !== "/oauth2/v1/logout")
+      throw new Error("INVALID_LOGOUT_URL");
+    setCredential("");
+    return url.href;
+  })().finally(() => {
+    logoutJob = null;
   });
-  if (!response.ok) throw new Error("LOGOUT_FAILED");
-  const result = await response.json();
-  const url = new URL(result.logoutUrl);
-  if (url.protocol !== "https:" || url.pathname !== "/oauth2/v1/logout")
-    throw new Error("INVALID_LOGOUT_URL");
-  setCredential("");
-  return url.href;
+  return logoutJob;
 }
 export function stopRequests() {
   for (const observer of stopObservers) observer();

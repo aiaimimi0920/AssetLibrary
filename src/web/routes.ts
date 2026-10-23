@@ -7,11 +7,17 @@ import page from "./index.html";
 import render from "./render.client.js";
 import resource from "./resource.client.js";
 import resumeDownload from "./resume-download.client.js";
+import store from "./store.client.js";
+import storeStyle from "./store.css";
+import storePage from "./store.html";
 import style from "./style.css";
 import upload from "./upload.client.js";
 
 const assets: Record<string, [string, string]> = {
-  "/": [page, "text/html"],
+  "/": [storePage, "text/html"],
+  "/workspace": [page, "text/html"],
+  "/store.client.js": [store, "text/javascript"],
+  "/store.css": [storeStyle, "text/css"],
   "/app.client.js": [app, "text/javascript"],
   "/api.client.js": [api, "text/javascript"],
   "/render.client.js": [render, "text/javascript"],

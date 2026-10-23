@@ -4,6 +4,7 @@ import {
   connected,
   logoutSession,
   operationKey,
+  readSession,
   setCredential,
   setSession,
   stopRequests,
@@ -42,6 +43,7 @@ let job = null;
 let distribution;
 let resourceManagement;
 let naccount = false;
+let signingOut = false;
 
 function controls() {
   syncUploadForm(state.resource);
@@ -294,13 +296,19 @@ function clearIdentity() {
   controls();
 }
 element("disconnect").addEventListener("click", async () => {
+  if (signingOut) return;
   if (naccount && connected()) {
+    signingOut = true;
+    element("disconnect").disabled = true;
     job?.abort();
     stopRequests();
     try {
       window.location.assign(await logoutSession());
     } catch (error) {
       notice(error.message, "error");
+    } finally {
+      signingOut = false;
+      element("disconnect").disabled = false;
     }
     return;
   }
@@ -455,13 +463,7 @@ controls();
 
 async function restoreSession() {
   try {
-    const response = await fetch("/auth/session", {
-      credentials: "same-origin",
-      cache: "no-store",
-      redirect: "error",
-    });
-    if (!response.ok) throw new Error("SESSION_UNAVAILABLE");
-    const session = await response.json();
+    const session = await readSession();
     naccount = session.enabled === true;
     element("identity-form").hidden = naccount;
     element("naccount-login").hidden = !naccount || !!session.principal;
