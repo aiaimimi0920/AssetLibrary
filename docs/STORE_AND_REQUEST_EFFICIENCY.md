@@ -1,8 +1,8 @@
 # 访客商店、统一主题与请求预算
 
-日期：2026-10-23。上一批 0.4.14 已通过 SpringBok 原实例升级及独立平台验证；下述发现布局改版仅在本地实现，未提交或部署。
+日期：2026-10-23。商店发现布局 0.4.15 已通过 SpringBok 原实例保数据升级及独立平台验证；0.4.14 历史证据保留。
 
-## 本地商店发现布局改版（未部署）
+## 商店发现布局改版（0.4.15）
 
 参考已联网查看的 [Godot Asset Store](https://store.godotengine.org/)、[Fab](https://www.fab.com/) 和
 [Unity Asset Store](https://assetstore.unity.com/)。采用 Godot 的资产发现层次及 Fab 的分类／资源库分离，不复制第三方品牌或页面代码。
@@ -19,7 +19,7 @@
   `ORDER BY p.id` 不是按时间排序，因此不标注“最新上架”或“热门”。类型占位明确写明不代表包内预览。
 
 本轮只修改 `store.html`、`store.css`、`store.client.js`、商店生命周期测试及说明文档。
-NAccount、SpringBok、Loom、身份／授权合同、Schema、部署模块和扫描策略未改；发布候选版本改为 0.4.15，不表示本地字节已经上线。
+NAccount、SpringBok、Loom、身份／授权合同、Schema、部署模块和扫描策略未改；0.4.15 的本地与生产证据分别记录，不以测试代替实际部署。
 
 ### 0.4.15 发布收尾
 
@@ -27,7 +27,7 @@ NAccount、SpringBok、Loom、身份／授权合同、Schema、部署模块和�
 不再引导正式用户使用本地体验身份；未配置账号或已登录时隐藏该入口。下载操作采用当前上下文的主操作样式。
 关闭进行中下载的详情时，焦点落到可用的下载任务按钮；任务清空后回到搜索框，不尝试聚焦已隐藏或禁用的入口。
 新资产详情从顶部展示，避免沿用上一个长详情的滚动位置。保护测试夹具现包含动态卡片按钮，真实模拟请求中的禁用状态。
-本轮不修改 NAccount 会话合同，不新建维护授权，不重放任何历史任务。完成本地及 exact-head CI 后发布固定 SHA，
+本轮未修改 NAccount 会话合同，未新建维护授权，未重放任何历史任务。完成本地及 exact-head CI 后发布固定 SHA，
 再通过 SpringBok 正常 update，保留原 configuration、D1/R2、Loom binding 和历史回执，最后执行独立平台 verify。
 
 ### 发布收尾验证（0.4.15）
@@ -128,3 +128,31 @@ SpringBok 服务页仅周期查询活动实例，完整列表在初始化、用�
   `/workspace` 正常初始化 NAccount 登录入口。空闲观察窗口无目录自动请求；不以此代替总体成本/负载测量。
 - 本轮没有重新执行生产上传、审核、授权下载、Loom 安装/运行或账号撤销的全业务验收。临时证据在
   `linshi/asset-store-ui-20261023/`。GitHub 仓库级 Dependabot 告警仍全部位于 `old/**`，未清除或豁免。
+
+## 0.4.15 发布与生产证据
+
+- [PR #110](https://github.com/aiaimimi0920/AssetLibrary/pull/110) 正常合并；exact-head CI `39964672291` 与
+  main CI `39965389506` 的 verify／secret_scan 均成功。正式 [v0.4.15](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.15)
+  固定 SHA `1a8c0a3c6c02aca50bdf9752fae803f2a7002b1b`，没有覆盖标签。
+- 原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 单次正常 update：任务 `dc-bb5cec4eb039421da0381980b2fe4be1` /
+  [run 39966665580](https://github.com/aiaimimi0920/SpringBok/actions/runs/39966665580)。版本选择器按 SHA 去重，
+  该提交显示为 main；最终确认页、任务与回执均绑定上述完整固定 SHA，与正式 Release 一致，不在执行时追随浮动分支。
+- update 原回执为 `deployed-unverified`，七项检查全部通过：备份、数据保全、bindings、发布身份、私有依赖、账号配置及现行分发策略。
+  唯一 artifact 的 task／run／source／ZIP 大小与 GitHub digest 全部匹配；ZIP SHA-256 为
+  `3be8b052afaafa080bc3e8f33328ffc070ea75878b8274c765850b534358e38e`。首次只读下载遇到 TLS EOF，重读同一 artifact 后通过，未重提或重跑部署。
+- 独立平台 verify：任务 `dc-6298690aa69c4d94b73036e56a6fb07b` /
+  [run 39967327700](https://github.com/aiaimimi0920/SpringBok/actions/runs/39967327700)，`succeeded`、四项检查全部通过；
+  ZIP SHA-256 为 `ae2cc9eabaabe5b5d37123b9ded14f349db6831560eabed2cc000f44859a4fdb`。控制台显示“可用性已验证”，原 update 回执未被改写。
+- 独立 Cloudflare before／after 快照确认：AssetLibrary 只变更 `RELEASE_SHA/RELEASE_VERSION` bindings，原 runtime settings、域名及其他 bindings 保留。
+  NAccount auth／admin 两个 Worker 的部署 ID、bindings、runtime settings 和域名均未变化；未改动或部署兄弟仓库。
+- 正式 `/healthz` 返回 0.4.15 及固定 SHA；`/readyz` 的 identity／database／storage 均 available，分发模式保持 `unscanned-packages`。
+  不新增 Schema 迁移、scanner 或真实账号配置，不读取 secret binding 明文。
+- Edge 正式匿名商店显示原有 10 条发布；名称“颜色迁移”与 Art 分类组合返回两条真实版本，详情完整展示 0.1.5、18670 bytes、摘要和未扫描提示，访客下载禁用。
+  1440px 商店与 390px 模态详情无横向溢出；模态在窄屏内部滚动，测试仿真已清除，没有修改浏览器缩放。
+- 详情内原生 POST 入口实际进入正式 NAccount。用户确认完成登录后，商店刷新读取到真实会话；登录按钮隐藏、资源库入口启用，
+  私库读取 10 条当前授权资产，详情不再显示登录提示；工作台同一身份读取成功。没有为此提交包体下载、发布、授权或退出操作。
+- 已登录正式商店完成初始化后观察 82 秒，CDP 未记录任何新增请求事件，无截断或未读事件；不将单窗口证据外推为全局资源／费用基准。
+- 本轮没有重跑生产上传／审核／授权下载、Loom 安装运行或撤销的全业务验收；不把已登录或可用性通过等同于这些业务完成。
+  另观察到 NAccount 登录页既有 Logo 元素的 src 为空、图片未加载；本轮未修改该服务，保留为独立问题，不冒称已修复。
+- 本轮九个变更文件通过 UTF-8 无 BOM、Gitleaks 8.30.1 与 diff 检查；活动依赖审计无已知漏洞。联网核查的 21 项仓库告警均在 `old/**`，未清除或豁免。
+  回执、快照及正式截图在 `linshi/store-discovery-release-20261023/`；本地联调服务已主动关闭且确认不再监听，数据保留。
