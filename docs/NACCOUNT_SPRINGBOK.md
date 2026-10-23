@@ -2,6 +2,12 @@
 
 ## 当前交付范围
 
+2026-10-23 当前线上为 `0.4.14` / `7803519cb8558687b25db5558f24ac3fe8df9902`，
+公开商店与 `/workspace` 已上线；SpringBok 原实例 update 七项检查和独立平台 verify 四项通过。
+原配置、D1/R2、Loom binding、会话 secret binding 及现行未扫描分发策略保留。
+精确任务、artifact digest、线上页面与未验业务见 [商店与请求优化](STORE_AND_REQUEST_EFFICIENCY.md#0414-发布与生产证据)。
+下文 0.4.6 及更早批次的扫描阻断、未部署描述保留为历史，不覆盖上述当前状态。
+
 2026-10-16 当前线上为 `0.4.6` / `84d29682e03c27e81a50a414019e97094e89f353`，
 Loom native binding 已实际部署并独立读回匹配，详见 [Loom 部署方案与回执](LOOM_CLIENT_DEPLOYMENT.md)。
 原实例正常 update 回执七项通过，独立应用 verify 四项通过；不是平台 verify 或桌面登录验收。

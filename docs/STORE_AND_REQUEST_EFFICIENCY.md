@@ -1,6 +1,6 @@
 # 访客商店、统一主题与请求预算
 
-日期：2026-10-23。状态：本地实现与验证通过，0.4.14 发布进行中，尚未上线。
+日期：2026-10-23。状态：0.4.14 已通过 SpringBok 原实例升级及独立平台验证，正式商店已上线。
 
 ## 页面与权限
 
@@ -53,4 +53,25 @@ SpringBok 服务页仅周期查询活动实例，完整列表在初始化、用�
 - 浏览器脚本与截图在 `linshi/asset-store-ui-20261023/`；使用隔离合成身份，不是生产登录、真实业务或线上费用验收。
 
 用户已明确授权保存三个独立仓库成果、生成 NAccount 定制补丁并通过发布门禁，再通过 SpringBok 原实例保数据升级及独立 verify。
-线上基线经只读探针核对为 0.4.13 / `1661458c7ab38304aa2bd203641faff9609292eb`；保留原配置、D1/R2、Loom binding 和未扫描分发。不把本地页面通过称作线上已统一。
+升级前线上基线经只读探针核对为 0.4.13 / `1661458c7ab38304aa2bd203641faff9609292eb`。
+
+## 0.4.14 发布与生产证据
+
+- PR #108 正常合并，main CI `39946693651` 的 verify/secret_scan 成功；正式 `v0.4.14` 固定
+  `7803519cb8558687b25db5558f24ac3fe8df9902`。最终完整 suite 为 397 项、396 通过、0 失败、1 跳过，
+  formatter、类型、行数和最终 Worker 构建通过，构建目录 `linshi/assetlibrary-p3-USflV8/`。
+- 原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292` 正常 update：任务
+  `dc-769a7d5629804578b20d2720abef531d` / [run 39948275033](https://github.com/aiaimimi0920/SpringBok/actions/runs/39948275033)，
+  原回执 `deployed-unverified`，七项检查通过，包括备份、逐行数据保全、bindings、发布身份、依赖、账号配置与现行分发策略。
+  artifact ZIP SHA-256 为 `d720014b8ae2fce094077757a6bc998fc540450abf6bbca9f86a1111836b8af1`，唯一 artifact 的 digest 与 task/run/source 逐项匹配。
+- 独立平台 verify：任务 `dc-0778e0bc04704a16a30f3849a4b870b8` /
+  [run 39948761193](https://github.com/aiaimimi0920/SpringBok/actions/runs/39948761193)，`succeeded`、四项检查通过；
+  artifact ZIP SHA-256 为 `2d9a09760757671a7722698759e92e65d4839385fdba3ffac24d54653a1e5f82`。
+  不将独立验证改写成原 update 回执成功。
+- 独立 Cloudflare before/after 读回：仅 `RELEASE_SHA/RELEASE_VERSION` 变更，其余 bindings、runtime settings 和 domains 全部一致；
+  原 D1、私有 R2、会话 secret binding 和 Loom native client binding 保留。secret binding 相同不等于读出或比较 secret 明文。
+- 正式 `/healthz` 返回固定版本/SHA，`/readyz` 的 identity/database/storage 均 available，分发仍为 `unscanned-packages`，没有新增 scanner 或伪造扫描结果。
+- 实际 Edge 正式匿名商店读取 10 条既有发布，搜索“颜色迁移”返回两条真实 Art，详情含当前摘要且访客下载禁用；
+  `/workspace` 正常初始化 NAccount 登录入口。空闲观察窗口无目录自动请求；不以此代替总体成本/负载测量。
+- 本轮没有重新执行生产上传、审核、授权下载、Loom 安装/运行或账号撤销的全业务验收。临时证据在
+  `linshi/asset-store-ui-20261023/`。GitHub 仓库级 Dependabot 告警仍全部位于 `old/**`，未清除或豁免。
