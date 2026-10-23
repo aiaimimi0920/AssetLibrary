@@ -25,6 +25,14 @@ function redirect(location: string, cookies: string[]) {
 async function login(request: Request, env: NAccountEnv) {
   sameOrigin(request, env);
   const config = naccountConfig(env);
+  const params = new URL(request.url).searchParams;
+  const destination = params.get("returnTo");
+  if (
+    [...params.keys()].some((key) => key !== "returnTo") ||
+    params.getAll("returnTo").length > 1 ||
+    (destination !== null && destination !== "workspace")
+  )
+    throw new HttpError(400, "AUTH_RETURN_REJECTED");
   await expireAuth(env.DB);
   const currentSession = cookie(request, sessionCookie);
   const browser = currentSession
@@ -48,7 +56,7 @@ async function login(request: Request, env: NAccountEnv) {
       .bind(
         stateHash,
         await hash(browser),
-        await seal(env, verifier, `login:${stateHash}`),
+        await seal(env, JSON.stringify({ verifier, destination }), `login:${stateHash}`),
         Date.now() + 300000,
       )
       .run();
@@ -83,6 +91,13 @@ async function callback(request: Request, env: NAccountEnv) {
   if (!flow) throw new HttpError(400, "AUTH_CALLBACK_REJECTED");
   const clearFlow = cookieHeader(flowCookie, "", 0);
   try {
+    const sealed = await unseal(env, flow.verifier, `login:${stateHash}`);
+    // 已在进行中的旧事务最长五分钟，仍允许其完成；返回地址只接受固定工作台标记。
+    const loginFlow = sealed.startsWith("{")
+      ? JSON.parse(sealed)
+      : { verifier: sealed, destination: null };
+    if (loginFlow.destination !== null && loginFlow.destination !== "workspace")
+      throw new HttpError(400, "AUTH_RETURN_REJECTED");
     const code = params.get("code");
     if (params.has("error") || !code || code.length > 4096 || params.getAll("code").length !== 1)
       throw new HttpError(400, "AUTH_CALLBACK_REJECTED");
@@ -92,7 +107,7 @@ async function callback(request: Request, env: NAccountEnv) {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        code_verifier: await unseal(env, flow.verifier, `login:${stateHash}`),
+        code_verifier: loginFlow.verifier,
       }).toString(),
     });
     if (result.token_type !== "Bearer" || typeof result.access_token !== "string")
@@ -125,14 +140,17 @@ async function callback(request: Request, env: NAccountEnv) {
       await env.DB.prepare("DELETE FROM auth_sessions WHERE session_hash = ?")
         .bind(await hash(previous))
         .run();
-    return redirect(config.origin, [
-      clearFlow,
-      cookieHeader(
-        sessionCookie,
-        session,
-        Math.max(1, Math.floor((identity.expiresAt - Date.now()) / 1000)),
-      ),
-    ]);
+    return redirect(
+      loginFlow.destination === "workspace" ? `${config.origin}/workspace` : config.origin,
+      [
+        clearFlow,
+        cookieHeader(
+          sessionCookie,
+          session,
+          Math.max(1, Math.floor((identity.expiresAt - Date.now()) / 1000)),
+        ),
+      ],
+    );
   } catch {
     await env.DB.prepare("DELETE FROM auth_transactions WHERE state_hash = ?")
       .bind(stateHash)

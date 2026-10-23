@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Neuro 资产商店：发现 Art、Capability、MCP 和应用程序，登录后按授权下载。">
+    <title>资产商店 · AssetLibrary · Neuro</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/store.css">
+    <script type="module" src="/store.client.js"></script>
+  </head>
+  <body class="store">
+    <a class="skip-link" href="#store-main">跳到资产目录</a>
+    <header>
+      <a class="store-brand" href="/"><span class="brand">Neuro /</span> AssetLibrary</a>
+      <nav class="toolbar" aria-label="全局导航">
+        <a href="/" aria-current="page">资产商店</a>
+        <a href="/workspace">发布工作台</a>
+        <span id="store-session" role="status">正在读取登录状态…</span>
+        <form id="store-login" action="/auth/login" method="post" hidden><button type="submit">登录 NAccount</button></form>
+        <button id="store-logout" type="button" hidden>退出登录</button>
+      </nav>
+    </header>
+    <div class="store-shell">
+      <aside>
+        <p class="kicker">NEURO / ASSET STORE</p>
+        <h1>资产商店</h1>
+        <p class="muted">为你的工作流找到下一块拼图。</p>
+        <search><form id="store-search">
+          <label for="store-query">搜索资产名称</label>
+          <input id="store-query" type="search" maxlength="100" placeholder="输入名称，按回车搜索">
+          <label for="store-kind">资源类型</label>
+          <select id="store-kind">
+            <option value="">全部类型</option>
+            <option value="art">Art 素材</option>
+            <option value="capability">Capability 能力</option>
+            <option value="mcp">MCP 工具</option>
+            <option value="application">应用程序</option>
+          </select>
+          <button class="primary" type="submit">搜索资产</button>
+        </form></search>
+        <fieldset class="store-scope" aria-label="目录范围">
+          <button id="store-public" type="button" aria-pressed="true">浏览公开目录</button>
+          <button id="store-library" type="button" disabled aria-pressed="false">我的下载资源库</button>
+        </fieldset>
+        <p class="muted">目录可公开浏览；包体下载需要登录和当前授权。业务包未进行恶意代码扫描。</p>
+        <a href="/workspace">上传、审核与管理资源 →</a>
+      </aside>
+      <main id="store-main" tabindex="-1">
+        <div class="heading">
+          <div><p class="kicker">DISCOVER / BUILD / CREATE</p><h2 id="store-heading">发现资产</h2></div>
+          <div class="toolbar"><button id="store-refresh" type="button">刷新</button><button id="store-stop" type="button" disabled>停止请求</button></div>
+        </div>
+        <p id="store-status" class="store-feedback" role="status" aria-live="polite">正在读取公开目录…</p>
+        <section id="store-results" class="asset-grid" aria-label="资产列表" aria-busy="true"></section>
+        <div class="store-pagination"><button id="store-more" type="button" disabled>下一页</button><span class="muted">按需加载，不自动翻页或轮询。</span></div>
+        <section id="store-detail" aria-labelledby="store-detail-title" hidden tabindex="-1">
+          <p class="kicker">ASSET / DETAILS</p>
+          <h2 id="store-detail-title">资产详情</h2>
+          <dl id="store-facts" class="asset-facts"></dl>
+          <p>目录可见不等于取得下载授权。保存 ZIP 不等于安装或执行。</p>
+          <button id="store-download" type="button" disabled>校验并下载 ZIP</button>
+          <a id="store-login-hint" href="/workspace">请先登录；本地体验身份请在工作台连接。</a>
+        </section>
+        <section aria-label="下载进度">
+          <p id="store-download-status" role="status" aria-live="polite">没有未完成下载。</p>
+          <div class="toolbar"><button id="store-resume" type="button" disabled>继续下载</button><button id="store-discard" type="button" disabled>放弃未完成下载</button></div>
+        </section>
+        <noscript>请启用 JavaScript 读取真实资产目录。此页面不提供静态示例资产。</noscript>
+      </main>
+    </div>
+  </body>
+</html>

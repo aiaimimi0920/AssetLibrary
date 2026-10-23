@@ -20,6 +20,8 @@ const forwarded = [
 const assets = new Set([
   "/",
   "/style.css",
+  "/workspace",
+  "/store.css",
   ...[
     "app",
     "api",
@@ -30,6 +32,7 @@ const assets = new Set([
     "download",
     "resume-download",
     "resource",
+    "store",
   ].map((name) => `/${name}.client.js`),
 ]);
 
@@ -147,7 +150,7 @@ export async function serveTrial(runtime, { port = 0, onStop, largeApplications 
       )
         return send(404, { error: "NOT_FOUND" });
       const result = await runtime.mf.dispatchFetch(
-        `http://localhost${url.pathname}${url.search}`,
+        `http://localhost${url.pathname === "/" ? "/workspace" : url.pathname}${url.search}`,
         {
           method: request.method,
           headers: Object.fromEntries(

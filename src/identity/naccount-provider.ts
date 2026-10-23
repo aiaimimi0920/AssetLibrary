@@ -3,8 +3,15 @@ import { HttpError, principalRef } from "../http";
 import { type NAccountEnv, naccountConfig } from "./naccount-config";
 
 let keys:
-  | { issuer: string; until: number; resolve: ReturnType<typeof createLocalJWKSet> }
+  | {
+      issuer: string;
+      until: number;
+      refreshAfter: number;
+      resolve: ReturnType<typeof createLocalJWKSet>;
+    }
   | undefined;
+let loading: { issuer: string; promise: Promise<ReturnType<typeof createLocalJWKSet>> } | undefined;
+let retryAfter: { issuer: string; at: number } | undefined;
 
 /** 固定部署 issuer，不跟随重定向，不记录远端响应或令牌。 */
 export async function providerJson(url: string, init: RequestInit = {}) {
@@ -46,25 +53,50 @@ export async function providerJson(url: string, init: RequestInit = {}) {
 }
 
 async function verificationKeys(issuer: string, refresh = false) {
-  if (!keys || keys.issuer !== issuer || keys.until <= Date.now() || refresh) {
-    const jwks = await providerJson(`${issuer}/.well-known/jwks.json`);
-    if (
-      !Array.isArray(jwks.keys) ||
-      jwks.keys.length < 1 ||
-      jwks.keys.length > 4 ||
-      jwks.keys.some(
-        (key: Record<string, unknown>) =>
-          key.kty !== "RSA" || key.alg !== "RS256" || key.use !== "sig" || key.d !== undefined,
+  // 已缓存的有效 key 不依赖其他请求触发的轮换刷新，远端故障不拖累正常验签。
+  if (!refresh && keys?.issuer === issuer && keys.until > Date.now()) return keys.resolve;
+  if (loading?.issuer === issuer) return loading.promise;
+  if (
+    keys?.issuer === issuer &&
+    keys.until > Date.now() &&
+    (!refresh || keys.refreshAfter > Date.now())
+  )
+    return keys.resolve;
+  if (retryAfter?.issuer === issuer && retryAfter.at > Date.now())
+    throw new HttpError(503, "NACCOUNT_KEYS_UNAVAILABLE");
+  // 失败也消耗冷却预算；未知 kid 不能在远端故障时制造逐请求刷新。
+  retryAfter = { issuer, at: Date.now() + 30000 };
+  if (keys?.issuer === issuer) keys.refreshAfter = retryAfter.at;
+  const current = {
+    issuer,
+    promise: Promise.resolve().then(async () => {
+      const jwks = await providerJson(`${issuer}/.well-known/jwks.json`);
+      if (
+        !Array.isArray(jwks.keys) ||
+        jwks.keys.length < 1 ||
+        jwks.keys.length > 4 ||
+        jwks.keys.some(
+          (key: Record<string, unknown>) =>
+            key.kty !== "RSA" || key.alg !== "RS256" || key.use !== "sig" || key.d !== undefined,
+        )
       )
-    )
-      throw new HttpError(503, "NACCOUNT_KEYS_INVALID");
-    keys = {
-      issuer,
-      until: Date.now() + 300000,
-      resolve: createLocalJWKSet(jwks as JSONWebKeySet),
-    };
+        throw new HttpError(503, "NACCOUNT_KEYS_INVALID");
+      keys = {
+        issuer,
+        until: Date.now() + 300000,
+        refreshAfter: Date.now() + 30000,
+        resolve: createLocalJWKSet(jwks as JSONWebKeySet),
+      };
+      retryAfter = undefined;
+      return keys.resolve;
+    }),
+  };
+  loading = current;
+  try {
+    return await current.promise;
+  } finally {
+    if (loading === current) loading = undefined;
   }
-  return keys.resolve;
 }
 
 export async function validateNAccountToken(

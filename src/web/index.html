@@ -9,15 +9,15 @@
   </head>
   <body>
     <header>
-      <strong><span class="brand">Neuro /</span> AssetLibrary</strong
-      ><span id="session-state">未连接身份</span>
+      <strong><span class="brand">Neuro /</span> AssetLibrary</strong>
+      <a href="/">← 资产商店</a><span id="session-state">未连接身份</span>
     </header>
     <div class="shell">
       <aside>
         <p class="kicker">01 / 私有工作区</p>
         <h1>资源库</h1>
         <p class="muted">Art、Capability、MCP 与应用包的上传、版本审核和授权分发。业务包未进行病毒扫描。</p>
-        <form id="naccount-login" action="/auth/login" method="post" hidden>
+        <form id="naccount-login" action="/auth/login?returnTo=workspace" method="post" hidden>
           <button class="primary" type="submit">使用 NAccount 登录</button>
         </form>
         <form id="identity-form">

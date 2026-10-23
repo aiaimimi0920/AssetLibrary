@@ -8,9 +8,12 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
   try {
     for (const [url, type] of [
       ["/", "text/html"],
+      ["/workspace", "text/html"],
+      ["/store.css", "text/css"],
       ["/style.css", "text/css"],
       ...[
         "app",
+        "store",
         "api",
         "render",
         "upload",
@@ -30,7 +33,7 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
       assert.match(response.headers.get("content-security-policy"), /connect-src 'self'/);
       const content = await response.text();
       assert.ok(content.length > 100);
-      if (url === "/") {
+      if (url === "/workspace") {
         // HTML pattern 使用 Unicode sets (v)；连字符必须转义，不能因语法错误失去表单校验。
         const pattern = content.match(/pattern="([^"]+)"/)?.[1];
         assert.ok(pattern);

@@ -16,8 +16,8 @@ export async function naccountFixture() {
     NACCOUNT_CLIENT_ID: "assetlibrary-client",
     NACCOUNT_SESSION_KEY: "a".repeat(64),
   };
-  const { publicKey, privateKey } = await generateKeyPair("RS256", { extractable: true });
-  const jwk = { ...(await exportJWK(publicKey)), kid: "naccount-test", alg: "RS256", use: "sig" };
+  let { publicKey, privateKey } = await generateKeyPair("RS256", { extractable: true });
+  let jwk = { ...(await exportJWK(publicKey)), kid: "naccount-test", alg: "RS256", use: "sig" };
   const claims = {
     sub: "naccount-user-1",
     azp: env.NACCOUNT_CLIENT_ID,
@@ -39,7 +39,10 @@ export async function naccountFixture() {
     remote.calls.push(String(url));
     assert.equal(options.redirect, "manual");
     if (!remote.available) return new Response(null, { status: 503 });
-    if (url === `${issuer}/.well-known/jwks.json`) return Response.json({ keys: [jwk] });
+    if (url === `${issuer}/.well-known/jwks.json`) {
+      await remote.keysGate?.();
+      return remote.keysFail ? new Response(null, { status: 503 }) : Response.json({ keys: [jwk] });
+    }
     if (url === `${issuer}/oauth2/v1/token`) {
       await remote.tokenGate?.();
       const body = new URLSearchParams(options.body);
@@ -76,8 +79,8 @@ export async function naccountFixture() {
       env,
     );
   }
-  async function start() {
-    const response = await request("/auth/login", { method: "POST" });
+  async function start(path = "/auth/login") {
+    const response = await request(path, { method: "POST" });
     assert.equal(response.status, 303);
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
     const url = new URL(response.headers.get("location"));
@@ -111,6 +114,10 @@ export async function naccountFixture() {
     request,
     start,
     login,
+    rotateKey: async () => {
+      ({ publicKey, privateKey } = await generateKeyPair("RS256", { extractable: true }));
+      jwk = { ...(await exportJWK(publicKey)), kid: crypto.randomUUID(), alg: "RS256", use: "sig" };
+    },
     issueToken: async (overrides = {}) => {
       const now = Math.floor(Date.now() / 1000);
       return new SignJWT({ ...claims, iss: issuer, iat: now, exp: now + 600, ...overrides })
