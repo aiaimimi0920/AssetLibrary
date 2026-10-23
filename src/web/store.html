@@ -11,63 +11,69 @@
   </head>
   <body class="store">
     <a class="skip-link" href="#store-main">跳到资产目录</a>
-    <header>
-      <a class="store-brand" href="/"><span class="brand">Neuro /</span> AssetLibrary</a>
-      <nav class="toolbar" aria-label="全局导航">
-        <a href="/" aria-current="page">资产商店</a>
-        <a href="/workspace">发布工作台</a>
-        <span id="store-session" role="status">正在读取登录状态…</span>
-        <form id="store-login" action="/auth/login" method="post" hidden><button type="submit">登录 NAccount</button></form>
-        <button id="store-logout" type="button" hidden>退出登录</button>
-      </nav>
-    </header>
-    <div class="store-shell">
-      <aside>
-        <p class="kicker">NEURO / ASSET STORE</p>
-        <h1>资产商店</h1>
-        <p class="muted">为你的工作流找到下一块拼图。</p>
+    <header class="store-header">
+      <div class="store-topline">
+        <a class="store-brand" href="/" aria-label="Neuro AssetLibrary 首页"><span class="brand">Neuro</span><span>AssetLibrary</span></a>
         <search><form id="store-search">
-          <label for="store-query">搜索资产名称</label>
-          <input id="store-query" type="search" maxlength="100" placeholder="输入名称，按回车搜索">
-          <label for="store-kind">资源类型</label>
-          <select id="store-kind">
-            <option value="">全部类型</option>
-            <option value="art">Art 素材</option>
-            <option value="capability">Capability 能力</option>
-            <option value="mcp">MCP 工具</option>
-            <option value="application">应用程序</option>
-          </select>
-          <button class="primary" type="submit">搜索资产</button>
+          <label class="sr-only" for="store-query">搜索资产名称</label>
+          <input id="store-query" type="search" maxlength="100" placeholder="搜索资产名称…">
+          <button class="primary" type="submit" aria-label="搜索资产">搜索 <span aria-hidden="true">↗</span></button>
         </form></search>
+        <div class="store-account">
+          <span id="store-session" role="status">正在读取登录状态…</span>
+          <form id="store-login" action="/auth/login" method="post" hidden><button type="submit">登录 NAccount</button></form>
+          <button id="store-logout" type="button" hidden>退出登录</button>
+        </div>
+      </div>
+      <nav class="store-navigation" aria-label="全局导航">
         <fieldset class="store-scope" aria-label="目录范围">
-          <button id="store-public" type="button" aria-pressed="true">浏览公开目录</button>
+          <button id="store-public" type="button" aria-pressed="true">发现资产</button>
           <button id="store-library" type="button" disabled aria-pressed="false">我的下载资源库</button>
         </fieldset>
-        <p class="muted">目录可公开浏览；包体下载需要登录和当前授权。业务包未进行恶意代码扫描。</p>
-        <a href="/workspace">上传、审核与管理资源 →</a>
-      </aside>
-      <main id="store-main" tabindex="-1">
+        <a href="/workspace">发布工作台 <span aria-hidden="true">↗</span></a>
+      </nav>
+    </header>
+    <main id="store-main" tabindex="-1">
+      <div id="store-discovery" class="store-intro">
+        <div><p class="kicker">NEURO / ASSET STORE</p><h1>创作所需，触手可及。</h1><p>从素材到工具，为你的工作流找到下一块拼图。</p></div>
+      </div>
+      <nav class="store-categories" aria-label="资源类型">
+        <button id="store-category-art" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">◈</span><span><strong>Art 素材</strong><small>创作素材与处理资源</small></span><span aria-hidden="true">↗</span></button>
+        <button id="store-category-capability" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">⌘</span><span><strong>Capability 能力</strong><small>封装与复用工作流能力</small></span><span aria-hidden="true">↗</span></button>
+        <button id="store-category-mcp" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">&gt;_</span><span><strong>MCP 工具</strong><small>连接工具与服务</small></span><span aria-hidden="true">↗</span></button>
+        <button id="store-category-application" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">▣</span><span><strong>应用程序</strong><small>独立应用与程序包</small></span><span aria-hidden="true">↗</span></button>
+      </nav>
+      <div class="store-catalog">
         <div class="heading">
-          <div><p class="kicker">DISCOVER / BUILD / CREATE</p><h2 id="store-heading">发现资产</h2></div>
-          <div class="toolbar"><button id="store-refresh" type="button">刷新</button><button id="store-stop" type="button" disabled>停止请求</button></div>
+          <div><p id="store-context" class="kicker">PUBLIC CATALOG</p><h2 id="store-heading">全部资产</h2><p id="store-filter-summary" class="muted">浏览公开发布的资源</p></div>
+          <div class="toolbar"><button id="store-category-all" type="button" aria-pressed="true">全部类型</button><button id="store-transfer-open" type="button" hidden>下载任务</button><button id="store-refresh" type="button">刷新</button><button id="store-stop" type="button" disabled>停止请求</button></div>
         </div>
         <p id="store-status" class="store-feedback" role="status" aria-live="polite">正在读取公开目录…</p>
+        <p class="store-policy"><span aria-hidden="true">△</span> 业务包未进行恶意代码扫描。下载需要登录及当前授权。</p>
         <section id="store-results" class="asset-grid" aria-label="资产列表" aria-busy="true"></section>
-        <div class="store-pagination"><button id="store-more" type="button" disabled>下一页</button><span class="muted">按需加载，不自动翻页或轮询。</span></div>
-        <section id="store-detail" aria-labelledby="store-detail-title" hidden tabindex="-1">
-          <p class="kicker">ASSET / DETAILS</p>
-          <h2 id="store-detail-title">资产详情</h2>
+        <div id="store-empty" class="store-empty" hidden><span aria-hidden="true">⌕</span><h3 id="store-empty-title">没有匹配的资产</h3><p id="store-empty-hint" class="muted">试试其他名称或资源类型。</p></div>
+        <div class="store-pagination"><span class="muted">按需加载，不自动翻页或轮询。</span><button id="store-more" type="button" disabled>下一页 <span aria-hidden="true">→</span></button></div>
+      </div>
+      <footer class="store-footer"><span class="brand">Neuro / AssetLibrary</span><span>发现 · 组合 · 创作</span><a href="/workspace">上传、审核与管理资源</a></footer>
+      <noscript>请启用 JavaScript 读取真实资产目录。此页面不提供静态示例资产。</noscript>
+    </main>
+    <dialog id="store-detail" aria-labelledby="store-detail-title">
+      <div class="detail-heading"><p class="kicker">ASSET / DETAILS</p><button id="store-detail-close" type="button" aria-label="关闭资产详情">关闭 <span aria-hidden="true">×</span></button></div>
+      <div class="asset-detail-layout">
+        <div><div id="store-detail-cover"></div><p class="muted">类型图示，不代表包内内容预览。</p></div>
+        <div class="detail-content">
+          <p id="store-detail-kind" class="asset-type"></p><h2 id="store-detail-title">资产详情</h2>
+          <p id="store-detail-status" class="store-feedback" role="status" aria-live="polite"></p>
           <dl id="store-facts" class="asset-facts"></dl>
-          <p>目录可见不等于取得下载授权。保存 ZIP 不等于安装或执行。</p>
-          <button id="store-download" type="button" disabled>校验并下载 ZIP</button>
-          <a id="store-login-hint" href="/workspace">请先登录；本地体验身份请在工作台连接。</a>
-        </section>
-        <section aria-label="下载进度">
-          <p id="store-download-status" role="status" aria-live="polite">没有未完成下载。</p>
-          <div class="toolbar"><button id="store-resume" type="button" disabled>继续下载</button><button id="store-discard" type="button" disabled>放弃未完成下载</button></div>
-        </section>
-        <noscript>请启用 JavaScript 读取真实资产目录。此页面不提供静态示例资产。</noscript>
-      </main>
-    </div>
+          <p class="store-policy">目录可见不等于取得下载授权。保存 ZIP 不等于安装或执行。</p>
+          <button id="store-download" class="primary" type="button" disabled>校验并下载 ZIP</button>
+          <form id="store-login-hint" action="/auth/login" method="post" hidden><p class="muted">登录后按当前授权下载，登录将返回商店。</p><button class="primary" type="submit">登录 NAccount</button></form>
+        </div>
+      </div>
+      <section id="store-transfer" aria-label="下载进度" hidden>
+        <p id="store-download-status" role="status" aria-live="polite">没有未完成下载。</p>
+        <div class="toolbar"><button id="store-resume" type="button" disabled>继续下载</button><button id="store-discard" type="button" disabled>放弃未完成下载</button><button id="store-transfer-stop" type="button" disabled>停止下载</button></div>
+      </section>
+    </dialog>
   </body>
 </html>

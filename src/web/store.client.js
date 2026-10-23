@@ -17,12 +17,15 @@ const kinds = {
   mcp: "MCP 工具",
   application: "应用程序",
 };
+const codes = { art: "ART", capability: "CAP", mcp: "MCP", application: "APP" };
 let scope = "public";
 let cursor = null;
 let selected = null;
 let job = null;
 let initialization = 0;
 let filters = { q: "", kind: "" };
+let opener = null;
+let loginEnabled = false;
 const transfer = createDownloadTransfer((pending) => {
   element("download-status").textContent = pending
     ? `${pending.offset} / ${pending.total} bytes${pending.resumable ? "；可手动继续。" : "；正在下载并校验。"}`
@@ -36,8 +39,48 @@ function text(tag, value, className = "") {
   return node;
 }
 function status(message, tone = "info") {
-  element("status").textContent = message;
-  element("status").dataset.tone = tone;
+  for (const name of ["status", "detail-status"]) {
+    element(name).textContent = message;
+    element(name).dataset.tone = tone;
+  }
+}
+function context() {
+  const searching = !!filters.q || !!filters.kind;
+  element("discovery").hidden = scope !== "public" || searching;
+  element("context").textContent = scope === "public" ? "PUBLIC CATALOG" : "YOUR LIBRARY";
+  element("heading").textContent =
+    scope === "library"
+      ? "我的下载资源库"
+      : filters.q
+        ? "搜索结果"
+        : (kinds[filters.kind] ?? "全部资产");
+  element("filter-summary").textContent = [
+    kinds[filters.kind] ?? "全部类型",
+    filters.q ? `名称包含「${filters.q}」` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  for (const name of ["all", ...Object.keys(kinds)])
+    element(`category-${name}`).setAttribute(
+      "aria-pressed",
+      String((name === "all" ? "" : name) === filters.kind),
+    );
+  for (const name of ["public", "library"])
+    element(name).setAttribute("aria-pressed", String(name === scope));
+}
+function cover(kind) {
+  const node = text("div", "", "asset-cover");
+  node.append(
+    text("span", kinds[kind] ?? "资源包"),
+    text("strong", codes[kind] ?? "PKG"),
+    text("span", "类型图示 · 暂无内容预览"),
+  );
+  return node;
+}
+function showDetail(trigger) {
+  opener = trigger;
+  if (!element("detail").open) element("detail").showModal();
+  element("detail-close").focus();
 }
 function controls() {
   const pending = transfer.snapshot();
@@ -46,10 +89,16 @@ function controls() {
   element("more").disabled = !!job || !cursor;
   element("library").disabled = !!job || !connected();
   element("download").disabled = !!job || !connected() || !selected;
-  element("login-hint").hidden = connected();
+  element("login-hint").hidden = connected() || !loginEnabled;
   element("resume").disabled = !!job || !connected() || !pending?.resumable;
   element("discard").disabled = !!job || !pending;
   element("stop").disabled = !job && !pending;
+  element("transfer-stop").disabled = !job && !pending;
+  element("transfer").hidden = !pending || pending.publication.id !== selected?.id;
+  element("transfer-open").hidden = !pending;
+  element("transfer-open").disabled = false;
+  element("detail-close").disabled = false;
+  element("transfer-open").textContent = pending?.resumable ? "下载任务 · 可继续" : "下载任务";
   element("results").setAttribute("aria-busy", String(!!job));
 }
 async function run(task) {
@@ -66,11 +115,14 @@ async function run(task) {
       selected = null;
       transfer.clear();
       element("results").replaceChildren();
-      element("detail").hidden = true;
+      element("detail").close();
+      element("empty").hidden = true;
       element("session").textContent = "登录已失效，请重新登录";
       element("login").hidden = false;
       element("logout").hidden = true;
       cursor = null;
+      scope = "public";
+      context();
     }
     status(
       error.name === "AbortError"
@@ -87,30 +139,44 @@ function render(items) {
   element("results").replaceChildren();
   for (const item of items) {
     const card = text("article", "", "asset-card");
-    card.append(text("span", kinds[item.kind] ?? item.kind, "asset-type"));
-    card.append(text("h3", item.title));
-    card.append(
-      text("p", `版本 ${item.label} · ${(item.size / 1024 / 1024).toFixed(2)} MiB`, "muted"),
-    );
-    card.append(
+    const body = text("div", "", "asset-body");
+    const title = text("h3", item.title);
+    title.title = item.title;
+    body.append(text("p", kinds[item.kind] ?? item.kind, "asset-type"), title);
+    const meta = text("p", "", "asset-meta");
+    const size =
+      item.size < 1024
+        ? `${item.size} B`
+        : item.size < 1024 * 1024
+          ? `${(item.size / 1024).toFixed(1)} KiB`
+          : `${(item.size / 1024 / 1024).toFixed(2)} MiB`;
+    meta.append(text("span", `版本 ${item.label}`), text("span", size));
+    body.append(meta);
+    const bottom = text("div", "", "asset-bottom");
+    bottom.append(
       text(
         "p",
-        item.scanStatus === "not_scanned" ? "未进行恶意代码扫描" : "下载前仍须校验当前资格",
+        item.scanStatus === "not_scanned" ? "△ 未扫描" : "资格以下载时校验为准",
         "asset-warning",
       ),
     );
-    const button = text("button", "查看资产");
+    const button = text("button", "查看详情 ↗", "asset-open");
     button.type = "button";
-    button.addEventListener("click", () => run((signal) => detail(item.id, signal)));
-    card.append(button);
+    button.setAttribute("aria-label", `查看资产：${item.title}`);
+    button.addEventListener("click", () => run((signal) => detail(item.id, signal, button)));
+    bottom.append(button);
+    body.append(bottom);
+    card.append(cover(item.kind), body);
     element("results").append(card);
   }
 }
 async function load(signal, after = "") {
   cursor = null;
   selected = null;
-  element("detail").hidden = true;
+  element("detail").close();
+  element("empty").hidden = true;
   element("results").replaceChildren();
+  context();
   status("正在读取当前目录…");
   const params = new URLSearchParams({ limit: "20" });
   if (filters.q) params.set("q", filters.q);
@@ -120,8 +186,14 @@ async function load(signal, after = "") {
     signal,
     publicRead: scope === "public",
   });
+  signal.throwIfAborted();
   cursor = page.nextAfter;
   render(page.items);
+  element("empty").hidden = page.items.length !== 0;
+  element("empty-title").textContent = cursor ? "本页没有可用资产" : "没有匹配的资产";
+  element("empty-hint").textContent = cursor
+    ? "本页候选已失效，仍可手动读取下一页。"
+    : "试试其他名称或资源类型，也可稍后手动刷新。";
   status(
     page.items.length
       ? `本页 ${page.items.length} 项资产`
@@ -130,12 +202,20 @@ async function load(signal, after = "") {
         : "没有匹配的资产。可调整筛选或稍后刷新。",
   );
 }
-async function detail(id, signal) {
+async function detail(id, signal, trigger) {
   selected = null;
-  element("detail").hidden = true;
+  element("detail").close();
   const item = await api(`/v1/catalog/${id}`, { signal, publicRead: true });
+  signal.throwIfAborted();
+  presentDetail(item, trigger);
+  status("已读取当前公开详情。下载仍需独立授权。");
+}
+function presentDetail(item, trigger) {
   selected = item;
+  element("detail").scrollTop = 0;
   element("detail-title").textContent = item.title;
+  element("detail-kind").textContent = kinds[item.kind] ?? item.kind;
+  element("detail-cover").replaceChildren(cover(item.kind));
   element("facts").replaceChildren();
   for (const [label, value] of [
     ["资源类型", kinds[item.kind] ?? item.kind],
@@ -149,10 +229,8 @@ async function detail(id, signal) {
     ["发布 ID", item.id],
   ])
     element("facts").append(text("dt", label), text("dd", value));
-  element("detail").hidden = false;
-  element("detail").focus({ preventScroll: true });
-  element("detail").scrollIntoView({ block: "nearest" });
-  status("已读取当前公开详情。下载仍需独立授权。");
+  showDetail(trigger);
+  controls();
 }
 function click(id, task) {
   element(id).addEventListener("click", () => run(task));
@@ -160,17 +238,33 @@ function click(id, task) {
 element("search").addEventListener("submit", (event) => {
   event.preventDefault();
   if (job) return;
-  filters = { q: element("query").value.trim(), kind: element("kind").value };
-  run((signal) => load(signal));
+  filters.q = element("query").value.trim();
+  return run((signal) => load(signal));
 });
 for (const name of ["public", "library"])
   click(name, async (signal) => {
     scope = name;
-    for (const tab of ["public", "library"])
-      element(tab).setAttribute("aria-pressed", String(tab === scope));
-    element("heading").textContent = scope === "public" ? "发现资产" : "我的下载资源库";
     await load(signal);
   });
+for (const kind of ["all", ...Object.keys(kinds)])
+  click(`category-${kind}`, (signal) => {
+    filters = { q: element("query").value.trim(), kind: kind === "all" ? "" : kind };
+    return load(signal);
+  });
+element("detail-close").addEventListener("click", () => element("detail").close());
+element("detail").addEventListener("close", () => {
+  const target =
+    opener?.isConnected && !opener.disabled && !opener.hidden
+      ? opener
+      : transfer.snapshot()
+        ? element("transfer-open")
+        : element("query");
+  target.focus({ preventScroll: true });
+});
+element("transfer-open").addEventListener("click", () => {
+  const pending = transfer.snapshot();
+  if (pending) presentDetail(pending.publication, element("transfer-open"));
+});
 click("refresh", (signal) => load(signal));
 click("more", (signal) => load(signal, cursor));
 async function download(signal, resume = false) {
@@ -186,11 +280,13 @@ click("logout", async () => {
   const url = await logoutSession();
   window.location.assign(url);
 });
-element("stop").addEventListener("click", () => {
+function stop() {
   initialization += 1;
   job?.abort();
   stopRequests();
-});
+}
+element("stop").addEventListener("click", stop);
+element("transfer-stop").addEventListener("click", stop);
 window.addEventListener("pagehide", () => {
   initialization += 1;
   job?.abort();
@@ -207,11 +303,13 @@ export const ready = (async () => {
   if (current !== initialization) return;
   if (!session) element("session").textContent = "登录状态暂不可用；仍可浏览公开目录";
   else {
+    loginEnabled = !!session.enabled;
     element("session").textContent = session.principal
       ? `已登录 · ${session.principal}`
       : "访客浏览";
     element("login").hidden = !session.enabled || !!session.principal;
     element("logout").hidden = !session.principal;
+    element("session").title = element("session").textContent;
     if (session.principal) setSession(session.csrf);
   }
   if (new URL(window.location.href).searchParams.get("auth") === "failed")
