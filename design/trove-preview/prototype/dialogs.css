@@ -1,0 +1,192 @@
+dialog {
+	padding: 0;
+	width: min(760px, calc(100vw - 32px));
+	max-height: 90vh;
+	max-height: 90dvh;
+	border-radius: 10px;
+	background: var(--neuro-panel);
+	border: 1px solid var(--neuro-line);
+	color: var(--neuro-text);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	box-shadow: 0 30px 120px rgba(0, 0, 0, 0.6);
+}
+dialog::backdrop {
+	background: rgba(0, 0, 0, 0.76);
+}
+.close {
+	font-size: 26px;
+	width: 35px;
+	height: 35px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--neuro-control);
+	border: 1px solid var(--neuro-line);
+	border-radius: 5px;
+	line-height: 1;
+}
+.close:hover {
+	background: var(--neuro-control-hover);
+}
+.detail-visual {
+	height: 270px;
+	position: relative;
+	border-bottom: 1px solid var(--neuro-line);
+	overflow: hidden;
+}
+.detail-visual .close {
+	position: absolute;
+	right: 16px;
+	top: 16px;
+}
+.detail-visual > .artwork {
+	object-fit: cover;
+}
+.detail-body {
+	padding: 28px;
+}
+.detail-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 25px;
+}
+.detail-heading h2 {
+	font-size: 27px;
+	margin-top: 6px;
+}
+.detail-price {
+	font-size: 23px;
+	font-weight: 500;
+	flex-shrink: 0;
+}
+.detail-price small {
+	display: block;
+	font-size: 9px;
+	color: var(--neuro-text-muted);
+	text-align: right;
+	margin-top: 4px;
+}
+.detail-intro {
+	line-height: 1.95;
+	font-size: 12px;
+	color: var(--neuro-text-muted);
+	margin: 21px 0;
+}
+.detail-facts {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	margin: 20px 0;
+	gap: 18px;
+	padding: 19px 0;
+	border-block: 1px solid var(--neuro-line);
+}
+.detail-facts dt {
+	color: var(--neuro-text-muted);
+	font-size: 9px;
+	margin-bottom: 4px;
+}
+.detail-facts dd {
+	font-size: 12px;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+.related-app {
+	display: flex;
+	align-items: center;
+	gap: 13px;
+	padding: 13px;
+	background: var(--neuro-control);
+	border-radius: 5px;
+}
+.related-app strong {
+	display: block;
+	font-size: 12px;
+}
+.related-app small {
+	display: block;
+	font-size: 10px;
+	color: var(--neuro-text-muted);
+	margin-top: 3px;
+}
+.related-app > span:last-child {
+	margin-left: auto;
+}
+.detail-bottom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 25px;
+	margin-top: 24px;
+}
+.detail-bottom p {
+	color: var(--neuro-text-muted);
+	font-size: 10px;
+	max-width: 360px;
+}
+.small-dialog,
+.publish-dialog {
+	width: min(520px, calc(100vw - 32px));
+	padding: 28px;
+}
+.dialog-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 18px;
+}
+.small-dialog h2,
+.publish-dialog h2 {
+	font-size: 24px;
+	margin-bottom: 18px;
+}
+#info-body {
+	font-size: 13px;
+	line-height: 1.95;
+	color: var(--neuro-text-muted);
+	margin-bottom: 25px;
+}
+#info-body p + p {
+	margin-top: 16px;
+}
+#info-body strong {
+	color: var(--neuro-text);
+}
+#info-body ol {
+	padding-left: 20px;
+}
+.inline-note {
+	font-size: 11px;
+	color: var(--neuro-info-text);
+	line-height: 1.8;
+	border-left: 2px solid var(--neuro-info-blue);
+	padding: 12px 15px;
+	background: var(--neuro-info-soft);
+	margin-block: 18px;
+}
+#publish-form {
+	margin-top: 26px;
+}
+.publish-dialog > .muted {
+	font-size: 12px;
+}
+.upload-placeholder {
+	display: flex;
+	align-items: center;
+	flex-direction: column;
+	padding: 22px;
+	border: 1px dashed var(--neuro-line);
+	color: var(--neuro-text-muted);
+}
+.upload-placeholder > span {
+	font-size: 25px;
+}
+.upload-placeholder strong {
+	font-size: 12px;
+	font-weight: 400;
+	margin: 6px 0;
+}
+.upload-placeholder small {
+	font-size: 10px;
+}

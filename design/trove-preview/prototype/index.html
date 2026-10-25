@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="好玩的，好用的，都在这！">
+  <title>Trove · 发现好作品</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="market.css">
+  <link rel="stylesheet" href="spaces.css">
+  <link rel="stylesheet" href="dialogs.css">
+  <link rel="stylesheet" href="community.css">
+  <link rel="stylesheet" href="community-channels.css">
+  <link rel="stylesheet" href="responsive.css">
+  <link rel="stylesheet" href="game-feed.css">
+  <link rel="stylesheet" href="asset-market.css">
+  <script defer src="data.js"></script>
+  <script defer src="collections.js"></script>
+  <script defer src="asset-data.js"></script>
+  <script defer src="components.js"></script>
+  <script defer src="pages.js"></script>
+  <script defer src="spaces.js"></script>
+  <script defer src="game-feed.js"></script>
+  <script defer src="asset-market.js"></script>
+  <script defer src="community-data.js"></script>
+  <script defer src="community.js"></script>
+  <script defer src="community-compose.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header"><div class="header-inner">
+    <a class="wordmark" href="#home"><img class="brand-symbol" src="beaver.svg" width="44" height="44" alt="" aria-hidden="true"><span>Trove<small title="All the good stuff. Right here!">好东西，都在这！</small></span></a>
+    <form id="search-form" class="search-form" role="search"><span aria-hidden="true">⌕</span><input id="query" type="search" maxlength="80" aria-label="搜索作品" placeholder="搜作品、工具，或者你想做的事"><button type="submit" aria-label="搜索">搜索</button></form>
+    <div class="header-actions"><a href="#library">我的资源库</a><button data-publish>发布作品 ↗</button><button class="account-button" data-info="account">登录</button></div>
+  </div></header>
+  <nav class="main-nav" aria-label="市场导航"><div class="nav-inner"><div class="nav-links"><a href="#browse/game" data-nav="games">游戏</a><a href="#browse/application" data-nav="apps">应用</a><a href="#browse/loom" data-nav="loom">loom</a><a href="#browse/asset" data-nav="asset">素材</a><a href="#community" data-nav="community">社区</a></div><button class="prototype-badge" data-info="design">V2 原型 <span>· 演示内容</span></button></div></nav>
+  <main id="main" tabindex="-1"></main>
+  <footer class="site-footer"><div><a href="#home" class="footer-brand">Trove<span> / Neuro</span></a></div><div class="footer-links"><button data-info="platform">关于平台</button><button data-publish>成为创作者</button><button data-info="design">原型说明</button></div><small>UI 原型 · 示例内容<br>无真实上传、交易或安装</small></footer>
+  <dialog id="detail-dialog" aria-labelledby="detail-title"><div id="detail-content"></div></dialog>
+  <dialog id="community-dialog" aria-labelledby="community-post-title"><div id="community-post-content"></div></dialog>
+  <dialog id="share-dialog" class="publish-dialog" aria-labelledby="share-title"><div class="dialog-top"><span class="eyebrow">社区发帖 · 原型演示</span><button class="close" data-close aria-label="关闭分享">×</button></div><h2 id="share-title">聊聊你的发现</h2><form id="share-form"><label>发布到<select id="share-channel" required></select></label><label>标题<input id="share-name" maxlength="80" required placeholder="分享一次游玩，或者一个想法"></label><label>内容<textarea id="share-body" rows="5" maxlength="1500" required placeholder="说说你想和大家聊的事…"></textarea></label><label class="cc-plaza-check"><input id="share-plaza" type="checkbox" checked>同时分享到广场</label><p class="cc-demo-note">草稿只在当前页面预览，刷新后清除</p><div class="cc-composer-actions"><button class="button secondary" type="submit">预览帖子</button><button class="button primary" type="button" data-community-publish>登录后发布 ↗</button></div></form></dialog>
+  <dialog id="info-dialog" class="small-dialog" aria-labelledby="info-title"><div class="dialog-top"><span class="eyebrow">原型说明</span><button class="close" data-close aria-label="关闭说明">×</button></div><h2 id="info-title"></h2><div id="info-body"></div><button class="button primary" data-close>知道了</button></dialog>
+  <dialog id="publish-dialog" class="publish-dialog" aria-labelledby="publish-title"><div class="dialog-top"><span class="eyebrow">创作者中心 · 演示</span><button class="close" data-close aria-label="关闭发布">×</button></div><h2 id="publish-title">发布你的作品</h2><p class="muted">选择内容类型，预览它在市场中的位置。</p><form id="publish-form"><label>内容类型<select id="publish-kind"><option value="application">独立应用</option><option value="game">游戏</option><option value="asset">素材与资源</option><option value="art">Art</option><option value="mcp">MCP 工具</option><option value="capability">能力 / 扩展包</option></select></label><label>作品名称<input id="publish-name" required maxlength="60" placeholder="作品的名称"></label><label>关联空间<select id="publish-target"><option>创建作品自己的空间（演示）</option><option>Loom</option><option>Otter</option><option>星野：余响（示例）</option><option>FrameLab</option><option>跨应用通用</option></select></label><div class="upload-placeholder"><span>↑</span><strong>封面、预览与作品文件</strong><small>原型不上传文件，不保存表单。</small></div><button type="submit" class="button primary">预览发布信息 →</button></form></dialog>
+</body>
+</html>

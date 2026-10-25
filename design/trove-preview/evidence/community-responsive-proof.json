@@ -1,0 +1,352 @@
+[
+  {
+    "view": "plaza",
+    "target": 390,
+    "metrics": {
+      "contentSize": {
+        "height": 10640,
+        "width": 855,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 4728,
+        "width": 380,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "directory",
+    "target": 390,
+    "metrics": {
+      "contentSize": {
+        "height": 4373,
+        "width": 855,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 1943,
+        "width": 380,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "channel",
+    "target": 390,
+    "metrics": {
+      "contentSize": {
+        "height": 4006,
+        "width": 855,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 1780,
+        "width": 380,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 380,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 855,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "channel",
+    "target": 320,
+    "metrics": {
+      "contentSize": {
+        "height": 4340,
+        "width": 697,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 1928,
+        "width": 309,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309.77777099609375,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "directory",
+    "target": 320,
+    "metrics": {
+      "contentSize": {
+        "height": 4462,
+        "width": 697,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 1983,
+        "width": 309,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309.77777099609375,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "plaza",
+    "target": 320,
+    "metrics": {
+      "contentSize": {
+        "height": 10654,
+        "width": 697,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 4735,
+        "width": 309,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 800,
+        "clientWidth": 309.77777099609375,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 1800,
+        "clientWidth": 697,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  },
+  {
+    "view": "plaza",
+    "target": 768,
+    "metrics": {
+      "contentSize": {
+        "height": 12061,
+        "width": 1705,
+        "x": 0,
+        "y": 0
+      },
+      "cssContentSize": {
+        "height": 5360,
+        "width": 757,
+        "x": 0,
+        "y": 0
+      },
+      "cssLayoutViewport": {
+        "clientHeight": 900,
+        "clientWidth": 757,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "cssVisualViewport": {
+        "clientHeight": 900,
+        "clientWidth": 757.7777709960938,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      },
+      "layoutViewport": {
+        "clientHeight": 2025,
+        "clientWidth": 1705,
+        "pageX": 0,
+        "pageY": 0
+      },
+      "visualViewport": {
+        "clientHeight": 2025,
+        "clientWidth": 1705,
+        "offsetX": 0,
+        "offsetY": 0,
+        "pageX": 0,
+        "pageY": 0,
+        "scale": 1,
+        "zoom": 1.5
+      }
+    }
+  }
+]
