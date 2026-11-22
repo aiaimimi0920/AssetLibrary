@@ -13,7 +13,11 @@
     "traces": { "enabled": false }
   },
   "rules": [
-    { "type": "Text", "globs": ["**/*.html", "**/*.css", "**/*.client.js"], "fallthrough": false }
+    {
+      "type": "Text",
+      "globs": ["**/*.html", "**/*.css", "**/*.client.js", "**/beaver.svg"],
+      "fallthrough": false
+    }
   ],
   "services": [
     {

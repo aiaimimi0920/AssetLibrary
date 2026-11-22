@@ -1,9 +1,35 @@
+import {
+  type AssetCategory,
+  type AssetFormat,
+  type AssetLicense,
+  type AssetStyle,
+  hasAssetMarketSchema,
+} from "../assets/taxonomy";
 import { HttpError, json } from "../http";
-import { resourceJson } from "./queries";
+import { hasShowcaseSchema, type ResourceSpace } from "../spaces/catalog";
+import { resourceJoinsFor, resourceJsonFor } from "./queries";
 
 export type Mutation =
   | { action: "create"; kind: "art" | "capability" | "application" | "mcp"; title: string }
   | { action: "update"; id: string; revision: number; title: string }
+  | {
+      action: "profile";
+      id: string;
+      revision: number;
+      space: ResourceSpace;
+      summary: string;
+      detail: string;
+    }
+  | {
+      action: "attributes";
+      id: string;
+      revision: number;
+      category: AssetCategory;
+      style: AssetStyle;
+      formats: AssetFormat[];
+      license: AssetLicense;
+    }
+  | { action: "clear_cover"; id: string; revision: number }
   | { action: "delete"; id: string; revision: number }
   | { action: "grant" | "revoke"; id: string; revision: number; member: string };
 
@@ -16,6 +42,12 @@ interface Receipt {
 /** 每个批次先独占幂等键，再按同批权限判定执行；竞争失败不是 SQL 异常。 */
 export async function mutate(db: D1Database, principal: string, key: string, input: Mutation) {
   if (!/^[A-Za-z0-9._:-]{8,128}$/.test(key)) throw new HttpError(400, "INVALID_IDEMPOTENCY_KEY");
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
+  if (input.action === "attributes" && !assetMarket)
+    throw new HttpError(503, "SERVICE_UNAVAILABLE");
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(JSON.stringify(input)),
@@ -72,7 +104,46 @@ export async function mutate(db: D1Database, principal: string, key: string, inp
       revision = revision + 1, updated_at = ? WHERE id = ? AND ${gate}`)
         .bind(...values),
     );
-    if (input.action === "grant") {
+    if (input.action === "profile") {
+      statements.push(
+        db
+          .prepare(`INSERT INTO resource_profiles(resource_id, space, summary, detail)
+          SELECT ?, ?, ?, ? WHERE ${gate}
+          ON CONFLICT(resource_id) DO UPDATE SET
+            space = excluded.space,
+            summary = excluded.summary,
+            detail = excluded.detail`)
+          .bind(id, input.space, input.summary, input.detail, operation),
+      );
+    } else if (input.action === "attributes") {
+      statements.push(
+        db
+          .prepare(`INSERT INTO resource_asset_attributes(resource_id, category, style, formats, license)
+          SELECT ?, ?, ?, ?, ? WHERE ${gate}
+          ON CONFLICT(resource_id) DO UPDATE SET
+            category = excluded.category,
+            style = excluded.style,
+            formats = excluded.formats,
+            license = excluded.license`)
+          .bind(
+            id,
+            input.category,
+            input.style,
+            JSON.stringify(input.formats),
+            input.license,
+            operation,
+          ),
+      );
+    } else if (input.action === "clear_cover") {
+      statements.push(
+        db
+          .prepare(`UPDATE resource_profiles SET
+            cover_key = NULL, cover_sha256 = NULL, cover_size = NULL,
+            cover_width = NULL, cover_height = NULL
+          WHERE resource_id = ? AND ${gate}`)
+          .bind(id, operation),
+      );
+    } else if (input.action === "grant") {
       statements.push(
         db
           .prepare(`INSERT INTO resource_members(resource_id, principal)
@@ -98,7 +169,10 @@ export async function mutate(db: D1Database, principal: string, key: string, inp
   statements.push(
     db
       .prepare(`UPDATE mutation_requests SET response = CASE
-    WHEN status < 300 THEN (SELECT ${resourceJson} FROM resources WHERE id = ?)
+    WHEN status < 300 THEN (
+      SELECT ${resourceJsonFor(showcase, assetMarket)} FROM resources r
+      ${resourceJoinsFor(showcase, assetMarket)} WHERE r.id = ?
+    )
     WHEN status = 404 THEN '{"error":"NOT_FOUND"}'
     ELSE '{"error":"REVISION_CONFLICT"}' END WHERE operation_id = ?`)
       .bind(id, operation),

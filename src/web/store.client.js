@@ -7,8 +7,18 @@ import {
   setSession,
   stopRequests,
 } from "./api.client.js";
+import { assetFactEntries, initAssetMarket, renderAssetBadges } from "./asset-market.client.js";
 import { savePackage } from "./download.client.js";
 import { createDownloadTransfer } from "./resume-download.client.js";
+import {
+  applicationSpaces,
+  bindModalScrollLock,
+  paintStoreView,
+  readStoreRoute,
+  spaceLabels,
+  storeRoute,
+  storeViews,
+} from "./store-view.client.js";
 
 const element = (id) => document.getElementById(`store-${id}`);
 const kinds = {
@@ -23,9 +33,17 @@ let cursor = null;
 let selected = null;
 let job = null;
 let initialization = 0;
+let initializing = true;
 let filters = { q: "", kind: "" };
 let opener = null;
+let publishOpener = null;
 let loginEnabled = false;
+const initialRoute = readStoreRoute(window.location.hash);
+let view = initialRoute.view === "library" ? "home" : initialRoute.view;
+filters = initialRoute.view === "library" ? filters : initialRoute.filters;
+const viewFilters = new Map();
+let pendingRoute = null;
+let assetMarket;
 const transfer = createDownloadTransfer((pending) => {
   element("download-status").textContent = pending
     ? `${pending.offset} / ${pending.total} bytes${pending.resumable ? "；可手动继续。" : "；正在下载并校验。"}`
@@ -45,30 +63,50 @@ function status(message, tone = "info") {
   }
 }
 function context() {
-  const searching = !!filters.q || !!filters.kind;
-  element("discovery").hidden = scope !== "public" || searching;
-  element("context").textContent = scope === "public" ? "PUBLIC CATALOG" : "YOUR LIBRARY";
-  element("heading").textContent =
-    scope === "library"
-      ? "我的下载资源库"
-      : filters.q
-        ? "搜索结果"
-        : (kinds[filters.kind] ?? "全部资产");
-  element("filter-summary").textContent = [
-    kinds[filters.kind] ?? "全部类型",
-    filters.q ? `名称包含「${filters.q}」` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  for (const name of ["all", ...Object.keys(kinds)])
-    element(`category-${name}`).setAttribute(
-      "aria-pressed",
-      String((name === "all" ? "" : name) === filters.kind),
-    );
-  for (const name of ["public", "library"])
-    element(name).setAttribute("aria-pressed", String(name === scope));
+  paintStoreView(element, view, filters);
+  assetMarket?.syncHubControls();
+  element("query").value = filters.q;
+  element("query").placeholder = storeViews[view].unavailable
+    ? "搜索现有作品…"
+    : view === "assets" && filters.mode === "requests"
+      ? "搜索求购标题或说明…"
+      : storeViews[view].space
+        ? `搜索 ${applicationSpaces[storeViews[view].space].name} 空间作品…`
+        : "搜索名称…";
 }
-function cover(kind) {
+function writeRoute(replace = true) {
+  const hash = storeRoute(view, filters);
+  if (window.location.hash !== hash)
+    window.history?.[replace ? "replaceState" : "pushState"](null, "", hash);
+}
+async function changeView(next, signal, routeFilters, replace = false) {
+  if (next === "library" && !connected()) {
+    status("请先登录后查看资源库。", "error");
+    writeRoute();
+    return;
+  }
+  viewFilters.set(view, { ...filters });
+  view = next;
+  scope = next === "library" ? "library" : "public";
+  filters = routeFilters ?? viewFilters.get(next) ?? { q: "", kind: "" };
+  writeRoute(replace);
+  await load(signal);
+}
+function cover(item) {
+  const kind = typeof item === "string" ? item : item?.kind;
+  const coverFact = typeof item === "object" ? item?.cover : null;
+  if (coverFact?.url) {
+    const node = text("div", "", "asset-cover has-image");
+    const image = document.createElement("img");
+    image.className = "asset-cover-image";
+    image.setAttribute("src", coverFact.url);
+    image.setAttribute("alt", "");
+    image.setAttribute("loading", "lazy");
+    if (coverFact.width) image.setAttribute("width", String(coverFact.width));
+    if (coverFact.height) image.setAttribute("height", String(coverFact.height));
+    node.append(image);
+    return node;
+  }
   const node = text("div", "", "asset-cover");
   node.append(
     text("span", kinds[kind] ?? "资源包"),
@@ -84,22 +122,48 @@ function showDetail(trigger) {
 }
 function controls() {
   const pending = transfer.snapshot();
+  const busy = !!job || initializing;
   for (const control of document.querySelectorAll(".store button,.store input,.store select"))
-    control.disabled = !!job;
-  element("more").disabled = !!job || !cursor;
-  element("library").disabled = !!job || !connected();
-  element("download").disabled = !!job || !connected() || !selected;
+    control.disabled = busy;
+  element("more").disabled = busy || !cursor;
+  element("library").disabled = busy || !connected();
+  element("download").disabled = busy || !connected() || !selected;
   element("login-hint").hidden = connected() || !loginEnabled;
-  element("resume").disabled = !!job || !connected() || !pending?.resumable;
-  element("discard").disabled = !!job || !pending;
-  element("stop").disabled = !job && !pending;
-  element("transfer-stop").disabled = !job && !pending;
+  element("resume").disabled = busy || !connected() || !pending?.resumable;
+  element("discard").disabled = busy || !pending;
+  element("stop").disabled = !busy && !pending;
+  element("transfer-stop").disabled = !busy && !pending;
   element("transfer").hidden = !pending || pending.publication.id !== selected?.id;
   element("transfer-open").hidden = !pending;
   element("transfer-open").disabled = false;
   element("detail-close").disabled = false;
   element("transfer-open").textContent = pending?.resumable ? "下载任务 · 可继续" : "下载任务";
-  element("results").setAttribute("aria-busy", String(!!job));
+  element("results").setAttribute("aria-busy", String(busy));
+  element("publish-login").hidden = connected() || !loginEnabled;
+  element("publish-hint").textContent = loginEnabled
+    ? "登录后继续操作。"
+    : "账号服务暂不可用，请稍后再试。";
+  assetMarket?.controls(busy);
+}
+function clearIdentity() {
+  setCredential("");
+  selected = null;
+  transfer.clear();
+  assetMarket?.reset();
+  element("results").replaceChildren();
+  element("detail").close();
+  element("publish-dialog").close();
+  element("empty").hidden = true;
+  element("login").hidden = !loginEnabled;
+  element("logout").hidden = true;
+  element("session").title = "";
+  cursor = null;
+  scope = "public";
+  view = "home";
+  filters = { q: "", kind: "" };
+  viewFilters.clear();
+  writeRoute();
+  context();
 }
 async function run(task) {
   if (job) return;
@@ -111,18 +175,8 @@ async function run(task) {
     controller.signal.throwIfAborted();
   } catch (error) {
     if (error.identityRejected) {
-      setCredential("");
-      selected = null;
-      transfer.clear();
-      element("results").replaceChildren();
-      element("detail").close();
-      element("empty").hidden = true;
+      clearIdentity();
       element("session").textContent = "登录已失效，请重新登录";
-      element("login").hidden = false;
-      element("logout").hidden = true;
-      cursor = null;
-      scope = "public";
-      context();
     }
     status(
       error.name === "AbortError"
@@ -133,6 +187,11 @@ async function run(task) {
   } finally {
     job = null;
     controls();
+    if (!initializing && pendingRoute) {
+      const route = pendingRoute;
+      pendingRoute = null;
+      await run((signal) => changeView(route.view, signal, route.filters, true));
+    }
   }
 }
 function render(items) {
@@ -142,7 +201,14 @@ function render(items) {
     const body = text("div", "", "asset-body");
     const title = text("h3", item.title);
     title.title = item.title;
-    body.append(text("p", kinds[item.kind] ?? item.kind, "asset-type"), title);
+    const spaceTag =
+      item.space && item.space !== "general" && applicationSpaces[item.space]
+        ? ` · ${applicationSpaces[item.space].name} 空间`
+        : "";
+    body.append(text("p", `${kinds[item.kind] ?? item.kind}${spaceTag}`, "asset-type"), title);
+    const badges = renderAssetBadges(item);
+    if (badges) body.append(badges);
+    if (item.summary) body.append(text("p", item.summary, "asset-summary"));
     const meta = text("p", "", "asset-meta");
     const size =
       item.size < 1024
@@ -166,7 +232,7 @@ function render(items) {
     button.addEventListener("click", () => run((signal) => detail(item.id, signal, button)));
     bottom.append(button);
     body.append(bottom);
-    card.append(cover(item.kind), body);
+    card.append(cover(item), body);
     element("results").append(card);
   }
 }
@@ -177,8 +243,24 @@ async function load(signal, after = "") {
   element("empty").hidden = true;
   element("results").replaceChildren();
   context();
+  writeRoute();
+  if (storeViews[view].unavailable) {
+    status(storeViews[view].unavailable);
+    return;
+  }
+  if (view === "assets" && filters.mode === "requests") {
+    await assetMarket.loadRequests(signal, after);
+    return;
+  }
   status("正在读取当前目录…");
   const params = new URLSearchParams({ limit: "20" });
+  if (storeViews[view].section) params.set("section", storeViews[view].section);
+  if (storeViews[view].space) params.set("space", storeViews[view].space);
+  if (view === "assets") {
+    for (const key of ["category", "style", "format", "license", "space"]) {
+      if (filters[key]) params.set(key, filters[key]);
+    }
+  }
   if (filters.q) params.set("q", filters.q);
   if (filters.kind) params.set("kind", filters.kind);
   if (after) params.set("after", after);
@@ -212,13 +294,29 @@ async function detail(id, signal, trigger) {
 }
 function presentDetail(item, trigger) {
   selected = item;
+  const hostSpace =
+    item.space && applicationSpaces[item.space] ? applicationSpaces[item.space] : null;
   element("detail").scrollTop = 0;
   element("detail-title").textContent = item.title;
   element("detail-kind").textContent = kinds[item.kind] ?? item.kind;
-  element("detail-cover").replaceChildren(cover(item.kind));
+  element("detail-summary").textContent = item.summary ?? "";
+  element("detail-summary").hidden = !item.summary;
+  element("detail-description").textContent = item.detail ?? "";
+  element("detail-description").hidden = !item.detail;
+  element("detail-space").hidden = !hostSpace;
+  if (hostSpace) {
+    element("detail-space").setAttribute("href", `#app/${hostSpace.id}`);
+    element("detail-space").textContent = `进入 ${hostSpace.name} 内容空间 →`;
+  }
+  element("detail-cover").replaceChildren(cover(item));
+  element("detail-cover-note").textContent = item.cover?.url
+    ? `发布者提供的已审核静态 PNG 封面（${item.cover.width}×${item.cover.height}），不代表包内全部内容。`
+    : "类型图示，不代表包内内容预览。";
   element("facts").replaceChildren();
   for (const [label, value] of [
+    ["适用空间", spaceLabels[item.space] ?? spaceLabels.general],
     ["资源类型", kinds[item.kind] ?? item.kind],
+    ...assetFactEntries(item),
     ["版本", item.label],
     ["包体大小", `${item.size} bytes`],
     [
@@ -239,19 +337,71 @@ element("search").addEventListener("submit", (event) => {
   event.preventDefault();
   if (job) return;
   filters.q = element("query").value.trim();
-  return run((signal) => load(signal));
+  return run((signal) =>
+    storeViews[view].unavailable
+      ? changeView("home", signal, { q: filters.q, kind: "" })
+      : load(signal),
+  );
 });
 for (const name of ["public", "library"])
-  click(name, async (signal) => {
-    scope = name;
-    await load(signal);
-  });
+  click(name, (signal) => changeView(name === "public" ? "home" : name, signal));
+for (const name of ["games", "apps", "loom", "assets", "community"])
+  click(`section-${name}`, (signal) => changeView(name, signal));
 for (const kind of ["all", ...Object.keys(kinds)])
   click(`category-${kind}`, (signal) => {
     filters = { q: element("query").value.trim(), kind: kind === "all" ? "" : kind };
     return load(signal);
   });
 element("detail-close").addEventListener("click", () => element("detail").close());
+element("detail-space").addEventListener("click", (event) => {
+  const spaceId = selected?.space;
+  if (!spaceId || !applicationSpaces[spaceId]) return;
+  event.preventDefault();
+  opener = null;
+  element("detail").close();
+  void run((signal) => changeView(`app:${spaceId}`, signal));
+});
+function publish(
+  targetSpace = "",
+  trigger = element("publish"),
+  titleText = "登录后发布作品",
+  loginAction = "/auth/login?returnTo=workspace",
+) {
+  if (job || initializing) return;
+  if (connected())
+    window.location.assign(targetSpace ? `/workspace?space=${targetSpace}` : "/workspace");
+  else {
+    publishOpener = trigger;
+    element("publish-title").textContent = titleText;
+    element("publish-login").setAttribute("action", loginAction);
+    element("publish-dialog").showModal();
+    element("publish-close").focus();
+  }
+}
+assetMarket = initAssetMarket({
+  element,
+  run,
+  getView: () => view,
+  getFilters: () => filters,
+  setFilters: (next) => {
+    filters = next;
+  },
+  reloadView: (signal) => load(signal),
+  promptLogin: publish,
+  isLoginEnabled: () => loginEnabled,
+  refreshControls: controls,
+});
+element("publish").addEventListener("click", () => publish("", element("publish")));
+element("space-publish").addEventListener("click", () =>
+  publish(storeViews[view].space || "", element("space-publish")),
+);
+element("publish-close").addEventListener("click", () => element("publish-dialog").close());
+element("publish-dialog").addEventListener("close", () =>
+  (publishOpener?.isConnected && !publishOpener.hidden
+    ? publishOpener
+    : element("publish")
+  ).focus(),
+);
 element("detail").addEventListener("close", () => {
   const target =
     opener?.isConnected && !opener.disabled && !opener.hidden
@@ -276,12 +426,17 @@ async function download(signal, resume = false) {
 click("download", (signal) => download(signal));
 click("resume", (signal) => download(signal, true));
 click("discard", () => transfer.clear());
-click("logout", async () => {
+click("logout", async (signal) => {
   const url = await logoutSession();
+  clearIdentity();
+  element("session").textContent = "已退出登录";
+  signal.throwIfAborted();
   window.location.assign(url);
 });
 function stop() {
   initialization += 1;
+  pendingRoute = null;
+  writeRoute();
   job?.abort();
   stopRequests();
 }
@@ -291,16 +446,33 @@ window.addEventListener("pagehide", () => {
   initialization += 1;
   job?.abort();
   stopRequests();
+  pendingRoute = null;
+});
+bindModalScrollLock(element);
+window.addEventListener("hashchange", () => {
+  if (window.location.hash === "#store-main") return;
+  pendingRoute = readStoreRoute(window.location.hash);
+  if (job) job.abort();
+  else if (!initializing) {
+    const route = pendingRoute;
+    pendingRoute = null;
+    return run((signal) => changeView(route.view, signal, route.filters, true));
+  }
 });
 
 // 目录与 session 各读取一次；登录状态不可阻止匿名目录查询，也不启动后台轮询。
 export const ready = (async () => {
+  controls();
   const current = initialization;
   const [session] = await Promise.all([
     readSession().catch(() => null),
-    run((signal) => load(signal)),
+    initialRoute.view === "library" ? Promise.resolve() : run((signal) => load(signal)),
   ]);
-  if (current !== initialization) return;
+  if (current !== initialization) {
+    initializing = false;
+    controls();
+    return;
+  }
   if (!session) element("session").textContent = "登录状态暂不可用；仍可浏览公开目录";
   else {
     loginEnabled = !!session.enabled;
@@ -311,6 +483,17 @@ export const ready = (async () => {
     element("logout").hidden = !session.principal;
     element("session").title = element("session").textContent;
     if (session.principal) setSession(session.csrf);
+  }
+  const route = pendingRoute ?? (initialRoute.view === "library" ? initialRoute : null);
+  pendingRoute = null;
+  initializing = false;
+  if (route) {
+    if (route.view !== "library" || connected())
+      await run((signal) => changeView(route.view, signal, route.filters, true));
+    else {
+      await run((signal) => changeView("home", signal, { q: "", kind: "" }, true));
+      status("请先登录后查看资源库。", "error");
+    }
   }
   if (new URL(window.location.href).searchParams.get("auth") === "failed")
     status("登录未完成，请重试。", "error");

@@ -1,6 +1,8 @@
+import { decodeFormats, defaultAssetAttributes, hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError } from "../http";
 import { policyKindSql } from "../inspections/policy";
 import type { ScannerRelease } from "../scanner/deployment";
+import { defaultPolicySpaceSql, effectiveVersionSpace, hasShowcaseSchema } from "../spaces/catalog";
 import { versionSafety } from "./safety";
 
 export interface VersionRow {
@@ -19,6 +21,18 @@ export interface VersionRow {
   inspection_revision: number;
   inspection_policy: string;
   inspection_result: string | null;
+  profile_space: string | null;
+  summary: string | null;
+  detail: string | null;
+  cover_key: string | null;
+  cover_sha256: string | null;
+  cover_size: number | null;
+  cover_width: number | null;
+  cover_height: number | null;
+  asset_category: string | null;
+  asset_style: string | null;
+  asset_formats: string | null;
+  asset_license: string | null;
   state: "pending_review" | "approved" | "rejected" | "withdrawn";
   revision: number;
   reviewer: string | null;
@@ -35,8 +49,34 @@ export interface VersionRow {
   publication_revision: number | null;
 }
 
-// 批准事务和查询共用完整快照条件；历史 passed 不能替代当前资源/上传身份。
-export const currentSnapshot = `EXISTS (SELECT 1 FROM resources r
+// 批准事务和查询共用完整快照条件；历史 passed 不能替代当前资源/上传/展示信息身份。
+export function currentSnapshotFor(hasShowcase = true, hasAssetMarket = false) {
+  const profileGuard = hasShowcase
+    ? `AND NOT EXISTS (
+    SELECT 1 FROM version_profiles vp LEFT JOIN resource_profiles rp ON rp.resource_id = r.id
+    WHERE vp.version_id = versions.id
+    AND (
+      COALESCE(rp.space, ${defaultPolicySpaceSql("i.policy")}) <> vp.space
+      OR COALESCE(rp.summary, '') <> vp.summary
+      OR COALESCE(rp.detail, '') <> vp.detail
+      OR COALESCE(rp.cover_sha256, '') <> COALESCE(vp.cover_sha256, '')
+    )
+  )`
+    : "";
+  const assetGuard = hasAssetMarket
+    ? `AND NOT EXISTS (
+    SELECT 1 FROM version_asset_attributes va
+    LEFT JOIN resource_asset_attributes ra ON ra.resource_id = r.id
+    WHERE va.version_id = versions.id
+    AND (
+      COALESCE(ra.category, 'general') <> va.category
+      OR COALESCE(ra.style, 'general') <> va.style
+      OR COALESCE(ra.formats, '[]') <> va.formats
+      OR COALESCE(ra.license, 'unspecified') <> va.license
+    )
+  )`
+    : "";
+  return `EXISTS (SELECT 1 FROM resources r
   JOIN uploads u ON u.resource_id = r.id JOIN inspections i ON i.upload_id = u.id
   WHERE r.id = versions.resource_id AND r.state = 'draft' AND r.kind = versions.kind
   AND r.revision = versions.resource_revision AND r.title = versions.title AND u.owner = r.owner
@@ -46,18 +86,45 @@ export const currentSnapshot = `EXISTS (SELECT 1 FROM resources r
   AND i.policy = versions.inspection_policy AND i.upload_revision = u.revision
   AND r.kind = ${policyKindSql("i.policy")}
   AND i.expected_size = u.expected_size AND i.sha256 = u.sha256 AND i.etag = u.etag
-  AND json_extract(i.result, '$.sha256') = u.sha256)`;
+  AND json_extract(i.result, '$.sha256') = u.sha256
+  ${profileGuard}
+  ${assetGuard})`;
+}
 
-export const versionSelect = `SELECT versions.*, r.owner, checked.result AS inspection_result,
+export const currentSnapshot = currentSnapshotFor(true, true);
+
+export function versionSelectFor(hasShowcase = true, hasAssetMarket = false) {
+  const columns = hasShowcase
+    ? `vp.space AS profile_space, vp.summary, vp.detail,
+      vp.cover_key, vp.cover_sha256, vp.cover_size, vp.cover_width, vp.cover_height`
+    : `NULL AS profile_space, NULL AS summary, NULL AS detail,
+      NULL AS cover_key, NULL AS cover_sha256, NULL AS cover_size, NULL AS cover_width, NULL AS cover_height`;
+  const assetColumns = hasAssetMarket
+    ? `va.category AS asset_category, va.style AS asset_style,
+      va.formats AS asset_formats, va.license AS asset_license`
+    : `NULL AS asset_category, NULL AS asset_style,
+      NULL AS asset_formats, NULL AS asset_license`;
+  return `SELECT versions.*, r.owner, checked.result AS inspection_result,
+  ${columns},
+  ${assetColumns},
   p.id AS publication_id, p.state AS publication_state, p.revision AS publication_revision,
-  CASE WHEN ${currentSnapshot} THEN 1 ELSE 0 END AS binding_current
+  CASE WHEN ${currentSnapshotFor(hasShowcase, hasAssetMarket)} THEN 1 ELSE 0 END AS binding_current
   FROM versions JOIN resources r ON r.id = versions.resource_id
   JOIN inspections checked ON checked.id = versions.inspection_id
+  ${hasShowcase ? "LEFT JOIN version_profiles vp ON vp.version_id = versions.id" : ""}
+  ${hasAssetMarket ? "LEFT JOIN version_asset_attributes va ON va.version_id = versions.id" : ""}
   LEFT JOIN publications p ON p.version_id = versions.id`;
+}
+
+export const versionSelect = versionSelectFor(true, true);
 
 export async function loadVersion(db: D1Database, id: string): Promise<VersionRow> {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const row = await db
-    .prepare(`${versionSelect} WHERE versions.id = ?`)
+    .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.id = ?`)
     .bind(id)
     .first<VersionRow>();
   if (!row) throw new HttpError(404, "NOT_FOUND");
@@ -76,6 +143,25 @@ export function versionView(row: VersionRow, release: ScannerRelease | null = nu
       resourceRevision: row.resource_revision,
       title: row.title,
       kind: row.kind,
+      space: effectiveVersionSpace(row.profile_space, row.inspection_policy),
+      summary: row.summary ?? "",
+      detail: row.detail ?? "",
+      cover:
+        row.cover_key === null
+          ? null
+          : {
+              sha256: row.cover_sha256,
+              size: row.cover_size,
+              width: row.cover_width,
+              height: row.cover_height,
+              url: `/v1/versions/${row.id}/cover`,
+            },
+      assetAttributes: {
+        category: row.asset_category ?? defaultAssetAttributes.category,
+        style: row.asset_style ?? defaultAssetAttributes.style,
+        formats: decodeFormats(row.asset_formats),
+        license: row.asset_license ?? defaultAssetAttributes.license,
+      },
       uploadId: row.upload_id,
       uploadRevision: row.upload_revision,
       size: row.expected_size,

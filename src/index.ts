@@ -41,6 +41,7 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+import { assetRequestRoutes, publicAssetRequestRoutes } from "./assets/routes";
 import { catalogRoutes, distributionRoutes } from "./distribution/routes";
 
 async function route(request: Request, env: Env) {
@@ -58,10 +59,14 @@ async function route(request: Request, env: Env) {
   if (request.method === "GET" && path === "/readyz") return readiness(env);
   const catalog = await catalogRoutes(request, env);
   if (catalog) return catalog;
+  const publicRequests = await publicAssetRequestRoutes(request, env);
+  if (publicRequests) return publicRequests;
   const principal = env.NACCOUNT_ISSUER
     ? await naccountIdentity(request, env)
     : await authenticate(request, env);
   if (request.method === "GET" && path === "/v1/me") return json({ principal });
+  const assetRequests = await assetRequestRoutes(request, env, principal);
+  if (assetRequests) return assetRequests;
   const distribution = await distributionRoutes(request, env, principal);
   if (distribution) return distribution;
   const versionResponse = await versionRoutes(request, env, principal);
@@ -70,5 +75,5 @@ async function route(request: Request, env: Env) {
   if (inspectionResponse) return inspectionResponse;
   const uploadResponse = await uploadRoutes(request, env, principal);
   if (uploadResponse) return uploadResponse;
-  return resourceRoutes(request, env.DB, principal);
+  return resourceRoutes(request, env, principal);
 }

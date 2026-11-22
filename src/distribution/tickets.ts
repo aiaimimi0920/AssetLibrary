@@ -1,12 +1,14 @@
+import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
 import {
   isDistributable,
   isUnscanned,
   type PublicationRow,
   publicationScan,
-  publicationSelect,
+  publicationSelectFor,
 } from "../publications/records";
 import type { ScannerRelease } from "../scanner/deployment";
+import { hasShowcaseSchema } from "../spaces/catalog";
 import { downloadAuthority } from "./grants";
 
 export async function ticketHash(token: string) {
@@ -34,12 +36,16 @@ export async function issueTicket(
   const expiresAt = isUnscanned(row)
     ? now + 300000
     : Math.min(now + 300000, scan?.expiresAt ?? 0, release?.expiresAt ?? Infinity);
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const result = await db
     .prepare(`INSERT INTO download_tickets
     (token_hash, principal, publication_id, publication_revision, version_revision,
       grant_revision, sha256, etag, expires_at, created_at)
     SELECT ?, ?, id, revision, version_revision, ?, sha256, etag, ?, ?
-    FROM (${publicationSelect}) eligible WHERE id = ? AND state = 'published' AND binding_current = 1
+    FROM (${publicationSelectFor(showcase, assetMarket)}) eligible WHERE id = ? AND state = 'published' AND binding_current = 1
     AND revision = ? AND scan_result = ?
     AND ? > CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER) AND
     ((owner = ? AND ? = 0) OR EXISTS (SELECT 1 FROM download_grants g
@@ -75,9 +81,13 @@ export async function authorizeTicket(
   release?: ScannerRelease | null,
 ) {
   const hash = await ticketHash(token);
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   // 主体/撤销/票据在一条 primary 查询内判断，避免多次读取之间的授权竞争。
   const row = await db
-    .prepare(`SELECT eligible.*, t.expires_at AS ticket_expires_at FROM (${publicationSelect}) eligible
+    .prepare(`SELECT eligible.*, t.expires_at AS ticket_expires_at FROM (${publicationSelectFor(showcase, assetMarket)}) eligible
     JOIN download_tickets t ON t.publication_id = eligible.id
     WHERE eligible.id = ? AND t.token_hash = ? AND t.principal = ?
     AND t.expires_at > CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER)

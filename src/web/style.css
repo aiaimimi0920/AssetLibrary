@@ -241,13 +241,20 @@ dialog {
   border-radius: 6px;
   background: var(--panel);
   color: var(--text);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 dialog::backdrop {
   background: rgb(0 0 0 / 75%);
 }
-/* 窄屏使用文档滚动；只锁内部 main/aside 不能阻止背景页面滚动。 */
+/* 窄屏及商店使用文档根滚动；同时限制 overscroll 防止模态背景滚动穿透。 */
+html:has(dialog[open]) {
+  overflow: clip;
+  overscroll-behavior: none;
+}
 body:has(dialog[open]) {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 body:has(dialog[open]) main,
 body:has(dialog[open]) aside {

@@ -1,12 +1,64 @@
+import { hasAssetMarketSchema } from "../assets/taxonomy";
+import { hasShowcaseSchema } from "../spaces/catalog";
+
 /** 权限判断和目录读取均使用 D1 primary；不使用复制会话或授权缓存。 */
-export const resourceJson = `json_object(
-  'id', id, 'owner', owner, 'kind', kind, 'title', title,
-  'state', state, 'revision', revision, 'createdAt', created_at, 'updatedAt', updated_at
-)`;
+export function resourceJsonFor(
+  hasShowcase = true,
+  hasAssetMarket = true,
+  r = "r",
+  rp = "rp",
+  ra = "ra",
+) {
+  const profile = hasShowcase
+    ? `json_object(
+      'space', COALESCE(${rp}.space, 'general'),
+      'summary', COALESCE(${rp}.summary, ''),
+      'detail', COALESCE(${rp}.detail, ''),
+      'cover', CASE WHEN ${rp}.cover_key IS NULL THEN NULL ELSE json_object(
+        'sha256', ${rp}.cover_sha256,
+        'size', ${rp}.cover_size,
+        'width', ${rp}.cover_width,
+        'height', ${rp}.cover_height,
+        'url', '/v1/resources/' || ${r}.id || '/cover'
+      ) END
+    )`
+    : `json_object('space', 'general', 'summary', '', 'detail', '', 'cover', NULL)`;
+  const assetAttributes = hasAssetMarket
+    ? `json_object(
+      'category', COALESCE(${ra}.category, 'general'),
+      'style', COALESCE(${ra}.style, 'general'),
+      'formats', json(COALESCE(${ra}.formats, '[]')),
+      'license', COALESCE(${ra}.license, 'unspecified')
+    )`
+    : `json_object('category', 'general', 'style', 'general', 'formats', json('[]'), 'license', 'unspecified')`;
+  return `json_object(
+    'id', ${r}.id, 'owner', ${r}.owner, 'kind', ${r}.kind, 'title', ${r}.title,
+    'state', ${r}.state, 'revision', ${r}.revision,
+    'createdAt', ${r}.created_at, 'updatedAt', ${r}.updated_at,
+    'profile', ${profile},
+    'assetAttributes', ${assetAttributes}
+  )`;
+}
+
+export const resourceJson = resourceJsonFor(true, true, "r", "rp", "ra");
+
+export function resourceJoinsFor(hasShowcase = true, hasAssetMarket = true, r = "r") {
+  return [
+    hasShowcase ? `LEFT JOIN resource_profiles rp ON rp.resource_id = ${r}.id` : "",
+    hasAssetMarket ? `LEFT JOIN resource_asset_attributes ra ON ra.resource_id = ${r}.id` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export async function getResource(db: D1Database, principal: string, id: string) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
+  const join = resourceJoinsFor(showcase, assetMarket);
   const row = await db
-    .prepare(`SELECT ${resourceJson} AS body FROM resources r
+    .prepare(`SELECT ${resourceJsonFor(showcase, assetMarket)} AS body FROM resources r ${join}
     WHERE r.id = ? AND r.state = 'draft' AND
     (r.owner = ? OR EXISTS (SELECT 1 FROM resource_members m
       WHERE m.resource_id = r.id AND m.principal = ?))`)
@@ -39,12 +91,18 @@ export async function listResources(
   after: string,
   limit: number,
 ) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
+  const jsonExpr = resourceJsonFor(showcase, assetMarket);
+  const join = resourceJoinsFor(showcase, assetMarket);
   const rows = await db
-    .prepare(`SELECT id, ${resourceJson} AS body FROM resources
-    WHERE owner = ? AND state = 'draft' AND id > ?
+    .prepare(`SELECT r.id, ${jsonExpr} AS body FROM resources r ${join}
+    WHERE r.owner = ? AND r.state = 'draft' AND r.id > ?
     UNION
-    SELECT r.id, ${resourceJson} AS body FROM resources r
-    JOIN resource_members m ON m.resource_id = r.id
+    SELECT r.id, ${jsonExpr} AS body FROM resources r
+    JOIN resource_members m ON m.resource_id = r.id ${join}
     WHERE m.principal = ? AND r.state = 'draft' AND r.id > ?
     ORDER BY id LIMIT ?`)
     .bind(principal, after, principal, after, limit + 1)

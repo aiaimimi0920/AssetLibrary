@@ -1,10 +1,19 @@
+import {
+  parseAssetCategory,
+  parseAssetFormats,
+  parseAssetLicense,
+  parseAssetStyle,
+} from "../assets/taxonomy";
 import { exactFields, HttpError, json, principalRef, readJson, revision, title } from "../http";
+import { parseDetail, parseSpace, parseSummary } from "../spaces/catalog";
+import { getResourceCover, putResourceCover, type ResourceCoverEnv } from "./cover";
 import { type Mutation, mutate } from "./mutations";
 import { getMember, getResource, listResources } from "./queries";
 
 const resourceId = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-export async function resourceRoutes(request: Request, db: D1Database, principal: string) {
+export async function resourceRoutes(request: Request, env: ResourceCoverEnv, principal: string) {
+  const db = env.DB;
   const url = new URL(request.url);
   const method = request.method;
   if (url.pathname === "/v1/me/resources" && method === "GET") {
@@ -50,6 +59,37 @@ export async function resourceRoutes(request: Request, db: D1Database, principal
         method === "PATCH"
           ? { action: "update", id, revision: revision(body.revision), title: title(body.title) }
           : { action: "delete", id, revision: revision(body.revision) };
+    } else if (parts.length === 5 && parts[4] === "profile" && method === "PUT") {
+      const body = await readJson(request);
+      exactFields(body, ["revision", "space", "summary", "detail"]);
+      input = {
+        action: "profile",
+        id,
+        revision: revision(body.revision),
+        space: parseSpace(body.space),
+        summary: parseSummary(body.summary),
+        detail: parseDetail(body.detail),
+      };
+    } else if (parts.length === 5 && parts[4] === "attributes" && method === "PUT") {
+      const body = await readJson(request);
+      exactFields(body, ["revision", "category", "style", "formats", "license"]);
+      input = {
+        action: "attributes",
+        id,
+        revision: revision(body.revision),
+        category: parseAssetCategory(body.category),
+        style: parseAssetStyle(body.style),
+        formats: parseAssetFormats(body.formats, false),
+        license: parseAssetLicense(body.license),
+      };
+    } else if (parts.length === 5 && parts[4] === "cover") {
+      if (method === "GET" || method === "HEAD")
+        return getResourceCover(request, env, id, principal);
+      if (method === "PUT") return putResourceCover(request, env, id, principal);
+      if (method !== "DELETE") throw new HttpError(404, "NOT_FOUND");
+      const body = await readJson(request);
+      exactFields(body, ["revision"]);
+      input = { action: "clear_cover", id, revision: revision(body.revision) };
     } else if (
       parts.length === 6 &&
       parts[4] === "members" &&

@@ -2,6 +2,7 @@ import http from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { packageBytes } from "../../tests/art-package-fixture.mjs";
+import { png } from "../../tests/inspection-fixture.mjs";
 import { softwareBytes } from "../../tests/software-package-fixture.mjs";
 import { trialClient, trialPage } from "./presentation.mjs";
 import { identities } from "./runtime.mjs";
@@ -22,6 +23,9 @@ const assets = new Set([
   "/style.css",
   "/workspace",
   "/store.css",
+  "/store-shell.css",
+  "/asset-market.css",
+  "/beaver.svg",
   ...[
     "app",
     "api",
@@ -32,7 +36,10 @@ const assets = new Set([
     "download",
     "resume-download",
     "resource",
+    "showcase",
     "store",
+    "store-view",
+    "asset-market",
   ].map((name) => `/${name}.client.js`),
 ]);
 
@@ -54,6 +61,7 @@ export async function serveTrial(runtime, { port = 0, onStop, largeApplications 
   const client = await trialClient();
   const samples = new Map([
     ["/__trial/sample.zip", { name: "two-png.zip", bytes: packageBytes() }],
+    ["/__trial/cover.png", { name: "cover.png", bytes: png(32, 18), type: "image/png" }],
     ...["capability", "application"].map((kind) => [
       `/__trial/${kind}.zip`,
       { name: `${kind}.zip`, bytes: softwareBytes(kind) },
@@ -103,7 +111,7 @@ export async function serveTrial(runtime, { port = 0, onStop, largeApplications 
       if (samples.has(url.pathname) && request.method === "GET") {
         const sample = samples.get(url.pathname);
         reply.setHeader("content-disposition", `attachment; filename="${sample.name}"`);
-        return send(200, sample.bytes, "application/zip");
+        return send(200, sample.bytes, sample.type ?? "application/zip");
       }
       if (["/__trial/login", "/__trial/tick", "/__trial/stop"].includes(url.pathname)) {
         if (

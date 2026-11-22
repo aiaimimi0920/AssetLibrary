@@ -6,7 +6,7 @@ import { isUnscanned } from "../publications/records";
 import { type DeploymentEnv, deploymentAdmission } from "../scanner/deployment";
 import { downloadContent } from "./content";
 import { changeGrant, downloadAuthority, readGrant } from "./grants";
-import { listPublications, publicDetail } from "./queries";
+import { listPublications, publicCover, publicDetail } from "./queries";
 import { issueTicket } from "./tickets";
 
 interface DistributionEnv extends DeploymentEnv {
@@ -16,18 +16,20 @@ interface DistributionEnv extends DeploymentEnv {
 
 export async function catalogRoutes(request: Request, env: DistributionEnv) {
   const url = new URL(request.url);
-  if (
-    (url.pathname !== "/v1/catalog" && !url.pathname.startsWith("/v1/catalog/")) ||
-    request.method !== "GET"
-  )
-    return null;
+  if (url.pathname !== "/v1/catalog" && !url.pathname.startsWith("/v1/catalog/")) return null;
   if (url.pathname === "/v1/catalog") {
+    if (request.method !== "GET") return null;
     const release = deploymentAdmission(env);
     return listPublications(env.DB, url, undefined, release);
   }
   const parts = url.pathname.split("/");
-  if (parts.length !== 4 || !uuid.test(parts[3] ?? "")) throw new HttpError(404, "NOT_FOUND");
+  if (!uuid.test(parts[3] ?? "")) throw new HttpError(404, "NOT_FOUND");
   const release = deploymentAdmission(env);
+  if (parts.length === 5 && parts[4] === "cover" && ["GET", "HEAD"].includes(request.method)) {
+    if (url.search) throw new HttpError(400, "INVALID_QUERY");
+    return publicCover(env.DB, env.QUARANTINE, parts[3] ?? "", request.method === "HEAD", release);
+  }
+  if (parts.length !== 4 || request.method !== "GET") return null;
   return publicDetail(env.DB, parts[3] ?? "", release);
 }
 

@@ -1,13 +1,15 @@
+import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
 import { admittedScan, type ScannerRelease } from "../scanner/deployment";
-import { currentSnapshot, loadVersion } from "../versions/records";
+import { hasShowcaseSchema } from "../spaces/catalog";
+import { currentSnapshotFor, loadVersion } from "../versions/records";
 import { versionSafety } from "../versions/safety";
 import {
   isUnscanned,
   loadPublication,
   type PublicationRow,
   publicationScan,
-  publicationSelect,
+  publicationSelectFor,
   publicationView,
 } from "./records";
 
@@ -19,6 +21,10 @@ export async function publishVersion(
   revision: number,
   release?: ScannerRelease,
 ) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const version = await loadVersion(db, id);
   if (version.owner !== actor) throw new HttpError(404, "NOT_FOUND");
   if (version.revision !== revision) throw new HttpError(409, "REVISION_CONFLICT");
@@ -39,7 +45,7 @@ export async function publishVersion(
       SELECT ?, id, revision, ?, 'published', 1, ?, ?, ? FROM versions
       WHERE id = ? AND revision = ? AND state = 'approved' AND inspection_policy = ?
       AND EXISTS (SELECT 1 FROM resources r WHERE r.id = versions.resource_id AND r.owner = ?)
-      AND ${currentSnapshot}
+      AND ${currentSnapshotFor(showcase, assetMarket)}
       AND EXISTS (SELECT 1 FROM inspections i WHERE i.id = versions.inspection_id AND i.result = ?)
       AND (? IS NULL OR ? > ?)
       AND (? IS NULL OR ? > CAST((julianday('now') - 2440587.5) * 86400000 AS INTEGER))
@@ -65,7 +71,7 @@ export async function publishVersion(
       .prepare(`INSERT INTO publication_events(operation_id, publication_id, actor, action, revision, created_at)
       SELECT ?, id, ?, 'published', revision, ? FROM publications WHERE last_operation = ?`)
       .bind(operation, actor, now, operation),
-    db.prepare(`${publicationSelect} WHERE p.version_id = ?`).bind(id),
+    db.prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.version_id = ?`).bind(id),
   ]);
   const row = results.at(-1)?.results[0];
   if (!row) throw new HttpError(409, "VERSION_BINDING_CHANGED");
@@ -83,6 +89,10 @@ export async function unlistPublication(
   actor: string,
   revision: number,
 ) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const operation = crypto.randomUUID();
   const now = Date.now();
   const results = await db.batch<PublicationRow>([
@@ -96,7 +106,7 @@ export async function unlistPublication(
       .prepare(`INSERT INTO publication_events(operation_id, publication_id, actor, action, revision, created_at)
       SELECT ?, id, ?, 'unlisted', revision, ? FROM publications WHERE last_operation = ?`)
       .bind(operation, actor, now, operation),
-    db.prepare(`${publicationSelect} WHERE p.id = ?`).bind(id),
+    db.prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.id = ?`).bind(id),
   ]);
   const row = results.at(-1)?.results[0];
   if (!row || row.owner !== actor) throw new HttpError(404, "NOT_FOUND");

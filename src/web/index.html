@@ -84,7 +84,66 @@
             <button id="resource-save" data-protected type="submit" disabled>保存标题</button>
           </form>
           <button id="resource-close" class="danger" data-protected type="button" disabled>关闭资源（保留历史）</button>
-          <p class="muted">改名、目录权限变更和关闭都会改变资源 revision，使既有版本绑定失效。请在上传审核前设置好目录权限；已发布内容的新下载也会受影响。</p>
+          <h4>作品展示与内容空间（仅 owner）</h4>
+          <form id="resource-profile-form">
+            <div class="toolbar">
+              <label for="resource-space">适用内容空间</label>
+              <select id="resource-space" disabled>
+                <option value="general">跨应用通用</option>
+                <option value="loom">Loom 内容空间</option>
+                <option value="otter">Otter 内容空间</option>
+                <option value="framelab">FrameLab 内容空间</option>
+              </select>
+            </div>
+            <label for="resource-summary">一句话简介（最多 160 字）</label>
+            <input id="resource-summary" maxlength="160" placeholder="例如：把源图色彩风格迁移到参考图色调" disabled>
+            <label for="resource-detail-text">详细介绍（最多 2000 字）</label>
+            <textarea id="resource-detail-text" maxlength="2000" rows="3" placeholder="适用环境、输入输出、依赖或使用说明…" disabled></textarea>
+            <button id="resource-profile-save" data-protected type="submit" disabled>保存展示与空间设置</button>
+          </form>
+          <form id="resource-cover-form">
+            <p id="resource-cover-state" class="muted">尚未设置封面（商店将显示类型图示占位）。仅支持不超过 1 MiB 的静态 RGBA8 PNG。</p>
+            <input id="resource-cover-file" type="file" accept=".png,image/png" required disabled>
+            <div class="toolbar">
+              <button id="resource-cover-save" data-protected type="submit" disabled>上传静态 PNG 封面</button>
+              <button id="resource-cover-clear" class="danger" data-protected type="button" disabled>清除封面</button>
+            </div>
+          </form>
+          <h4>素材细分属性（仅 owner）</h4>
+          <form id="resource-attributes-form">
+            <div class="toolbar">
+              <label for="resource-asset-category">素材分类</label>
+              <select id="resource-asset-category" disabled>
+                <option value="general">未细分／通用</option>
+                <option value="models">3D 与场景</option>
+                <option value="images">2D 与 UI</option>
+                <option value="materials">材质与贴图</option>
+                <option value="audio">声音与音乐</option>
+                <option value="effects">特效与动画</option>
+                <option value="templates">代码与模板</option>
+              </select>
+              <label for="resource-asset-style">视觉风格</label>
+              <select id="resource-asset-style" disabled>
+                <option value="general">通用风格</option>
+                <option value="pixel">像素</option>
+                <option value="lowpoly">低多边形</option>
+                <option value="realistic">写实</option>
+                <option value="stylized">风格化</option>
+                <option value="handdrawn">手绘</option>
+              </select>
+              <label for="resource-asset-license">许可范围</label>
+              <select id="resource-asset-license" disabled>
+                <option value="unspecified">以包内说明为准</option>
+                <option value="commercial">允许商业创作</option>
+                <option value="personal">仅限个人／非商用</option>
+                <option value="open_source">开源许可</option>
+              </select>
+            </div>
+            <label for="resource-asset-formats">文件格式标签（逗号分隔，最多 4 项：PNG, SVG, ASEPRITE, GLB, FBX, BLEND, SHADER, WAV, OGG, LUT, GDSCRIPT, ZIP）</label>
+            <input id="resource-asset-formats" maxlength="40" placeholder="例如：PNG, GLB" disabled>
+            <button id="resource-attributes-save" data-protected type="submit" disabled>保存素材细分属性</button>
+          </form>
+          <p class="muted">改名、展示设置、封面更新、目录权限变更和关闭都会改变资源 revision，使既有版本绑定失效。请在上传审核前设置好展示信息与目录权限；Loom 原生包策略若指定空间须选择 Loom 内容空间。</p>
           <form id="member-read-form" class="toolbar">
             <label for="member-principal">目录读成员 PrincipalRef</label><input id="member-principal" maxlength="200" required disabled>
             <button data-protected type="submit" disabled>查询目录读权限</button>

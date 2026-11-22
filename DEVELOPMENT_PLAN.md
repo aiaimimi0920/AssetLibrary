@@ -1,5 +1,7 @@
 # AssetLibrary：Cloudflare 从零重建开发计划
 
+2026-11-23 `0.4.16` 候选收口：在完成 Trove 商店壳层第一切片与作品展示／应用内容空间第二切片（`0013_showcase_spaces.sql`）基础上，继续落地第三切片——素材市场细分属性筛选与真实求购广场（`0014_asset_market_requests.sql` 保数据增量表、`PUT /v1/resources/:id/attributes` 版本不可变快照绑定、`/v1/catalog` 与 `/v1/me/library` 分类／风格／格式／许可过滤，以及不含在线支付与资金托管的 `/v1/asset-requests` 发布、脱敏公开浏览、权限隔离方案响应与关闭终态），同时在 `pnpm-workspace.yaml` 覆写 `miniflare>undici` 至 `7.30.2` 使 `pnpm audit --audit-level=low` 清零。`1440 / 960 / 760 / 390 / 320px` 实际浏览器验证已确认卡片零遮挡、模态双向滚轮零穿透及零横向溢出；游戏商店与社区频道仍保持诚实未开放提示，详见 [Trove 商店、内容空间与求购广场](docs/TROVE_STORE_AND_SPACES.md)。
+
 2026-10-26 用户要求先提交已认可的测试 HTML，保存为后续开发参考，暂不正式实现。
 较新的静态原型、检查脚本、截图和布局约定保存于 [Trove 界面参考](design/trove-preview/README.md)，包括品牌、游戏双推荐、素材交易发现与社区频道；此前的[市场布局参考 V2](design/market-v2/README.md) 保留。不启动业务改版、不调整现有阶段验收，不改变线上版本或部署。
 

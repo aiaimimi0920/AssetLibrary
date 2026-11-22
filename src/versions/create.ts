@@ -1,7 +1,9 @@
+import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
-import { policyKindSql } from "../inspections/policy";
+import { isLoomPolicy, policyKindSql } from "../inspections/policy";
 import type { ScannerRelease } from "../scanner/deployment";
-import { type VersionRow, versionEvent, versionSelect, versionView } from "./records";
+import { defaultPolicySpaceSql, hasShowcaseSchema } from "../spaces/catalog";
+import { type VersionRow, versionEvent, versionSelectFor, versionView } from "./records";
 
 export interface NewVersion {
   resourceId: string;
@@ -17,34 +19,47 @@ export async function createVersion(
   input: NewVersion,
   release: ScannerRelease | null = null,
 ) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const resource = await db
-    .prepare(`SELECT kind FROM resources
-    WHERE id = ? AND owner = ? AND state = 'draft'`)
+    .prepare(`SELECT r.kind, ${showcase ? "rp.space" : "NULL AS space"} FROM resources r
+    ${showcase ? "LEFT JOIN resource_profiles rp ON rp.resource_id = r.id" : ""}
+    WHERE r.id = ? AND r.owner = ? AND r.state = 'draft'`)
     .bind(input.resourceId, actor)
-    .first<{ kind: string }>();
+    .first<{ kind: string; space: string | null }>();
   if (!resource) throw new HttpError(404, "NOT_FOUND");
   if (!["art", "capability", "application", "mcp"].includes(resource.kind))
     throw new HttpError(422, "VERSION_POLICY_UNAVAILABLE");
   const upload = await db
-    .prepare(`SELECT id FROM uploads WHERE id = ? AND resource_id = ? AND owner = ?`)
+    .prepare(`SELECT u.id, i.policy, i.state AS inspection_state
+    FROM uploads u LEFT JOIN inspections i ON i.upload_id = u.id
+    WHERE u.id = ? AND u.resource_id = ? AND u.owner = ?`)
     .bind(input.uploadId, input.resourceId, actor)
-    .first();
+    .first<{ id: string; policy: string | null; inspection_state: string | null }>();
   if (!upload) throw new HttpError(404, "NOT_FOUND");
   const id = crypto.randomUUID();
   const operation = crypto.randomUUID();
   const now = Date.now();
-  const results = await db.batch<VersionRow>([
+  const spaceJoin = showcase ? "LEFT JOIN resource_profiles rp ON rp.resource_id = r.id" : "";
+  const spaceGuard = showcase
+    ? `AND (rp.space IS NULL OR ${defaultPolicySpaceSql("i.policy")} = 'general' OR rp.space = 'loom')`
+    : "";
+  const statements: D1PreparedStatement[] = [
     db
       .prepare(`INSERT INTO versions(id, resource_id, label, resource_revision, title, kind,
       upload_id, upload_revision, expected_size, sha256, etag, inspection_id, inspection_revision,
       inspection_policy, state, revision, created_at, updated_at, last_operation)
       SELECT ?, r.id, ?, r.revision, r.title, r.kind, u.id, u.revision, u.expected_size, u.sha256,
       u.etag, i.id, i.revision, i.policy, 'pending_review', 1, ?, ?, ?
-      FROM resources r JOIN uploads u ON u.resource_id = r.id JOIN inspections i ON i.upload_id = u.id
+      FROM resources r JOIN uploads u ON u.resource_id = r.id
+      JOIN inspections i ON i.upload_id = u.id ${spaceJoin}
       WHERE r.id = ? AND r.owner = ? AND r.state = 'draft' AND r.revision = ?
       AND u.id = ? AND u.owner = r.owner AND u.state = 'quarantined' AND i.state = 'passed'
       AND r.kind = ${policyKindSql("i.policy")} AND i.upload_revision = u.revision AND i.expected_size = u.expected_size
       AND i.sha256 = u.sha256 AND i.etag = u.etag AND json_extract(i.result, '$.sha256') = u.sha256
+      ${spaceGuard}
       ON CONFLICT(resource_id, label) DO NOTHING`)
       .bind(
         id,
@@ -57,15 +72,52 @@ export async function createVersion(
         input.resourceRevision,
         input.uploadId,
       ),
+  ];
+  if (showcase) {
+    statements.push(
+      db
+        .prepare(`INSERT INTO version_profiles
+        (version_id, space, summary, detail, cover_key, cover_sha256, cover_size, cover_width, cover_height)
+        SELECT v.id, COALESCE(rp.space, ${defaultPolicySpaceSql("v.inspection_policy")}),
+          COALESCE(rp.summary, ''), COALESCE(rp.detail, ''),
+          rp.cover_key, rp.cover_sha256, rp.cover_size, rp.cover_width, rp.cover_height
+        FROM versions v LEFT JOIN resource_profiles rp ON rp.resource_id = v.resource_id
+        WHERE v.id = ? AND v.last_operation = ?`)
+        .bind(id, operation),
+    );
+  }
+  if (assetMarket) {
+    statements.push(
+      db
+        .prepare(`INSERT INTO version_asset_attributes
+        (version_id, category, style, formats, license)
+        SELECT v.id, COALESCE(ra.category, 'general'), COALESCE(ra.style, 'general'),
+          COALESCE(ra.formats, '[]'), COALESCE(ra.license, 'unspecified')
+        FROM versions v LEFT JOIN resource_asset_attributes ra ON ra.resource_id = v.resource_id
+        WHERE v.id = ? AND v.last_operation = ?`)
+        .bind(id, operation),
+    );
+  }
+  statements.push(
     versionEvent(db, id, operation, actor, "created", null, now),
     db
       .prepare(
-        `${versionSelect} WHERE versions.resource_id = ? AND versions.label = ? AND r.owner = ?`,
+        `${versionSelectFor(showcase, assetMarket)} WHERE versions.resource_id = ? AND versions.label = ? AND r.owner = ?`,
       )
       .bind(input.resourceId, input.label, actor),
-  ]);
+  );
+  const results = await db.batch<VersionRow>(statements);
   const row = results.at(-1)?.results[0];
-  if (!row) throw new HttpError(409, "VERSION_BINDING_NOT_READY");
+  if (!row) {
+    if (
+      upload.inspection_state === "passed" &&
+      isLoomPolicy(upload.policy) &&
+      resource.space !== null &&
+      resource.space !== "loom"
+    )
+      throw new HttpError(409, "SPACE_POLICY_MISMATCH");
+    throw new HttpError(409, "VERSION_BINDING_NOT_READY");
+  }
   if (row.upload_id !== input.uploadId || row.resource_revision !== input.resourceRevision)
     throw new HttpError(409, "VERSION_LABEL_CONFLICT");
   return json(versionView(row, release), row.last_operation === operation ? 201 : 200);

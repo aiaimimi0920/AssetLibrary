@@ -2,6 +2,7 @@ import { exactFields, HttpError, json, readJson, revision } from "../http";
 import { requirePublishAdmission } from "../publications/admission";
 import { publishVersion } from "../publications/mutations";
 import { type DeploymentEnv, deploymentAdmission } from "../scanner/deployment";
+import { coverStreamResponse } from "../spaces/catalog";
 import { createVersion } from "./create";
 import { decideVersion } from "./decisions";
 import { mayReadReview, type ReviewConfig, reviewers } from "./policy";
@@ -11,16 +12,18 @@ import { loadVersion, versionView } from "./records";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 interface VersionEnv extends ReviewConfig, DeploymentEnv {
   DB: D1Database;
+  QUARANTINE?: R2Bucket;
 }
 
 export async function versionRoutes(request: Request, env: VersionEnv, principal: string) {
-  const parts = new URL(request.url).pathname.split("/");
+  const url = new URL(request.url);
+  const parts = url.pathname.split("/");
   const method = request.method;
   const release = deploymentAdmission(env);
   if (parts[1] !== "v1") return null;
   if (parts[2] === "reviews") {
     if (parts.length !== 3 || method !== "GET") throw new HttpError(404, "NOT_FOUND");
-    return listReviews(env.DB, env, principal, new URL(request.url), release);
+    return listReviews(env.DB, env, principal, url, release);
   }
   if (
     parts[2] === "resources" &&
@@ -29,8 +32,7 @@ export async function versionRoutes(request: Request, env: VersionEnv, principal
     ["GET", "POST"].includes(method)
   ) {
     if (!uuid.test(parts[3] ?? "")) throw new HttpError(404, "NOT_FOUND");
-    if (method === "GET")
-      return listVersions(env.DB, parts[3] ?? "", principal, new URL(request.url), release);
+    if (method === "GET") return listVersions(env.DB, parts[3] ?? "", principal, url, release);
     const body = await readJson(request);
     exactFields(body, ["label", "uploadId", "resourceRevision"]);
     if (typeof body.label !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(body.label))
@@ -54,18 +56,29 @@ export async function versionRoutes(request: Request, env: VersionEnv, principal
   if (!uuid.test(id)) throw new HttpError(404, "NOT_FOUND");
   const action = parts[4];
   const reading = parts.length === 4 && method === "GET";
+  const readingCover = parts.length === 5 && action === "cover" && ["GET", "HEAD"].includes(method);
   const writing =
     parts.length === 5 &&
     method === "POST" &&
     ["review", "withdraw", "publish"].includes(action ?? "");
-  if (!reading && !writing) throw new HttpError(404, "NOT_FOUND");
+  if (!reading && !readingCover && !writing) throw new HttpError(404, "NOT_FOUND");
   if (action === "review" && !reviewers(env).includes(principal))
     throw new HttpError(404, "NOT_FOUND");
   const row = await loadVersion(env.DB, id);
-  if (reading) {
+  if (reading || readingCover) {
     if (row.owner !== principal && !mayReadReview(env, principal))
       throw new HttpError(404, "NOT_FOUND");
-    return json(versionView(row, release));
+    if (reading) return json(versionView(row, release));
+    if (url.search) throw new HttpError(400, "INVALID_QUERY");
+    if (!row.cover_key || !row.cover_sha256 || !row.cover_size || !env.QUARANTINE)
+      throw new HttpError(404, "NOT_FOUND");
+    return coverStreamResponse(
+      env.QUARANTINE,
+      row.cover_key,
+      row.cover_sha256,
+      row.cover_size,
+      method === "HEAD",
+    );
   }
   if (action === "review") {
     if (row.owner === principal) throw new HttpError(409, "SELF_REVIEW_FORBIDDEN");

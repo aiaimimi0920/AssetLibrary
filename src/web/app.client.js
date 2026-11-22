@@ -22,6 +22,7 @@ import {
   workspace,
 } from "./render.client.js";
 import { initResourceManagement } from "./resource.client.js";
+import { initShowcaseManagement } from "./showcase.client.js";
 import { confirmUploadClosed, syncUploadForm, uploadPackage } from "./upload.client.js";
 
 function empty() {
@@ -42,9 +43,15 @@ let state = empty();
 let job = null;
 let distribution;
 let resourceManagement;
+let showcaseManagement;
 let naccount = false;
 let signingOut = false;
 
+function resetModules() {
+  distribution.reset();
+  resourceManagement.reset();
+  showcaseManagement.reset();
+}
 function controls() {
   syncUploadForm(state.resource);
   for (const button of document.querySelectorAll("[data-protected]"))
@@ -62,6 +69,7 @@ function controls() {
   element("stop").disabled = !job && !distribution?.pendingDownload();
   distribution?.controls(!!job, connected());
   resourceManagement?.controls(!!job, connected());
+  showcaseManagement?.controls(!!job, connected());
 }
 function formControls(id, disabled) {
   for (const control of element(id).querySelectorAll("input,select,textarea,button"))
@@ -112,6 +120,7 @@ function display() {
   resources(state, select);
   workspace(state, handlers);
   resourceManagement?.show(state.resource, state.principal);
+  showcaseManagement?.show(state.resource, state.principal);
   controls();
 }
 async function listResources(signal, after = "") {
@@ -264,8 +273,7 @@ form(
     setCredential(value);
     state = empty();
     clearView(state);
-    distribution.reset();
-    resourceManagement.reset();
+    resetModules();
     try {
       const identity = await api("/v1/me", { signal });
       state.principal = identity.principal;
@@ -275,8 +283,7 @@ form(
       setCredential("");
       state = empty();
       clearView(state);
-      distribution.reset();
-      resourceManagement.reset();
+      resetModules();
       throw error;
     }
   },
@@ -290,8 +297,7 @@ function clearIdentity() {
   element("credential").value = "";
   element("confirmation").close("cancel");
   clearView(state);
-  distribution.reset();
-  resourceManagement.reset();
+  resetModules();
   element("naccount-login").hidden = !naccount;
   controls();
 }
@@ -437,28 +443,26 @@ form(
   },
   "独立审核决定已记录；批准不自动开放发布。",
 );
+async function resourceChanged(signal, result) {
+  const closed = result.state === "deleted";
+  state.reviewed = null;
+  element("review-id").value = "";
+  element("review-detail").textContent = "资源已变更，请重新读取版本。";
+  distribution.reset();
+  state.resource = closed ? null : result;
+  state.uploads = [];
+  state.versions = [];
+  state.inspections = {};
+  state.cursors.uploads = null;
+  state.cursors.versions = null;
+  display();
+  await listResources(signal);
+  if (!closed) await refreshWorkspace(signal);
+}
 distribution = initDistribution({ run, button, form, refreshControls: controls });
-resourceManagement = initResourceManagement({
-  form,
-  button,
-  refreshControls: controls,
-  async changed(signal, result) {
-    const closed = result.state === "deleted";
-    state.reviewed = null;
-    element("review-id").value = "";
-    element("review-detail").textContent = "资源已变更，请重新读取版本。";
-    distribution.reset();
-    state.resource = closed ? null : result;
-    state.uploads = [];
-    state.versions = [];
-    state.inspections = {};
-    state.cursors.uploads = null;
-    state.cursors.versions = null;
-    display();
-    await listResources(signal);
-    if (!closed) await refreshWorkspace(signal);
-  },
-});
+const managementContext = { form, button, refreshControls: controls, changed: resourceChanged };
+resourceManagement = initResourceManagement(managementContext);
+showcaseManagement = initShowcaseManagement(managementContext);
 controls();
 
 async function restoreSession() {

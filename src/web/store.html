@@ -3,66 +3,263 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Neuro 资产商店：发现 Art、Capability、MCP 和应用程序，登录后按授权下载。">
-    <title>资产商店 · AssetLibrary · Neuro</title>
+    <meta name="description" content="Trove：好玩的，好用的，都在这！发现应用、Loom 扩展与素材，进入应用内容空间，登录后按授权下载。">
+    <title>发现好东西 · Trove</title>
+    <link rel="icon" type="image/svg+xml" href="/beaver.svg">
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="/store.css">
+    <link rel="stylesheet" href="/store-shell.css">
+    <link rel="stylesheet" href="/asset-market.css">
     <script type="module" src="/store.client.js"></script>
   </head>
   <body class="store">
     <a class="skip-link" href="#store-main">跳到资产目录</a>
     <header class="store-header">
       <div class="store-topline">
-        <a class="store-brand" href="/" aria-label="Neuro AssetLibrary 首页"><span class="brand">Neuro</span><span>AssetLibrary</span></a>
-        <search><form id="store-search">
-          <label class="sr-only" for="store-query">搜索资产名称</label>
-          <input id="store-query" type="search" maxlength="100" placeholder="搜索资产名称…">
-          <button class="primary" type="submit" aria-label="搜索资产">搜索 <span aria-hidden="true">↗</span></button>
-        </form></search>
+        <a class="store-brand" href="/#home" aria-label="Trove 首页">
+          <img src="/beaver.svg" width="44" height="44" alt="">
+          <span>Trove<small title="All the good stuff. Right here!">好东西，都在这！</small></span>
+        </a>
+        <search>
+          <form id="store-search">
+            <label class="sr-only" for="store-query">搜索作品名称</label>
+            <input id="store-query" type="search" maxlength="100" placeholder="搜索名称…">
+            <button type="submit" aria-label="搜索作品">搜索 <span aria-hidden="true">↗</span></button>
+          </form>
+        </search>
         <div class="store-account">
-          <span id="store-session" role="status">正在读取登录状态…</span>
-          <form id="store-login" action="/auth/login" method="post" hidden><button type="submit">登录 NAccount</button></form>
+          <button id="store-publish" type="button">发布作品 ↗</button>
+          <span id="store-session" class="sr-only" role="status">正在读取登录状态…</span>
+          <form id="store-login" action="/auth/login" method="post" hidden>
+            <button type="submit">登录 NAccount</button>
+          </form>
           <button id="store-logout" type="button" hidden>退出登录</button>
         </div>
       </div>
       <nav class="store-navigation" aria-label="全局导航">
-        <fieldset class="store-scope" aria-label="目录范围">
-          <button id="store-public" type="button" aria-pressed="true">发现资产</button>
-          <button id="store-library" type="button" disabled aria-pressed="false">我的下载资源库</button>
+        <fieldset class="store-scope" aria-label="市场分类">
+          <button id="store-section-games" type="button" aria-pressed="false">游戏</button>
+          <button id="store-section-apps" type="button" aria-pressed="false">应用</button>
+          <button id="store-section-loom" type="button" aria-pressed="false">loom</button>
+          <button id="store-section-assets" type="button" aria-pressed="false">素材</button>
+          <button id="store-section-community" type="button" aria-pressed="false">社区</button>
         </fieldset>
-        <a href="/workspace">发布工作台 <span aria-hidden="true">↗</span></a>
+        <div class="store-scope store-utilities">
+          <button id="store-public" type="button" aria-pressed="true">发现</button>
+          <button id="store-library" type="button" disabled aria-pressed="false">我的资源库</button>
+        </div>
       </nav>
     </header>
     <main id="store-main" tabindex="-1">
       <div id="store-discovery" class="store-intro">
-        <div><p class="kicker">NEURO / ASSET STORE</p><h1>创作所需，触手可及。</h1><p>从素材到工具，为你的工作流找到下一块拼图。</p></div>
-      </div>
-      <nav class="store-categories" aria-label="资源类型">
-        <button id="store-category-art" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">◈</span><span><strong>Art 素材</strong><small>创作素材与处理资源</small></span><span aria-hidden="true">↗</span></button>
-        <button id="store-category-capability" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">⌘</span><span><strong>Capability 能力</strong><small>封装与复用工作流能力</small></span><span aria-hidden="true">↗</span></button>
-        <button id="store-category-mcp" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">&gt;_</span><span><strong>MCP 工具</strong><small>连接工具与服务</small></span><span aria-hidden="true">↗</span></button>
-        <button id="store-category-application" type="button" aria-pressed="false"><span class="category-symbol" aria-hidden="true">▣</span><span><strong>应用程序</strong><small>独立应用与程序包</small></span><span aria-hidden="true">↗</span></button>
-      </nav>
-      <div class="store-catalog">
-        <div class="heading">
-          <div><p id="store-context" class="kicker">PUBLIC CATALOG</p><h2 id="store-heading">全部资产</h2><p id="store-filter-summary" class="muted">浏览公开发布的资源</p></div>
-          <div class="toolbar"><button id="store-category-all" type="button" aria-pressed="true">全部类型</button><button id="store-transfer-open" type="button" hidden>下载任务</button><button id="store-refresh" type="button">刷新</button><button id="store-stop" type="button" disabled>停止请求</button></div>
+        <div>
+          <p class="kicker">TROVE / NEURO</p>
+          <h1>好玩的，好用的，都在这！</h1>
+          <p lang="en">All the good stuff. Right here!</p>
         </div>
+        <nav id="store-spaces" class="store-spaces" aria-label="应用内容空间">
+          <a id="store-space-link-loom" class="space-tile" href="#app/loom">
+            <span class="space-badge" data-space="loom">L</span>
+            <span><strong>Loom</strong><small>Art · MCP · 能力与本体</small></span>
+            <span aria-hidden="true">↗</span>
+          </a>
+          <a id="store-space-link-otter" class="space-tile" href="#app/otter">
+            <span class="space-badge" data-space="otter">O</span>
+            <span><strong>Otter</strong><small>桌面工具 · 扩展空间</small></span>
+            <span aria-hidden="true">↗</span>
+          </a>
+          <a id="store-space-link-framelab" class="space-tile" href="#app/framelab">
+            <span class="space-badge" data-space="framelab">F</span>
+            <span><strong>FrameLab</strong><small>影像创作 · 素材扩展</small></span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </nav>
+      </div>
+      <section id="store-space" class="space-banner" hidden aria-labelledby="store-space-title">
+        <div class="space-banner-main">
+          <a class="space-back" href="#home">← 返回市场</a>
+          <div class="space-identity">
+            <span id="store-space-letter" class="space-badge" data-space="loom">L</span>
+            <div>
+              <p id="store-space-kind" class="kicker">CONTENT SPACE</p>
+              <h1 id="store-space-title">Loom 内容空间</h1>
+              <p id="store-space-tagline" class="space-tagline"></p>
+              <p id="store-space-description" class="muted"></p>
+            </div>
+          </div>
+        </div>
+        <div class="space-banner-actions">
+          <button id="store-space-publish" type="button">为它发布内容 ＋</button>
+        </div>
+      </section>
+      <section id="store-unavailable" class="store-empty" hidden aria-labelledby="store-unavailable-title">
+        <p class="kicker">TROVE</p>
+        <h1 id="store-unavailable-title">即将开放</h1>
+        <p id="store-unavailable-hint" class="muted"></p>
+        <a href="#home">先逛逛现有作品 →</a>
+      </section>
+      <section id="store-asset-hub" class="asset-hub" hidden aria-labelledby="store-asset-hub-title">
+        <div class="am-header">
+          <div>
+            <p class="kicker">TROVE / ASSETS</p>
+            <h1 id="store-asset-hub-title">素材市场与求购广场</h1>
+            <p class="muted">按细分分类、风格、格式与许可检索真实素材，或发布／响应共创求购需求（不含在线支付与资金托管）。</p>
+          </div>
+          <div class="am-publish-actions">
+            <button id="store-request-open" type="button">发布求购 ＋</button>
+            <button id="store-asset-publish" class="primary" type="button">发布素材 ↗</button>
+          </div>
+        </div>
+        <fieldset class="am-modes" aria-label="素材栏目">
+          <button id="store-am-mode-market" type="button" aria-pressed="true">素材市场</button>
+          <button id="store-am-mode-requests" type="button" aria-pressed="false">求购广场</button>
+        </fieldset>
+        <nav class="am-categories" aria-label="素材细分分类">
+          <button id="store-am-cat-all" type="button" aria-pressed="true">全部</button>
+          <button id="store-am-cat-models" type="button" aria-pressed="false">3D 与场景</button>
+          <button id="store-am-cat-images" type="button" aria-pressed="false">2D 与 UI</button>
+          <button id="store-am-cat-materials" type="button" aria-pressed="false">材质与贴图</button>
+          <button id="store-am-cat-audio" type="button" aria-pressed="false">声音与音乐</button>
+          <button id="store-am-cat-effects" type="button" aria-pressed="false">特效与动画</button>
+          <button id="store-am-cat-templates" type="button" aria-pressed="false">代码与模板</button>
+        </nav>
+        <details id="store-am-filter-panel" class="am-filter-panel" open>
+          <summary>组合筛选</summary>
+          <div class="am-filters">
+            <label for="store-am-style">视觉风格
+              <select id="store-am-style">
+                <option value="">不限风格</option>
+                <option value="pixel">像素</option>
+                <option value="lowpoly">低多边形</option>
+                <option value="realistic">写实</option>
+                <option value="stylized">风格化</option>
+                <option value="handdrawn">手绘</option>
+                <option value="general">通用风格</option>
+              </select>
+            </label>
+            <label for="store-am-format">文件格式
+              <select id="store-am-format">
+                <option value="">不限格式</option>
+                <option value="PNG">PNG</option>
+                <option value="SVG">SVG</option>
+                <option value="ASEPRITE">ASEPRITE</option>
+                <option value="GLB">GLB</option>
+                <option value="FBX">FBX</option>
+                <option value="BLEND">BLEND</option>
+                <option value="SHADER">SHADER</option>
+                <option value="WAV">WAV</option>
+                <option value="OGG">OGG</option>
+                <option value="LUT">LUT</option>
+                <option value="GDSCRIPT">GDSCRIPT</option>
+                <option value="ZIP">ZIP</option>
+              </select>
+            </label>
+            <label for="store-am-license">许可范围
+              <select id="store-am-license">
+                <option value="">不限许可</option>
+                <option value="commercial">允许商业创作</option>
+                <option value="personal">仅限个人／非商用</option>
+                <option value="open_source">开源许可</option>
+              </select>
+            </label>
+            <label for="store-am-space">适用空间
+              <select id="store-am-space">
+                <option value="">不限空间</option>
+                <option value="general">跨应用通用</option>
+                <option value="loom">Loom 内容空间</option>
+                <option value="otter">Otter 内容空间</option>
+                <option value="framelab">FrameLab 内容空间</option>
+              </select>
+            </label>
+            <label id="store-am-scope-wrap" for="store-am-scope" hidden>求购视角
+              <select id="store-am-scope">
+                <option value="public">公开求购广场</option>
+                <option value="mine">我发布的求购</option>
+              </select>
+            </label>
+            <button id="store-am-reset" class="am-reset" type="button">重置筛选</button>
+          </div>
+        </details>
+        <div id="store-am-chips" class="am-active-filters"></div>
+      </section>
+      <div id="store-catalog" class="store-catalog">
+        <div class="heading">
+          <div>
+            <p id="store-context" class="kicker">PUBLIC CATALOG</p>
+            <h2 id="store-heading">全部资产</h2>
+            <p id="store-filter-summary" class="muted">浏览公开发布的资源</p>
+          </div>
+          <div class="toolbar"><button id="store-refresh" type="button">刷新</button></div>
+        </div>
+        <nav class="store-type-filters" aria-label="包类型">
+          <button id="store-category-all" type="button" aria-pressed="true">全部</button>
+          <button id="store-category-art" type="button" aria-pressed="false">Art</button>
+          <button id="store-category-capability" type="button" aria-pressed="false">能力包</button>
+          <button id="store-category-mcp" type="button" aria-pressed="false">MCP</button>
+          <button id="store-category-application" type="button" aria-pressed="false">应用</button>
+        </nav>
         <p id="store-status" class="store-feedback" role="status" aria-live="polite">正在读取公开目录…</p>
         <p class="store-policy"><span aria-hidden="true">△</span> 业务包未进行恶意代码扫描。下载需要登录及当前授权。</p>
         <section id="store-results" class="asset-grid" aria-label="资产列表" aria-busy="true"></section>
-        <div id="store-empty" class="store-empty" hidden><span aria-hidden="true">⌕</span><h3 id="store-empty-title">没有匹配的资产</h3><p id="store-empty-hint" class="muted">试试其他名称或资源类型。</p></div>
-        <div class="store-pagination"><span class="muted">按需加载，不自动翻页或轮询。</span><button id="store-more" type="button" disabled>下一页 <span aria-hidden="true">→</span></button></div>
+        <div id="store-empty" class="store-empty" hidden>
+          <span aria-hidden="true">⌕</span><h3 id="store-empty-title">没有匹配的资产</h3>
+          <p id="store-empty-hint" class="muted">试试其他名称或资源类型。</p>
+        </div>
+        <div class="store-pagination">
+          <span class="muted">仅显示当前可用发布</span>
+          <button id="store-more" type="button" disabled>下一页 <span aria-hidden="true">→</span></button>
+        </div>
       </div>
-      <footer class="store-footer"><span class="brand">Neuro / AssetLibrary</span><span>发现 · 组合 · 创作</span><a href="/workspace">上传、审核与管理资源</a></footer>
+      <section id="store-requests-panel" class="store-catalog" hidden aria-labelledby="store-requests-heading">
+        <div class="heading">
+          <div>
+            <p class="kicker">TROVE / REQUESTS</p>
+            <h2 id="store-requests-heading">求购广场</h2>
+            <p id="store-requests-summary" class="muted">浏览已登录创作者发布的真实素材定制与共创需求</p>
+          </div>
+          <div class="toolbar"><button id="store-requests-refresh" type="button">刷新求购</button></div>
+        </div>
+        <p id="store-requests-status" class="store-feedback" role="status" aria-live="polite">正在读取求购需求…</p>
+        <p class="store-policy"><span aria-hidden="true">△</span> 平台仅提供需求展示与方案说明记录，不提供在线支付、报价撮合或资金托管。</p>
+        <section id="store-requests-results" class="am-request-list" aria-label="求购需求列表" aria-busy="false"></section>
+        <div id="store-requests-empty" class="store-empty" hidden>
+          <span aria-hidden="true">⌕</span><h3 id="store-requests-empty-title">暂无匹配的求购需求</h3>
+          <p id="store-requests-empty-hint" class="muted">调整筛选条件，或登录后发布第一条求购需求。</p>
+        </div>
+        <div class="store-pagination">
+          <span class="muted">仅显示真实求购记录</span>
+          <button id="store-requests-more" type="button" disabled>下一页求购 <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+      <div class="store-taskbar toolbar">
+        <button id="store-transfer-open" type="button" hidden>下载任务</button>
+        <button id="store-stop" type="button" disabled>停止请求</button>
+      </div>
+      <footer class="store-footer">
+        <span class="brand">Trove / Neuro</span><span>好东西，都在这！</span>
+        <a href="/workspace">管理工作台 ↗</a>
+      </footer>
       <noscript>请启用 JavaScript 读取真实资产目录。此页面不提供静态示例资产。</noscript>
     </main>
+    <dialog id="store-publish-dialog" aria-labelledby="store-publish-title">
+      <div class="detail-heading">
+        <h2 id="store-publish-title">登录后发布作品</h2>
+        <button id="store-publish-close" type="button" aria-label="关闭发布提示">关闭 ×</button>
+      </div>
+      <p id="store-publish-hint" class="muted">登录后前往发布工作台。</p>
+      <form id="store-publish-login" action="/auth/login?returnTo=workspace" method="post" hidden>
+        <button class="primary" type="submit">登录并前往工作台 ↗</button>
+      </form>
+    </dialog>
     <dialog id="store-detail" aria-labelledby="store-detail-title">
       <div class="detail-heading"><p class="kicker">ASSET / DETAILS</p><button id="store-detail-close" type="button" aria-label="关闭资产详情">关闭 <span aria-hidden="true">×</span></button></div>
       <div class="asset-detail-layout">
-        <div><div id="store-detail-cover"></div><p class="muted">类型图示，不代表包内内容预览。</p></div>
+        <div><div id="store-detail-cover"></div><p id="store-detail-cover-note" class="muted">类型图示，不代表包内内容预览。</p></div>
         <div class="detail-content">
           <p id="store-detail-kind" class="asset-type"></p><h2 id="store-detail-title">资产详情</h2>
+          <p id="store-detail-summary" class="detail-summary" hidden></p>
+          <p id="store-detail-description" class="detail-description" hidden></p>
+          <a id="store-detail-space" class="related-space" href="#home" hidden>进入内容空间 →</a>
           <p id="store-detail-status" class="store-feedback" role="status" aria-live="polite"></p>
           <dl id="store-facts" class="asset-facts"></dl>
           <p class="store-policy">目录可见不等于取得下载授权。保存 ZIP 不等于安装或执行。</p>
@@ -73,6 +270,106 @@
       <section id="store-transfer" aria-label="下载进度" hidden>
         <p id="store-download-status" role="status" aria-live="polite">没有未完成下载。</p>
         <div class="toolbar"><button id="store-resume" type="button" disabled>继续下载</button><button id="store-discard" type="button" disabled>放弃未完成下载</button><button id="store-transfer-stop" type="button" disabled>停止下载</button></div>
+      </section>
+    </dialog>
+    <dialog id="store-request-compose" aria-labelledby="store-request-compose-title">
+      <div class="detail-heading">
+        <div>
+          <p class="kicker">TROVE / REQUEST</p>
+          <h2 id="store-request-compose-title">发布素材求购需求</h2>
+        </div>
+        <button id="store-request-compose-close" type="button" aria-label="关闭发布求购">关闭 ×</button>
+      </div>
+      <p class="store-policy">求购需求公开展示规格说明（不公开原始账号标识）。平台不提供在线支付或资金托管。</p>
+      <form id="store-request-form" class="am-stack-form">
+        <label for="store-req-title">需求标题（最多 120 字）
+          <input id="store-req-title" maxlength="120" required placeholder="例如：求一套可拼接的像素森林地块">
+        </label>
+        <div class="am-form-grid">
+          <label for="store-req-category">素材分类
+            <select id="store-req-category">
+              <option value="images">2D 与 UI</option>
+              <option value="models">3D 与场景</option>
+              <option value="materials">材质与贴图</option>
+              <option value="audio">声音与音乐</option>
+              <option value="effects">特效与动画</option>
+              <option value="templates">代码与模板</option>
+            </select>
+          </label>
+          <label for="store-req-style">视觉风格
+            <select id="store-req-style">
+              <option value="pixel">像素</option>
+              <option value="lowpoly">低多边形</option>
+              <option value="realistic">写实</option>
+              <option value="stylized">风格化</option>
+              <option value="handdrawn">手绘</option>
+              <option value="general">通用风格</option>
+            </select>
+          </label>
+          <label for="store-req-space">适用空间
+            <select id="store-req-space">
+              <option value="general">跨应用通用</option>
+              <option value="loom">Loom 内容空间</option>
+              <option value="otter">Otter 内容空间</option>
+              <option value="framelab">FrameLab 内容空间</option>
+            </select>
+          </label>
+          <label for="store-req-license">许可要求
+            <select id="store-req-license">
+              <option value="commercial">允许商业创作</option>
+              <option value="personal">仅限个人／非商用</option>
+              <option value="open_source">开源许可</option>
+            </select>
+          </label>
+          <label for="store-req-formats">目标格式（逗号分隔，最多 4 项）
+            <input id="store-req-formats" maxlength="40" required value="PNG" placeholder="PNG, GLB">
+          </label>
+          <label for="store-req-period">期望周期（1–180 天）
+            <input id="store-req-period" type="number" min="1" max="180" value="14" required>
+          </label>
+        </div>
+        <label for="store-req-budget">协作／预算意向备注（可选，最多 80 字，不含在线支付）
+          <input id="store-req-budget" maxlength="80" placeholder="例如：开源共创 / 预算面议">
+        </label>
+        <label for="store-req-delivery">交付内容要求（最多 400 字）
+          <textarea id="store-req-delivery" maxlength="400" rows="2" required placeholder="例如：分层源文件、透明 PNG 与组合预览说明"></textarea>
+        </label>
+        <label for="store-req-description">详细需求描述（最多 1500 字）
+          <textarea id="store-req-description" maxlength="1500" rows="3" required placeholder="说明使用场景、尺寸规范、配色与兼容约束…"></textarea>
+        </label>
+        <p id="store-req-compose-status" class="store-feedback" role="status"></p>
+        <button id="store-req-submit" class="primary" type="submit">提交求购需求</button>
+      </form>
+    </dialog>
+    <dialog id="store-request-detail" aria-labelledby="store-request-detail-title">
+      <div class="detail-heading">
+        <p id="store-req-detail-kicker" class="kicker">ASSET REQUEST</p>
+        <button id="store-request-detail-close" type="button" aria-label="关闭求购详情">关闭 ×</button>
+      </div>
+      <h2 id="store-request-detail-title">求购详情</h2>
+      <p id="store-req-detail-description" class="detail-description"></p>
+      <dl id="store-req-detail-facts" class="asset-facts"></dl>
+      <p class="store-policy">平台仅提供需求展示与方案响应记录，不提供在线交易、报价支付或资金托管。</p>
+      <p id="store-req-detail-status" class="store-feedback" role="status"></p>
+      <div class="toolbar">
+        <button id="store-req-close-action" class="danger" type="button" hidden>关闭此求购</button>
+      </div>
+      <section id="store-req-responses-section" aria-labelledby="store-req-responses-heading">
+        <h3 id="store-req-responses-heading">方案响应</h3>
+        <div id="store-req-responses-list" class="am-response-list"></div>
+        <form id="store-req-login-hint" action="/auth/login" method="post" hidden>
+          <p class="muted">登录后可提交方案或查看自己提交的响应。</p>
+          <button class="primary" type="submit">登录 NAccount</button>
+        </form>
+        <form id="store-req-response-form" class="am-stack-form" hidden>
+          <label for="store-req-response-message">方案与交付说明（最多 1000 字）
+            <textarea id="store-req-response-message" maxlength="1000" rows="3" required placeholder="说明实现思路、排期与可交付内容…"></textarea>
+          </label>
+          <label for="store-req-response-pub">关联本人已发布作品 ID（可选 UUID）
+            <input id="store-req-response-pub" maxlength="36" placeholder="可选：填入本人已发布作品的发布 ID">
+          </label>
+          <button id="store-req-response-submit" class="primary" type="submit">提交方案 ↗</button>
+        </form>
       </section>
     </dialog>
   </body>

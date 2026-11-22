@@ -1,10 +1,12 @@
+import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
 import type { ScannerRelease } from "../scanner/deployment";
+import { hasShowcaseSchema } from "../spaces/catalog";
 import {
-  currentSnapshot,
+  currentSnapshotFor,
   type VersionRow,
   versionEvent,
-  versionSelect,
+  versionSelectFor,
   versionView,
 } from "./records";
 
@@ -20,6 +22,10 @@ export async function decideVersion(
   reason: string | null,
   release: ScannerRelease | null = null,
 ) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const operation = crypto.randomUUID();
   const now = Date.now();
   const withdrawal = decision === "withdrawn";
@@ -35,10 +41,10 @@ export async function decideVersion(
     db
       .prepare(`UPDATE versions SET ${assignment} state = ?, revision = revision + 1,
       updated_at = ?, last_operation = ? WHERE id = ? AND revision = ? AND ${stateGate}
-      AND ${ownerGate} ${decision === "approved" ? `AND ${currentSnapshot}` : ""}`)
+      AND ${ownerGate} ${decision === "approved" ? `AND ${currentSnapshotFor(showcase, assetMarket)}` : ""}`)
       .bind(...reviewArgs, decision, now, operation, id, revision, actor),
     versionEvent(db, id, operation, actor, decision, reason, now),
-    db.prepare(`${versionSelect} WHERE versions.id = ?`).bind(id),
+    db.prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.id = ?`).bind(id),
   ]);
   const row = results.at(-1)?.results[0];
   if (!row) throw new HttpError(404, "NOT_FOUND");

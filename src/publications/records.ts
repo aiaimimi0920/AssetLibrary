@@ -1,8 +1,10 @@
+import { decodeFormats, defaultAssetAttributes, hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError } from "../http";
 import { distributionPoliciesSql } from "../inspections/policy";
 import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { parseScanFact, scanCurrent } from "../scanner/facts";
-import { currentSnapshot } from "../versions/records";
+import { effectiveVersionSpace, hasShowcaseSchema } from "../spaces/catalog";
+import { currentSnapshotFor } from "../versions/records";
 import { unscannedPackage } from "./unscanned";
 
 export interface PublicationRow {
@@ -21,6 +23,18 @@ export interface PublicationRow {
   title: string;
   kind: string;
   inspection_policy: string;
+  profile_space: string | null;
+  summary: string | null;
+  detail: string | null;
+  cover_key: string | null;
+  cover_sha256: string | null;
+  cover_size: number | null;
+  cover_width: number | null;
+  cover_height: number | null;
+  asset_category: string | null;
+  asset_style: string | null;
+  asset_formats: string | null;
+  asset_license: string | null;
   upload_id: string;
   expected_size: number;
   sha256: string;
@@ -29,19 +43,41 @@ export interface PublicationRow {
 }
 
 // 所有分发查询复用当前绑定，不用缓存/副本或历史发布状态替代撤销检查。
-export const publicationSelect = `SELECT p.*, r.owner, versions.resource_id,
+export function publicationSelectFor(hasShowcase = true, hasAssetMarket = false) {
+  const columns = hasShowcase
+    ? `vp.space AS profile_space, vp.summary, vp.detail,
+      vp.cover_key, vp.cover_sha256, vp.cover_size, vp.cover_width, vp.cover_height`
+    : `NULL AS profile_space, NULL AS summary, NULL AS detail,
+      NULL AS cover_key, NULL AS cover_sha256, NULL AS cover_size, NULL AS cover_width, NULL AS cover_height`;
+  const assetColumns = hasAssetMarket
+    ? `va.category AS asset_category, va.style AS asset_style,
+      va.formats AS asset_formats, va.license AS asset_license`
+    : `NULL AS asset_category, NULL AS asset_style,
+      NULL AS asset_formats, NULL AS asset_license`;
+  return `SELECT p.*, r.owner, versions.resource_id,
   versions.label, versions.title, versions.kind, versions.upload_id,
   versions.expected_size, versions.sha256, versions.etag, versions.inspection_policy,
+  ${columns},
+  ${assetColumns},
   CASE WHEN versions.state = 'approved' AND versions.revision = p.version_revision
     AND versions.inspection_policy IN (${distributionPoliciesSql})
-    AND checked.result = p.scan_result AND ${currentSnapshot} THEN 1 ELSE 0 END AS binding_current
+    AND checked.result = p.scan_result AND ${currentSnapshotFor(hasShowcase, hasAssetMarket)} THEN 1 ELSE 0 END AS binding_current
   FROM publications p JOIN versions ON versions.id = p.version_id
   JOIN resources r ON r.id = versions.resource_id
-  JOIN inspections checked ON checked.id = versions.inspection_id`;
+  JOIN inspections checked ON checked.id = versions.inspection_id
+  ${hasShowcase ? "LEFT JOIN version_profiles vp ON vp.version_id = versions.id" : ""}
+  ${hasAssetMarket ? "LEFT JOIN version_asset_attributes va ON va.version_id = versions.id" : ""}`;
+}
+
+export const publicationSelect = publicationSelectFor(true, true);
 
 export async function loadPublication(db: D1Database, id: string) {
+  const [showcase, assetMarket] = await Promise.all([
+    hasShowcaseSchema(db),
+    hasAssetMarketSchema(db),
+  ]);
   const row = await db
-    .prepare(`${publicationSelect} WHERE p.id = ?`)
+    .prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.id = ?`)
     .bind(id)
     .first<PublicationRow>();
   if (!row) throw new HttpError(404, "NOT_FOUND");
@@ -80,6 +116,25 @@ export function publicationView(row: PublicationRow) {
     label: row.label,
     title: row.title,
     kind: row.kind,
+    space: effectiveVersionSpace(row.profile_space, row.inspection_policy),
+    summary: row.summary ?? "",
+    detail: row.detail ?? "",
+    cover:
+      row.cover_key === null
+        ? null
+        : {
+            url: `/v1/catalog/${row.id}/cover`,
+            sha256: row.cover_sha256,
+            size: row.cover_size,
+            width: row.cover_width,
+            height: row.cover_height,
+          },
+    assetAttributes: {
+      category: row.asset_category ?? defaultAssetAttributes.category,
+      style: row.asset_style ?? defaultAssetAttributes.style,
+      formats: decodeFormats(row.asset_formats),
+      license: row.asset_license ?? defaultAssetAttributes.license,
+    },
     size: row.expected_size,
     sha256: row.sha256,
     state: row.state,

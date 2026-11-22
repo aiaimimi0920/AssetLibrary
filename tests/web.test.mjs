@@ -10,10 +10,15 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
       ["/", "text/html"],
       ["/workspace", "text/html"],
       ["/store.css", "text/css"],
+      ["/store-shell.css", "text/css"],
+      ["/asset-market.css", "text/css"],
+      ["/beaver.svg", "image/svg\\+xml"],
       ["/style.css", "text/css"],
       ...[
         "app",
         "store",
+        "store-view",
+        "asset-market",
         "api",
         "render",
         "upload",
@@ -22,6 +27,7 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
         "download",
         "resume-download",
         "resource",
+        "showcase",
       ].map((name) => [`/${name}.client.js`, "text/javascript"]),
     ]) {
       const response = await f.mf.dispatchFetch(`http://localhost${url}`);

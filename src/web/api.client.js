@@ -118,7 +118,10 @@ export async function withResponse(
     !new URL(path, "http://assetlibrary.invalid").pathname.startsWith("/v1/")
   )
     throw new Error("INVALID_API_PATH");
-  if (publicRead && (method !== "GET" || !/^\/v1\/catalog(?:\?|\/[0-9a-f-]{36}$|$)/.test(path)))
+  if (
+    publicRead &&
+    (method !== "GET" || !/^\/v1\/(?:catalog|asset-requests)(?:\?|\/[0-9a-f-]{36}$|$)/.test(path))
+  )
     throw new Error("INVALID_PUBLIC_API_PATH");
   // 只为私有包体开放单段 Range，不允许调用方覆盖认证或注入任意 header。
   if (range !== undefined || ifRange !== undefined) {

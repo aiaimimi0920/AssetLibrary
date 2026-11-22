@@ -97,12 +97,12 @@ export async function build(nativeDirectory) {
   const artifacts = {};
   const webModules = (await readdir(output))
     .filter((file) =>
-      /^[0-9a-f]{40}-(?:(?:index|store)\.html|(?:style|store)\.css|(?:store|app|api|render|upload|distribution|distribution-render|download|resume-download|resource)\.client\.js)$/.test(
+      /^[0-9a-f]{40}-(?:(?:index|store)\.html|(?:style|store|store-shell|asset-market)\.css|beaver\.svg|(?:store|store-view|asset-market|app|api|render|upload|distribution|distribution-render|download|resume-download|resource|showcase)\.client\.js)$/.test(
         file,
       ),
     )
     .sort();
-  if (webModules.length !== 14) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
+  if (webModules.length !== 20) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
   for (const file of [
     "index.js",
     "index.js.map",

@@ -48,6 +48,7 @@ export async function trialPage(source) {
         <a href="/__trial/sample.zip" download="two-png.zip">下载双 PNG 示例包</a>
         <a href="/__trial/capability.zip" download="capability.zip">下载 Capability 示例包</a>
         <a href="/__trial/application.zip" download="application.zip">下载应用示例包</a>
+        <a href="/__trial/cover.png" download="cover.png">下载示例封面 PNG</a>
         <button id="trial-tick" type="button">立即执行检查队列</button><button id="trial-stop" type="button">停止本地体验（保留数据）</button>
       </div>
       <p class="muted">创建资源时选择与示例相同的类型。软件示例只是无害字节载荷，不会执行，也不代表可安装的 Loom Capability 或应用。</p>

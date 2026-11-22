@@ -21,10 +21,17 @@ function route(request: Request) {
   if (pathname === "/healthz") return "liveness";
   if (pathname === "/readyz") return "readiness";
   if (/^\/v1\/catalog(?:\/|$)/.test(pathname)) return "catalog";
+  if (/^\/v1\/asset-requests(?:\/|$)/.test(pathname)) return "asset-requests";
   if (/^\/v1\/me(?:\/|$)/.test(pathname)) return "library";
   for (const name of ["resources", "uploads", "versions", "publications", "reviews"])
     if (pathname === `/v1/${name}` || pathname.startsWith(`/v1/${name}/`)) return name;
-  if (pathname === "/" || /^\/[a-z-]+\.(?:css|client\.js)$/.test(pathname)) return "web";
+  if (
+    pathname === "/" ||
+    pathname === "/workspace" ||
+    pathname === "/beaver.svg" ||
+    /^\/[a-z-]+\.(?:css|client\.js)$/.test(pathname)
+  )
+    return "web";
   return "unknown";
 }
 
