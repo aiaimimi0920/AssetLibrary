@@ -62,4 +62,3 @@
   - `/`、`/workspace`、`/store.css`、`/store.client.js`、`/beaver.svg` 均返回 `200`、携带严格 `Content-Security-Policy` 与 `_headers` 声明的 `Cache-Control`，且**不含 Worker `X-Request-ID` 响应头**，证实由 Cloudflare Workers Static Assets 在边缘直接返回、未触发 Worker 调用；子资源 `If-None-Match` 实测返回 `304`（0 字节响应体）。
   - `GET /v1/catalog?limit=20` 原有 **10 条发布完整保留**，首请求 `X-Traffic-Cache: MISS`、紧接次请求命中边缘 `X-Traffic-Cache: HIT`，`If-None-Match` 返回 `304`；`GET /v1/asset-requests?limit=20` 同样命中 `ETag -> 304`。
   - `GET /auth/session` 保持 `Cache-Control: no-store`；超长查询串请求实测返回 `414 URI_TOO_LONG`（`Cache-Control: no-store`）。
-
