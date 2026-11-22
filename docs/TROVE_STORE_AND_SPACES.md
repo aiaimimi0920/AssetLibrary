@@ -1,6 +1,6 @@
 # Trove 商店壳层、内容空间、素材市场与求购广场（0.4.16）
 
-更新日期：2026-11-23。本文件记录 `0.4.16` 候选版本包含的三批连续业务切片与活动依赖安全修复。
+更新日期：2026-11-23。正式版本 **`v0.4.16` / `c32f176639fdc3345a5d6e5023f94617270a4be3`** 已通过 GitHub CI、SpringBok 原实例保数据升级（含 `0013` 与 `0014` 增量表迁移）及平台独立可用性验证上线。
 
 ## 1. 第一切片收口：Trove 商店壳层与真实三分区过滤
 
@@ -71,3 +71,13 @@
 
 - **活动依赖修复**：在 `pnpm-workspace.yaml` 新增 `"miniflare>undici": 7.30.2` override 并刷新 `pnpm-lock.yaml`，`pnpm audit --audit-level=low` 返回 `No known vulnerabilities found`，独占 `linshi` 目录 `pnpm install --frozen-lockfile` 验证通过。
 - **静态、合同与浏览器验证**：270 个活动文件的 `pnpm check`、`pnpm typecheck`、`pnpm sizecheck`（全部 `<= 500` 有效行）、三组 SBA Python 合同检查（`sba_contract_checks.py`、`sba_native_client_checks.py`、`sba_scanner_release_checks.py`）、`git diff --check` 与 `1440 / 960 / 760 / 390 / 320px` 双模式响应式浏览器核验均通过；全量 `pnpm test` 共 **433 项测试：432 通过、0 失败、1 项大包专用联合场景默认跳过**。
+
+## 5. 0.4.16 发布与生产保数据升级回执
+
+- **固定发布身份**：精确提交 `c32f176639fdc3345a5d6e5023f94617270a4be3` 通过 [CI 运行 45048222729](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/45048222729) 的 `verify` 与 `secret_scan`；正式 [v0.4.16 Release](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.16) 绑定该固定 SHA（此前 `df34ce7e642fea9706211b5324582717b3076fdd` 的 [CI 45047446696](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/45047446696) 中 `verify` 通过、`secret_scan` 捕获单测幂等夹具名误报，已在 `c32f176` 修复并通过本地与云端双重扫描，历史记录保留）。
+- **SpringBok 原实例保数据 `update`**：原实例 `dc-b20cc87beb7b44c0aa5c73eec88a7292`，升级任务 `dc-43a91e59bd404fa9bf58a0cc54f83b8d` / [运行 45048882589](https://github.com/aiaimimi0920/SpringBok/actions/runs/45048882589)，原回执 `deployed-unverified`，七项检查全部通过（`backup-created`、`data-preserved`、`deployed-bindings`、`release-identity`、`private-dependencies`、`naccount-login-configured`、`scanner-admission-verified`），`0013_showcase_spaces.sql` 与 `0014_asset_market_requests.sql` 在备份后完成保数据迁移。唯一回执制品 `14764991394` 的 ZIP SHA-256 为 `3f93d08400ad1b4239828c3c3c118f91a2d61402595ffa9592ab183ec6ac255f`，与 GitHub digest 一致。
+- **独立平台 `verify` 与本地无凭据 `verify`**：平台任务 `dc-971814fabbfa4a65a85a0c24ed1751c6` / [运行 45049115346](https://github.com/aiaimimi0920/SpringBok/actions/runs/45049115346) 返回 `succeeded`、四项检查通过，制品 `14765140535` 的 ZIP SHA-256 为 `1d52164dfb6747d3b59fde7d14a3c6980d22f59934308982bd7d2b9e771c930a`；本机清空云凭据调用 `.sba/springbok.py` 的独立 `verify` 同样返回 `succeeded` / 四项通过（证据位于 `linshi/trove-release-0416-20261123/`）。
+- **正式站点核验与保留边界**：
+  - `https://assetlibrary.aiaimimi.com/healthz` 返回 `0.4.16` 与固定 SHA `c32f176639fdc3345a5d6e5023f94617270a4be3`；`/readyz` 三项私有依赖 `available`，分发模式保持 `unscanned-packages`；`/auth/session` 返回 `{"enabled":true,"principal":null}`。
+  - 实际浏览器只读访问正式站点确认：原有 10 条已发布包体与元数据完整保留，`#app/loom` 自动聚合 6 条既有 Loom 原生扩展，`#assets` 素材筛选与 `#assets?mode=requests` 求购广场空态／无资金托管提示及 `1440px / 390px` 响应式正常。
+  - 游戏商店（`#games`）与社区广场／频道（`#community`）仍为后续待实施切片；本轮未重新执行线上双账号封面／求购写操作验收，不把只读可用性验证等同于线上新增写路径业务全验收。
