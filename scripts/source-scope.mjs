@@ -15,7 +15,6 @@ const rootFiles = [
   "biome.json",
   "wrangler.jsonc",
   ".gitignore",
-  ".ignore",
   ".gitattributes",
   "README.md",
   "AGENTS.md",
@@ -23,7 +22,7 @@ const rootFiles = [
   "DEVELOPMENT_PLAN.md",
 ];
 
-/** 活动图白名单，永不递归扫描 old、缓存、环境文件或历史锁文件。 */
+/** 活动图白名单，永不递归扫描缓存、环境文件或无关目录。 */
 export async function sourceFiles() {
   const files = [...rootFiles];
   async function walk(directory) {

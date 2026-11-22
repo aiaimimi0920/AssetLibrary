@@ -1,4 +1,4 @@
-# 本地凭据和私钥；归档目录也必须继续受保护。
+# 本地凭据和私钥始终受保护。
 .env
 .env.*
 !.env.example
@@ -12,7 +12,7 @@
 credentials*.json
 secrets*.json
 
-# 当前和历史工具链的本地缓存及产物。
+# 工具链的本地缓存及构建产物。
 node_modules/
 .pnpm-store/
 .wrangler/
@@ -32,17 +32,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# 基础设施状态和本地数据，绝不成为源码归档或发布输入。
+# 基础设施状态和本地数据，绝不成为发布输入。
 **/.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
 backend.hcl
-old/deploy/local/data/
-old/release/evidence/
-old/release/downloads/
-old/release/candidate/
-old/promotion/evidence/
-old/promotion/verification-report.json
-
-# old 的历史源码仍需可被 Git 发现；不得加入 old/ 整目录忽略。

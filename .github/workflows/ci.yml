@@ -61,12 +61,12 @@ jobs:
       - name: Scan current tracked active tree
         run: |
           mkdir -p "$RUNNER_TEMP/active-source"
-          git ls-files -z -- . ':(exclude)old/**' |
+          git ls-files -z -- . |
             tar --null -T - -cf - | tar -xf - -C "$RUNNER_TEMP/active-source"
           "$RUNNER_TEMP/gitleaks/gitleaks" dir --redact=100 --no-banner \
             --report-format=json --report-path="$RUNNER_TEMP/gitleaks-active.json" \
             "$RUNNER_TEMP/active-source"
-      - name: Scan introduced commits, including archived paths
+      - name: Scan introduced commits
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
