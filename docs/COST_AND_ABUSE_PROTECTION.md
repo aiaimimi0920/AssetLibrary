@@ -47,3 +47,19 @@
    - 超限统一返回 `429` JSON `{"error":"RATE_LIMITED"}`，携带 `Retry-After` 秒数与 `Cache-Control: no-store`。
 4. **已知边界声明**：
    - 应用层与 Worker 原生 `ratelimit` 绑定可阻断恶意爬虫对 D1、R2 与 NAccount 的放大消耗，但任何实际到达 Worker 的动态 API 请求（含返回 `429` 的请求）仍计入 Cloudflare Worker 请求数；若遭遇大规模分布式洪水攻击，仍可结合域名级 Cloudflare WAF / Bot Fight Mode 在进入 Worker 前拦截。
+
+## 4. `0.4.17` 发布与生产保数据升级回执（2026-11-23）
+
+- **发布身份**：GitHub Release [v0.4.17](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.17)，精确提交 `943bb384ef59a78e9941cd95e50756366fd98dbe`；GitHub Actions CI 运行 [45056341038](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/45056341038) 的 `verify`（437 项测试：436 通过、0 失败、1 默认跳过）与 `secret_scan` 全部通过。
+- **SpringBok 原实例保数据升级（`update`）**：
+  - 实例 ID：`dc-b20cc87beb7b44c0aa5c73eec88a7292`（`https://assetlibrary.aiaimimi.com`，Worker `assetlibrary`，D1 `assetlibrary-db` / `dd6dc465-2d9a-4ee6-800f-3033ffea0dc1`，私有 R2 `assetlibrary-objects`）。
+  - 任务 ID：`dc-71325e47a06e49ba821b2f45734b381c`（首次提交因同云账户另一服务占用通道停在写前 `preparation-unconfirmed`，通道释放后原任务恢复执行，未新建任务或改动配置）。
+  - SpringBok 运行：[45083021109](https://github.com/aiaimimi0920/SpringBok/actions/runs/45083021109)，业务结果 `deployed-unverified`，**7/7 检查通过**（`backup-created`、`data-preserved`、`deployed-bindings`、`release-identity`、`private-dependencies`、`naccount-login-configured`、`scanner-admission-verified`）；回执制品 `14777393300` SHA-256 `113f50a1ee4f7546758c20bc2720515f657d39aa045e5341063cd4e7e27c3df8` 与 GitHub API digest 核对一致。
+- **SpringBok 独立平台验证（`verify`）与本地无凭据验证**：
+  - 平台验证任务：`dc-748f0aad754d48e0852eed506185fce5`，SpringBok 运行 [45083217409](https://github.com/aiaimimi0920/SpringBok/actions/runs/45083217409)，业务结果 `succeeded`（控制台状态 `可用性已验证`），**4/4 检查通过**；回执制品 `14778420968` SHA-256 `5f7be4a6079969675f3edf57c8c47de0fa54a794fd3b518974751670dc0fb084` 核对一致。
+  - 本地清空 `CLOUDFLARE_API_TOKEN` 与 `SBA_EXECUTE` 后执行 `.sba/springbok.py` `verify`，返回 `succeeded` / 4 项检查通过。
+- **线上边缘实测证据**（保存在 `linshi/trove-release-0417-20261123/verification-summary-0417.json`）：
+  - `/`、`/workspace`、`/store.css`、`/store.client.js`、`/beaver.svg` 均返回 `200`、携带严格 `Content-Security-Policy` 与 `_headers` 声明的 `Cache-Control`，且**不含 Worker `X-Request-ID` 响应头**，证实由 Cloudflare Workers Static Assets 在边缘直接返回、未触发 Worker 调用；子资源 `If-None-Match` 实测返回 `304`（0 字节响应体）。
+  - `GET /v1/catalog?limit=20` 原有 **10 条发布完整保留**，首请求 `X-Traffic-Cache: MISS`、紧接次请求命中边缘 `X-Traffic-Cache: HIT`，`If-None-Match` 返回 `304`；`GET /v1/asset-requests?limit=20` 同样命中 `ETag -> 304`。
+  - `GET /auth/session` 保持 `Cache-Control: no-store`；超长查询串请求实测返回 `414 URI_TOO_LONG`（`Cache-Control: no-store`）。
+
