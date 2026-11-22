@@ -110,7 +110,7 @@ test("素材细分属性：输入边界、幂等审计、版本冻结与发布�
       );
     }
 
-    const key = "attr-idempotency-key-1";
+    const requestNo = "aaaaaaaa";
     const payload = {
       revision: 1,
       category: "images",
@@ -119,7 +119,7 @@ test("素材细分属性：输入边界、幂等审计、版本冻结与发布�
       license: "commercial",
     };
     const saved = await f.request("PUT", `/v1/resources/${resource.id}/attributes`, payload, {
-      key,
+      key: requestNo,
     });
     assert.equal(saved.status, 200);
     assert.equal(saved.body.revision, 2);
@@ -130,7 +130,7 @@ test("素材细分属性：输入边界、幂等审计、版本冻结与发布�
       license: "commercial",
     });
     const replay = await f.request("PUT", `/v1/resources/${resource.id}/attributes`, payload, {
-      key,
+      key: requestNo,
     });
     assert.deepEqual(replay.body, saved.body);
     assert.equal(
@@ -139,7 +139,7 @@ test("素材细分属性：输入边界、幂等审计、版本冻结与发布�
           "PUT",
           `/v1/resources/${resource.id}/attributes`,
           { ...payload, style: "lowpoly" },
-          { key },
+          { key: requestNo },
         )
       ).status,
       409,
