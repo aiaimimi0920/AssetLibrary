@@ -14,6 +14,7 @@ import {
   effectiveVersionSpaceSql,
   hasShowcaseSchema,
 } from "../spaces/catalog";
+import { ifNoneMatch, notModified, publicCacheHeader } from "../traffic/cache";
 import { catalogAssetFilters, catalogSection, catalogSpace } from "./catalog-sections";
 
 /** 扫描失效记录也占扫描预算；nextAfter 指向最后扫描项，不漏过后续有效项。 */
@@ -111,6 +112,7 @@ export async function publicCover(
   id: string,
   headOnly: boolean,
   release?: ScannerRelease | null,
+  request?: Request,
 ) {
   const row = await loadPublication(db, id);
   if (
@@ -120,5 +122,23 @@ export async function publicCover(
     row.cover_size === null
   )
     throw new HttpError(404, "NOT_FOUND");
-  return coverStreamResponse(bucket, row.cover_key, row.cover_sha256, row.cover_size, headOnly);
+  const cacheControl = publicCacheHeader(60, 300, 60);
+  const etag = `"${row.cover_sha256}"`;
+  // 协商缓存命中时直接返回 304，不触发 R2 Class B head/get 读取。
+  if (request && ifNoneMatch(request, etag)) {
+    return notModified({
+      ETag: etag,
+      "Cache-Control": cacheControl,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'",
+    });
+  }
+  return coverStreamResponse(
+    bucket,
+    row.cover_key,
+    row.cover_sha256,
+    row.cover_size,
+    headOnly,
+    cacheControl,
+  );
 }

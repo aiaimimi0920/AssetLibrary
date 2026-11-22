@@ -189,6 +189,42 @@ export function paintStoreView(element, view, filters) {
   }
 }
 
+/** 生成商店卡片与详情封面；公开封面附带内容摘要短指纹以最大化浏览器与边缘缓存复用。 */
+export function renderStoreCover(item, kinds, codes) {
+  const makeNode = (tag, value, className = "") => {
+    const node = document.createElement(tag);
+    node.textContent = value;
+    if (className) node.className = className;
+    return node;
+  };
+  const kind = typeof item === "string" ? item : item?.kind;
+  const coverFact = typeof item === "object" ? item?.cover : null;
+  if (coverFact?.url) {
+    const node = makeNode("div", "", "asset-cover has-image");
+    const image = document.createElement("img");
+    image.className = "asset-cover-image";
+    const versionSuffix =
+      typeof coverFact.sha256 === "string" && /^[0-9a-f]{16,64}$/.test(coverFact.sha256)
+        ? `?v=${coverFact.sha256.slice(0, 16)}`
+        : "";
+    image.setAttribute("src", `${coverFact.url}${versionSuffix}`);
+    image.setAttribute("alt", "");
+    image.setAttribute("loading", "lazy");
+    image.setAttribute("decoding", "async");
+    if (coverFact.width) image.setAttribute("width", String(coverFact.width));
+    if (coverFact.height) image.setAttribute("height", String(coverFact.height));
+    node.append(image);
+    return node;
+  }
+  const node = makeNode("div", "", "asset-cover");
+  node.append(
+    makeNode("span", kinds[kind] ?? "资源包"),
+    makeNode("strong", codes[kind] ?? "PKG"),
+    makeNode("span", "类型图示 · 暂无内容预览"),
+  );
+  return node;
+}
+
 /** 阻止原生 dialog 遮罩区滚轮穿透至文档根滚动容器。 */
 export function bindModalScrollLock(element) {
   window.addEventListener(

@@ -13,6 +13,8 @@ import cloudflare
 import preservation
 import springbok
 import repair
+import static_assets
+import base64
 
 config = {'accountId': 'a' * 32, 'worker': 'assetlibrary-test', 'origin': 'https://assetlibrary.test',
           'identity': {'issuer': 'https://naccount-auth.aiaimimi.com', 'clientId': 'assetlibrary-client'},
@@ -147,6 +149,80 @@ with tempfile.TemporaryDirectory(prefix='sba-unit-', dir=scratch) as temp:
         cloudflare.publish(fake, request, output)
         raise AssertionError('changed artifact accepted')
     except contract.Failure:
+        assert not fake.calls
+
+    # 验证 Workers Static Assets 的三种上传路径与本地篡改拦截
+    (output / 'index.js').write_bytes(raw)
+    pub_dir = output / 'public'
+    pub_dir.mkdir()
+    html_bytes = b'<!doctype html><title>Trove</title>'
+    (pub_dir / 'index.html').write_bytes(html_bytes)
+    static_spec = {
+        'files': {
+            '/index.html': {
+                'file': 'public/index.html',
+                'hash': 'a' * 32,
+                'size': len(html_bytes),
+                'sha256': hashlib.sha256(html_bytes).hexdigest(),
+                'contentType': 'text/html; charset=utf-8',
+            }
+        },
+        'config': {'html_handling': 'auto-trailing-slash', 'not_found_handling': 'none', '_headers': '/*\n  X-Content-Type-Options: nosniff\n'},
+    }
+    (output / 'manifest.json').write_text(json.dumps({
+        'modules': {},
+        'staticAssets': static_spec,
+        'artifacts': {'index.js': hashlib.sha256(raw).hexdigest(), 'public/index.html': hashlib.sha256(html_bytes).hexdigest()},
+    }), encoding='utf-8')
+
+    def make_jwt(payload):
+        seg = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        return f'e30.{seg}.sig'
+
+    # 1) buckets 为空时直接使用会话 JWT，不发起文件上传
+    fake = FakeCloud()
+    orig_call = fake.call
+    fake.call = lambda path, method='GET', body=None, *a, **kw: (
+        {'jwt': 'cached-jwt', 'buckets': []}
+        if path.endswith('/assets-upload-session') else orig_call(path, method, body, *a, **kw)
+    )
+    cloudflare.publish(fake, request, output)
+    worker_put = next(body for path, method, body in fake.calls if method == 'PUT' and path.endswith('/assetlibrary-test'))
+    assert b'"jwt": "cached-jwt"' in worker_put
+    assert b'"RATE_LIMIT_PUBLIC"' in worker_put and b'"PUBLIC_EDGE_CACHE_SECONDS"' in worker_put
+
+    # 2) 批量 multipart base64 上传模式与单文件上传模式
+    for single_mode in (False, True):
+        uploaded_calls = []
+        session_jwt = make_jwt({'wrangler_single_asset_uploads': single_mode})
+        fake = FakeCloud()
+        fake.base = 'https://api.cloudflare.invalid/client/v4/accounts/' + 'a' * 32
+        orig_call = fake.call
+        fake.call = lambda path, method='GET', body=None, *a, **kw: (
+            {'jwt': session_jwt, 'buckets': [['a' * 32]]}
+            if path.endswith('/assets-upload-session') else orig_call(path, method, body, *a, **kw)
+        )
+        with patch.object(static_assets, '_upload_with_jwt',
+                          side_effect=lambda base, tok, p, b, ct: (uploaded_calls.append((tok, p, b, ct)) or {'jwt': 'done-jwt'})):
+            cloudflare.publish(fake, request, output)
+        assert len(uploaded_calls) == 1
+        tok, up_path, up_body, up_ct = uploaded_calls[0]
+        assert tok == session_jwt
+        if single_mode:
+            assert up_path == '/workers/assets/upload/' + 'a' * 32
+            assert up_body == html_bytes
+        else:
+            assert up_path == '/workers/assets/upload?base64=true'
+            assert base64.b64encode(html_bytes) in up_body
+
+    # 3) 静态文件字节篡改在任何云请求前失败
+    (pub_dir / 'index.html').write_bytes(b'tampered')
+    fake = FakeCloud()
+    try:
+        cloudflare.publish(fake, request, output)
+        raise AssertionError('tampered static asset accepted')
+    except contract.Failure as err:
+        assert str(err) == 'ASSETLIBRARY_ARTIFACT_CHANGED'
         assert not fake.calls
 ready = {'status': 'ready', 'checks': {'identity': 'available', 'database': 'available', 'storage': 'available'},
          'distribution': {'status': 'available', 'mode': 'unscanned-packages', 'malwareScanning': 'not_required'}}

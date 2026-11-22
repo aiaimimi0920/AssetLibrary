@@ -1,10 +1,93 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyNativeRuntime } from "./scanner-native-runtime-context.mjs";
 import { artifactRoot, root, sourceFiles } from "./source-scope.mjs";
+
+const wranglerRequire = createRequire(
+  realpathSync(path.join(root, "node_modules/wrangler/package.json")),
+);
+const blake3 = wranglerRequire("blake3-wasm");
+
+const STATIC_CSP =
+  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self' https://naccount-auth.aiaimimi.com; frame-ancestors 'none'";
+
+const STATIC_HEADERS_TEXT = [
+  "/*",
+  "  X-Content-Type-Options: nosniff",
+  "  Referrer-Policy: same-origin",
+  `  Content-Security-Policy: ${STATIC_CSP}`,
+  "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
+  "",
+  "/",
+  "  Cache-Control: public, max-age=60, must-revalidate",
+  "",
+  "/workspace",
+  "  Cache-Control: public, max-age=60, must-revalidate",
+  "",
+  "/*.css",
+  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "",
+  "/*.js",
+  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "",
+  "/beaver.svg",
+  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "",
+].join("\n");
+
+function staticContentType(routePath) {
+  if (routePath.endsWith(".html")) return "text/html; charset=utf-8";
+  if (routePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (routePath.endsWith(".js")) return "text/javascript; charset=utf-8";
+  if (routePath.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
+  throw new Error(`UNSUPPORTED_STATIC_ASSET: ${routePath}`);
+}
+
+async function buildStaticAssets(output) {
+  const publicDir = path.join(output, "public");
+  await mkdir(publicDir, { recursive: true });
+  const webEntries = (await readdir(path.join(root, "src/web"))).sort();
+  const mapped = [];
+  for (const name of webEntries) {
+    if (!/\.(?:html|css|svg|client\.js)$/.test(name)) continue;
+    const targetName =
+      name === "store.html" ? "index.html" : name === "index.html" ? "workspace.html" : name;
+    await copyFile(path.join(root, "src/web", name), path.join(publicDir, targetName));
+    mapped.push(targetName);
+  }
+  if (mapped.length !== 20) throw new Error("STATIC_ASSET_COVERAGE_INCOMPLETE");
+  const files = {};
+  for (const targetName of mapped.sort()) {
+    const raw = await readFile(path.join(publicDir, targetName));
+    const ext = path.extname(targetName).slice(1);
+    const hash = blake3
+      .hash(raw.toString("base64") + ext)
+      .toString("hex")
+      .slice(0, 32);
+    const sha256 = createHash("sha256").update(raw).digest("hex");
+    const routePath = `/${targetName}`;
+    files[routePath] = {
+      file: `public/${targetName}`,
+      hash,
+      size: raw.byteLength,
+      sha256,
+      contentType: staticContentType(routePath),
+    };
+  }
+  return {
+    files,
+    config: {
+      html_handling: "auto-trailing-slash",
+      not_found_handling: "none",
+      _headers: STATIC_HEADERS_TEXT,
+    },
+  };
+}
 
 async function sourceHashes() {
   const sources = {};
@@ -103,12 +186,14 @@ export async function build(nativeDirectory) {
     )
     .sort();
   if (webModules.length !== 20) throw new Error("WEB_MODULE_COVERAGE_INCOMPLETE");
+  const staticAssets = await buildStaticAssets(output);
   for (const file of [
     "index.js",
     "index.js.map",
     "README.md",
     "wrangler.json",
     ...webModules,
+    ...Object.values(staticAssets.files).map((entry) => entry.file),
     ...["worker.js", "worker.js.map", "README.md", "wrangler.json", ...runtimeFiles].map(
       (name) => `scanner/${name}`,
     ),
@@ -129,6 +214,7 @@ export async function build(nativeDirectory) {
         stage: "P3-software-packages-local-candidate",
         cloudDeployed: false,
         modules: Object.fromEntries(webModules.map((name) => [name, "text"])),
+        staticAssets,
         sources,
         artifacts,
       },

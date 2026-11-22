@@ -187,7 +187,7 @@ export function initAssetMarket({
     }
   }
 
-  async function loadRequests(signal, after = "") {
+  async function loadRequests(signal, after = "", reload = false) {
     requestCursor = null;
     element("requests-empty").hidden = true;
     element("requests-results").replaceChildren();
@@ -207,6 +207,7 @@ export function initAssetMarket({
     const page = await api(`${mine ? "/v1/me/asset-requests" : "/v1/asset-requests"}?${params}`, {
       signal,
       publicRead: !mine,
+      reload: !mine && reload,
     });
     signal.throwIfAborted();
     requestCursor = page.nextAfter;
@@ -400,7 +401,7 @@ export function initAssetMarket({
     }),
   );
   element("requests-refresh").addEventListener("click", () =>
-    run((signal) => loadRequests(signal)),
+    run((signal) => loadRequests(signal, "", true)),
   );
   element("requests-more").addEventListener("click", () =>
     run((signal) => loadRequests(signal, requestCursor)),
@@ -428,7 +429,7 @@ export function initAssetMarket({
       element("req-description").value = "";
       element("request-compose").close();
       setFilters({ ...getFilters(), mode: "requests" });
-      await reloadView(signal);
+      await reloadView(signal, true);
       requestStatus("求购需求已发布。", "success");
     });
   });
@@ -452,7 +453,7 @@ export function initAssetMarket({
       element("req-response-message").value = "";
       element("req-response-pub").value = "";
       await openRequestDetail(activeRequest.item, signal, requestOpener);
-      await loadRequests(signal);
+      await loadRequests(signal, "", true);
       requestStatus("方案已提交。", "success");
     });
   });
@@ -469,7 +470,7 @@ export function initAssetMarket({
       );
       activeRequest.item = closed;
       element("request-detail").close();
-      await loadRequests(signal);
+      await loadRequests(signal, "", true);
       requestStatus("求购需求已关闭。", "success");
     });
   });

@@ -15,6 +15,7 @@ import {
   bindModalScrollLock,
   paintStoreView,
   readStoreRoute,
+  renderStoreCover,
   spaceLabels,
   storeRoute,
   storeViews,
@@ -93,27 +94,7 @@ async function changeView(next, signal, routeFilters, replace = false) {
   await load(signal);
 }
 function cover(item) {
-  const kind = typeof item === "string" ? item : item?.kind;
-  const coverFact = typeof item === "object" ? item?.cover : null;
-  if (coverFact?.url) {
-    const node = text("div", "", "asset-cover has-image");
-    const image = document.createElement("img");
-    image.className = "asset-cover-image";
-    image.setAttribute("src", coverFact.url);
-    image.setAttribute("alt", "");
-    image.setAttribute("loading", "lazy");
-    if (coverFact.width) image.setAttribute("width", String(coverFact.width));
-    if (coverFact.height) image.setAttribute("height", String(coverFact.height));
-    node.append(image);
-    return node;
-  }
-  const node = text("div", "", "asset-cover");
-  node.append(
-    text("span", kinds[kind] ?? "资源包"),
-    text("strong", codes[kind] ?? "PKG"),
-    text("span", "类型图示 · 暂无内容预览"),
-  );
-  return node;
+  return renderStoreCover(item, kinds, codes);
 }
 function showDetail(trigger) {
   opener = trigger;
@@ -236,7 +217,7 @@ function render(items) {
     element("results").append(card);
   }
 }
-async function load(signal, after = "") {
+async function load(signal, after = "", reload = false) {
   cursor = null;
   selected = null;
   element("detail").close();
@@ -249,7 +230,7 @@ async function load(signal, after = "") {
     return;
   }
   if (view === "assets" && filters.mode === "requests") {
-    await assetMarket.loadRequests(signal, after);
+    await assetMarket.loadRequests(signal, after, reload);
     return;
   }
   status("正在读取当前目录…");
@@ -267,6 +248,7 @@ async function load(signal, after = "") {
   const page = await api(`${scope === "public" ? "/v1/catalog" : "/v1/me/library"}?${params}`, {
     signal,
     publicRead: scope === "public",
+    reload: scope === "public" && reload,
   });
   signal.throwIfAborted();
   cursor = page.nextAfter;
@@ -386,7 +368,7 @@ assetMarket = initAssetMarket({
   setFilters: (next) => {
     filters = next;
   },
-  reloadView: (signal) => load(signal),
+  reloadView: (signal, reload = false) => load(signal, "", reload),
   promptLogin: publish,
   isLoginEnabled: () => loginEnabled,
   refreshControls: controls,
@@ -415,7 +397,7 @@ element("transfer-open").addEventListener("click", () => {
   const pending = transfer.snapshot();
   if (pending) presentDetail(pending.publication, element("transfer-open"));
 });
-click("refresh", (signal) => load(signal));
+click("refresh", (signal) => load(signal, "", true));
 click("more", (signal) => load(signal, cursor));
 async function download(signal, resume = false) {
   const result = await transfer.fetch(resume ? null : selected, signal, resume);

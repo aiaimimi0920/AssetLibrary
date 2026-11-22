@@ -14,6 +14,7 @@ export async function fixture({
   runtimeLog,
   deploymentDocument,
   deploymentBindings = {},
+  textEnv = {},
 } = {}) {
   const { publicKey, privateKey } = await generateKeyPair("RS256", { extractable: true });
   const jwk = await exportJWK(publicKey);
@@ -63,7 +64,13 @@ export async function fixture({
           env: {
             DB: { type: "d1", id: "assetlibrary-test" },
             QUARANTINE: { type: "r2", name: "assetlibrary-test-quarantine" },
+            RATE_LIMIT_PUBLIC_PER_MIN: { type: "text", value: "10000" },
+            RATE_LIMIT_AUTH_PER_MIN: { type: "text", value: "10000" },
+            RATE_LIMIT_WRITE_PER_MIN: { type: "text", value: "10000" },
             ...deploymentBindings,
+            ...Object.fromEntries(
+              Object.entries(textEnv).map(([k, v]) => [k, { type: "text", value: String(v) }]),
+            ),
             ...(reviewers === undefined
               ? {}
               : { REVIEWER_PRINCIPALS: { type: "text", value: reviewers } }),

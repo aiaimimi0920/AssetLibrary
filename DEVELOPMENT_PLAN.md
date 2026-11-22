@@ -379,5 +379,6 @@ P0 整理已独立收尾，后续开发指令已进入并完成 P1、P2。每阶
 - [D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)：副本异步复制；不使用 Sessions API 时查询继续走 primary。
 - [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)：普通 Worker 有内存和 CPU 限制；网络等待与 CPU 消耗不是同一指标。
 - [R2 presigned URLs](https://developers.cloudflare.com/r2/api/s3/presigned-urls/)：持有 URL 的人可在到期前执行所授权的对象操作，不能把 URL 当成每次重查业务权限的入口。
+- [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/) 与 [Rate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limiting/)（2026-11-23 `0.4.17` 核实接入）：未开启 `run_worker_first` 时静态资源直接由边缘返回、不触发 Worker 调用计费；公开目录／求购（`5s` 浏览器 / `10s` 边缘）与公开封面（`60s` 浏览器 / `300s` 边缘）的有界缓存寿命及残留窗口见 [降本与防刷保护合同](docs/COST_AND_ABUSE_PROTECTION.md)，私有业务与包体下载始终保持 `no-store` 实时校验。
 
 最终目标：Cloudflare 优先、当前只实现 Cloudflare、轻量接口可用则用、原生效率优先、历史项目仅参考、不迁移旧数据、不兼容旧开发版本。

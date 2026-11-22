@@ -1,3 +1,4 @@
+import { etagOf, ifNoneMatch, notModified } from "../traffic/cache";
 import api from "./api.client.js";
 import app from "./app.client.js";
 import assetMarket from "./asset-market.client.js";
@@ -42,20 +43,38 @@ const assets: Record<string, [string, string]> = {
   "/style.css": [style, "text/css"],
 };
 
-/** 公开的只有固定 UI 字节；业务仍经过同源 Bearer 身份与 D1 授权。 */
-export function webRoutes(request: Request): Response | null {
-  const asset = assets[new URL(request.url).pathname];
+export const WEB_CSP =
+  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self' https://naccount-auth.aiaimimi.com; frame-ancestors 'none'";
+
+const etags = new Map<string, Promise<string>>();
+
+export function webCacheControl(pathname: string): string {
+  return pathname === "/" || pathname === "/workspace"
+    ? "public, max-age=60, must-revalidate"
+    : "public, max-age=300, stale-while-revalidate=86400";
+}
+
+/** 线上由 Workers Static Assets 零配额承载；Worker 侧保留同合同 ETag/304 供本地与回退验证。 */
+export async function webRoutes(request: Request): Promise<Response | null> {
+  const pathname = new URL(request.url).pathname;
+  const asset = assets[pathname];
   if (!asset || !["GET", "HEAD"].includes(request.method)) return null;
-  return new Response(request.method === "HEAD" ? null : asset[0], {
-    headers: {
-      "Content-Type": `${asset[1]}; charset=utf-8`,
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      // 原生 POST 表单须保留同源 Origin；跨站不发送 Referer。
-      "Referrer-Policy": "same-origin",
-      "Content-Security-Policy":
-        "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self' https://naccount-auth.aiaimimi.com; frame-ancestors 'none'",
-      "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    },
-  });
+  let pendingEtag = etags.get(pathname);
+  if (!pendingEtag) {
+    pendingEtag = etagOf(asset[0]);
+    etags.set(pathname, pendingEtag);
+  }
+  const etag = await pendingEtag;
+  const headers = {
+    "Content-Type": `${asset[1]}; charset=utf-8`,
+    ETag: etag,
+    "Cache-Control": webCacheControl(pathname),
+    "X-Content-Type-Options": "nosniff",
+    // 原生 POST 表单须保留同源 Origin；跨站不发送 Referer。
+    "Referrer-Policy": "same-origin",
+    "Content-Security-Policy": WEB_CSP,
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  };
+  if (ifNoneMatch(request, etag)) return notModified(headers);
+  return new Response(request.method === "HEAD" ? null : asset[0], { headers });
 }

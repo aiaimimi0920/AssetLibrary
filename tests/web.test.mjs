@@ -33,12 +33,25 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
       const response = await f.mf.dispatchFetch(`http://localhost${url}`);
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type"), new RegExp(type));
-      assert.equal(response.headers.get("cache-control"), "no-store");
+      const expectedCache =
+        url === "/" || url === "/workspace"
+          ? "public, max-age=60, must-revalidate"
+          : "public, max-age=300, stale-while-revalidate=86400";
+      assert.equal(response.headers.get("cache-control"), expectedCache);
+      const etag = response.headers.get("etag");
+      assert.match(etag ?? "", /^"[0-9a-f]{32}"$/);
       assert.equal(response.headers.get("referrer-policy"), "same-origin");
       assert.match(response.headers.get("content-security-policy"), /frame-ancestors 'none'/);
       assert.match(response.headers.get("content-security-policy"), /connect-src 'self'/);
       const content = await response.text();
       assert.ok(content.length > 100);
+      const conditional = await f.mf.dispatchFetch(`http://localhost${url}`, {
+        headers: { "if-none-match": etag },
+      });
+      assert.equal(conditional.status, 304);
+      assert.equal(conditional.headers.get("etag"), etag);
+      assert.equal(conditional.headers.get("cache-control"), expectedCache);
+      assert.equal(await conditional.text(), "");
       if (url === "/workspace") {
         // HTML pattern 使用 Unicode sets (v)；连字符必须转义，不能因语法错误失去表单校验。
         const pattern = content.match(/pattern="([^"]+)"/)?.[1];
@@ -53,6 +66,7 @@ test("公开 Web 静态模块无凭据可读，业务身份仍拒绝伪造与缺
     assert.equal((await f.mf.dispatchFetch("http://localhost/", { method: "HEAD" })).status, 200);
     assert.equal((await f.request("GET", "/v1/me", undefined, { token: null })).status, 401);
     const identity = await f.request("GET", "/v1/me");
+    assert.equal(identity.headers.get("cache-control"), "no-store");
     assert.deepEqual(identity.body, { principal: "user:alice" });
     assert.deepEqual(
       (await f.request("GET", "/v1/me", undefined, { principal: "user:bob" })).body,

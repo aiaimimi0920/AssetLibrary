@@ -88,12 +88,13 @@ export async function coverStreamResponse(
   sha256: string,
   size: number,
   headOnly: boolean,
+  cacheControl = "no-store",
 ): Promise<Response> {
   const headers = {
     "Content-Type": "image/png",
     "Content-Length": String(size),
     ETag: `"${sha256}"`,
-    "Cache-Control": "no-store",
+    "Cache-Control": cacheControl,
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'",
   };

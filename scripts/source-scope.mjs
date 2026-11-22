@@ -27,6 +27,7 @@ export async function sourceFiles() {
   const files = [...rootFiles];
   async function walk(directory) {
     for (const entry of await readdir(path.join(root, directory), { withFileTypes: true })) {
+      if (entry.name === "__pycache__") continue;
       const relative = `${directory}/${entry.name}`;
       if (entry.isSymbolicLink()) throw new Error(`SOURCE_LINK_NOT_ALLOWED: ${relative}`);
       if (entry.isDirectory()) await walk(relative);

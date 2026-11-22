@@ -55,6 +55,8 @@ async function compileCore() {
       "versions/safety",
       "packages/loom",
       "packages/art",
+      "traffic/cache",
+      "traffic/rate-limit",
     ].map((module) => require(path.join(output, `${module}.js`))),
   );
 }

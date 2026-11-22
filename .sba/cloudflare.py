@@ -14,6 +14,13 @@ from contract import ROOT, Failure, require, load
 from native_client import native_client_id
 from reviewers import reviewer_principals
 from scanner_release import distribution_status, scanner_bindings, verify_release_window, verify_scanner
+from static_assets import upload_static_assets, verify_static_bundle
+
+RATE_LIMIT_BINDINGS = [
+    {'name': 'RATE_LIMIT_PUBLIC', 'type': 'ratelimit', 'namespace_id': '1001', 'simple': {'limit': 300, 'period': 60}},
+    {'name': 'RATE_LIMIT_AUTH', 'type': 'ratelimit', 'namespace_id': '1002', 'simple': {'limit': 15, 'period': 60}},
+    {'name': 'RATE_LIMIT_WRITE', 'type': 'ratelimit', 'namespace_id': '1003', 'simple': {'limit': 120, 'period': 60}},
+]
 
 
 class Cloud:
@@ -133,9 +140,11 @@ def publish(cloud, request, output):
     bindings = [
         {'name': 'DB', 'type': 'd1', 'id': c['database']['id']},
         {'name': 'QUARANTINE', 'type': 'r2_bucket', 'bucket_name': c['bucket']},
+        *RATE_LIMIT_BINDINGS,
     ]
     variables = {'APP_ORIGIN': c['origin'], 'NACCOUNT_ISSUER': c['identity']['issuer'],
                  'NACCOUNT_CLIENT_ID': c['identity']['clientId'], 'REVIEWER_PRINCIPALS': json.dumps(reviewer_principals(c)),
+                 'PUBLIC_EDGE_CACHE_SECONDS': '10', 'COVER_EDGE_CACHE_SECONDS': '300',
                  'RELEASE_SHA': request['sourceSha'], 'RELEASE_VERSION': request['applicationVersion']}
     if native_client_id(c):
         variables['NACCOUNT_NATIVE_CLIENT_ID'] = native_client_id(c)
@@ -148,17 +157,24 @@ def publish(cloud, request, output):
                 'compatibility_flags': ['enable_request_signal'], 'bindings': bindings,
                 'keep_bindings': ['secret_text'],
                 'observability': {'enabled': True, 'head_sampling_rate': 1, 'redact_query_string': True, 'logs': {'invocation_logs': False}}}
+    module_blobs = []
+    for name in ['index.js', *manifest['modules']]:
+        raw = (output / name).read_bytes()
+        require(hashlib.sha256(raw).hexdigest() == manifest['artifacts'][name], 'ASSETLIBRARY_ARTIFACT_CHANGED')
+        module_blobs.append((name, raw, 'application/javascript+module' if name == 'index.js' else 'text/plain'))
+    prepared_static = verify_static_bundle(output, manifest.get('staticAssets'))
+    verify_release_window(scanner_record, activating=True)
+    assets_meta = upload_static_assets(cloud, c['worker'], prepared_static)
+    if assets_meta is not None:
+        metadata['assets'] = assets_meta
     boundary = 'assetlibrary' + secrets.token_hex(16)
     parts = []
     def part(name, data, content_type):
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{name}"\r\nContent-Type: {content_type}\r\n\r\n'.encode() + data + b'\r\n')
     part('metadata', json.dumps(metadata).encode(), 'application/json')
-    for name in ['index.js', *manifest['modules']]:
-        raw = (output / name).read_bytes()
-        require(hashlib.sha256(raw).hexdigest() == manifest['artifacts'][name], 'ASSETLIBRARY_ARTIFACT_CHANGED')
-        part(name, raw, 'application/javascript+module' if name == 'index.js' else 'text/plain')
+    for name, raw, content_type in module_blobs:
+        part(name, raw, content_type)
     body = b''.join(parts) + f'--{boundary}--\r\n'.encode()
-    verify_release_window(scanner_record, activating=True)
     cloud.call(f"/workers/scripts/{c['worker']}", 'PUT', body, f'multipart/form-data; boundary={boundary}')
     cloud.call(f"/workers/scripts/{c['worker']}/subdomain", 'POST', {'enabled': c['origin'].endswith('.workers.dev'), 'previews_enabled': False})
     if not c['origin'].endswith('.workers.dev'):
@@ -179,7 +195,13 @@ def verify(cloud, request):
         require(actual is None if expected is None else actual is not None and
                 all(actual.get(key) == value for key, value in expected.items()), 'ASSETLIBRARY_SCANNER_BINDING_MISMATCH')
     verify_scanner(cloud)
+    for rb in RATE_LIMIT_BINDINGS:
+        actual = bindings.get(rb['name'], {})
+        require(actual.get('type') == 'ratelimit' and str(actual.get('namespace_id')) == rb['namespace_id'] and
+                actual.get('simple') == rb['simple'], 'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH')
     require(bindings.get('RELEASE_SHA', {}).get('text') == request['sourceSha'] and
+            bindings.get('PUBLIC_EDGE_CACHE_SECONDS', {}).get('text') == '10' and
+            bindings.get('COVER_EDGE_CACHE_SECONDS', {}).get('text') == '300' and
             bindings.get('DB', {}).get('id') == c['database']['id'] and
             bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'] and
             bindings.get('NACCOUNT_NATIVE_CLIENT_ID', {}).get('text', '') == native_client_id(c) and

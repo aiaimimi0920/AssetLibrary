@@ -1,6 +1,12 @@
 import { exactFields, HttpError, readJson, revision } from "../http";
 import { uuid } from "../page";
 import { parseSpace } from "../spaces/catalog";
+import {
+  cachedPublicJson,
+  parseEdgeTtl,
+  type TrafficCacheEnv,
+  withPublicEdgeCache,
+} from "../traffic/cache";
 import { closeAssetRequest, createAssetRequest, respondToAssetRequest } from "./requests-mutations";
 import { getPublicAssetRequest, listAssetRequests, listRequestResponses } from "./requests-records";
 import {
@@ -14,22 +20,38 @@ import {
   parseRequestTitle,
 } from "./taxonomy";
 
-interface AssetRequestEnv {
+interface AssetRequestEnv extends TrafficCacheEnv {
   DB: D1Database;
 }
 
-export async function publicAssetRequestRoutes(request: Request, env: AssetRequestEnv) {
+export async function publicAssetRequestRoutes(
+  request: Request,
+  env: AssetRequestEnv,
+  ctx?: ExecutionContext,
+) {
   const url = new URL(request.url);
-  if (request.method !== "GET") return null;
+  if (!["GET", "HEAD"].includes(request.method)) return null;
+  const publicTtl = parseEdgeTtl(env.PUBLIC_EDGE_CACHE_SECONDS, 60);
   if (url.pathname === "/v1/asset-requests") {
-    return listAssetRequests(env.DB, url);
+    return withPublicEdgeCache(
+      request,
+      publicTtl,
+      async (upstream) =>
+        cachedPublicJson(upstream, await listAssetRequests(env.DB, new URL(upstream.url))),
+      ctx,
+    );
   }
   const parts = url.pathname.split("/");
   if (parts.length === 4 && parts[1] === "v1" && parts[2] === "asset-requests") {
     const id = parts[3] ?? "";
     if (!uuid.test(id)) throw new HttpError(404, "NOT_FOUND");
     if (url.search) throw new HttpError(400, "INVALID_QUERY");
-    return getPublicAssetRequest(env.DB, id);
+    return withPublicEdgeCache(
+      request,
+      publicTtl,
+      async (upstream) => cachedPublicJson(upstream, await getPublicAssetRequest(env.DB, id)),
+      ctx,
+    );
   }
   return null;
 }

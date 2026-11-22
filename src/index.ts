@@ -1,3 +1,5 @@
+import { assetRequestRoutes, publicAssetRequestRoutes } from "./assets/routes";
+import { catalogRoutes, distributionRoutes } from "./distribution/routes";
 import { HttpError, json } from "./http";
 import { authenticate, type IdentityConfig } from "./identity";
 import type { NAccountEnv } from "./identity/naccount-config";
@@ -9,30 +11,44 @@ import { readiness } from "./operations/readiness";
 import { scheduledWork } from "./operations/scheduled";
 import { resourceRoutes } from "./resources/routes";
 import type { DeploymentEnv } from "./scanner/deployment";
+import type { TrafficCacheEnv } from "./traffic/cache";
+import { enforceTrafficGuard, RateLimitError, type TrafficLimitEnv } from "./traffic/rate-limit";
 import type { UploadEnv } from "./uploads/records";
 import { uploadRoutes } from "./uploads/routes";
 import type { ReviewConfig } from "./versions/policy";
 import { versionRoutes } from "./versions/routes";
 import { webRoutes } from "./web/routes";
 
-interface Env extends IdentityConfig, UploadEnv, ReviewConfig, NAccountEnv, DeploymentEnv {
+interface Env
+  extends IdentityConfig,
+    UploadEnv,
+    ReviewConfig,
+    NAccountEnv,
+    DeploymentEnv,
+    TrafficCacheEnv,
+    TrafficLimitEnv {
   RELEASE_SHA?: string;
   RELEASE_VERSION?: string;
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const id = crypto.randomUUID();
     const start = performance.now();
     let response: Response;
     try {
-      response = await route(request, env);
+      response = await route(request, env, ctx);
     } catch (error) {
       // 不记录 JWT、SQL 参数或驱动错误；只返回可安全重试的统一失败状态。
-      response =
-        error instanceof HttpError
-          ? json({ error: error.code }, error.status)
-          : json({ error: "SERVICE_UNAVAILABLE" }, 503);
+      if (error instanceof RateLimitError) {
+        response = json({ error: error.code }, error.status);
+        response.headers.set("Retry-After", String(error.retryAfter));
+      } else {
+        response =
+          error instanceof HttpError
+            ? json({ error: error.code }, error.status)
+            : json({ error: "SERVICE_UNAVAILABLE" }, 503);
+      }
     }
     return observeResponse(request, response, id, start);
   },
@@ -41,13 +57,11 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-import { assetRequestRoutes, publicAssetRequestRoutes } from "./assets/routes";
-import { catalogRoutes, distributionRoutes } from "./distribution/routes";
-
-async function route(request: Request, env: Env) {
+async function route(request: Request, env: Env, ctx?: ExecutionContext) {
+  await enforceTrafficGuard(request, env);
   const auth = await authRoutes(request, env);
   if (auth) return auth;
-  const web = webRoutes(request);
+  const web = await webRoutes(request);
   if (web) return web;
   const path = new URL(request.url).pathname;
   if (request.method === "GET" && path === "/healthz")
@@ -57,9 +71,9 @@ async function route(request: Request, env: Env) {
       ...(env.RELEASE_SHA ? { sourceSha: env.RELEASE_SHA, version: env.RELEASE_VERSION } : {}),
     });
   if (request.method === "GET" && path === "/readyz") return readiness(env);
-  const catalog = await catalogRoutes(request, env);
+  const catalog = await catalogRoutes(request, env, ctx);
   if (catalog) return catalog;
-  const publicRequests = await publicAssetRequestRoutes(request, env);
+  const publicRequests = await publicAssetRequestRoutes(request, env, ctx);
   if (publicRequests) return publicRequests;
   const principal = env.NACCOUNT_ISSUER
     ? await naccountIdentity(request, env)

@@ -109,7 +109,18 @@ export function resolveOperation(scope, body, subject) {
 /** consume 必须在控制器生命周期内读完响应，下载不能在返回后失去取消/身份保护。 */
 export async function withResponse(
   path,
-  { method = "GET", body, signal, key, raw = false, publicRead = false, ticket, range, ifRange },
+  {
+    method = "GET",
+    body,
+    signal,
+    key,
+    raw = false,
+    publicRead = false,
+    reload = false,
+    ticket,
+    range,
+    ifRange,
+  },
   consume,
 ) {
   if (!connected() && !publicRead) throw new Error("IDENTITY_REQUIRED");
@@ -161,7 +172,7 @@ export async function withResponse(
       signal: controller.signal,
       redirect: "error",
       credentials: sessionCsrf && !publicRead ? "same-origin" : "omit",
-      cache: "no-store",
+      cache: !publicRead ? "no-store" : reload ? "no-cache" : "default",
       headers: {
         ...(publicRead
           ? {}

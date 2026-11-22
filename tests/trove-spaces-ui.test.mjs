@@ -63,7 +63,11 @@ test("商店内容空间横幅、真实封面图、详情简介及空间双向�
   assert.equal(cards.length, 2);
   const coverNode = cards[0].children[0];
   assert.equal(coverNode.children[0].tagName, "IMG");
-  assert.equal(coverNode.children[0].attributes.get("src"), loomApp.cover.url);
+  assert.equal(
+    coverNode.children[0].attributes.get("src"),
+    `${loomApp.cover.url}?v=${loomApp.cover.sha256.slice(0, 16)}`,
+  );
+  assert.equal(coverNode.children[0].attributes.get("decoding"), "async");
   assert.match(content(cards[0]), /Loom 空间/);
   assert.match(content(cards[0]), /把想法连接成作品的工作台/);
   assert.equal(cards[1].children[0].children[1].textContent, "MCP");
