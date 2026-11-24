@@ -65,3 +65,18 @@
   - `/`、`/workspace`、`/store.css`、`/store.client.js`、`/beaver.svg` 均返回 `200`、携带严格 `Content-Security-Policy` 与 `_headers` 声明的 `Cache-Control`，且**不含 Worker `X-Request-ID` 响应头**，证实由 Cloudflare Workers Static Assets 在边缘直接返回、未触发 Worker 调用；子资源 `If-None-Match` 实测返回 `304`（0 字节响应体）。
   - `GET /v1/catalog?limit=20` 原有 **10 条发布完整保留**，首请求 `X-Traffic-Cache: MISS`、紧接次请求命中边缘 `X-Traffic-Cache: HIT`，`If-None-Match` 返回 `304`；`GET /v1/asset-requests?limit=20` 同样命中 `ETag -> 304`。
   - `GET /auth/session` 保持 `Cache-Control: no-store`；超长查询串请求实测返回 `414 URI_TOO_LONG`（`Cache-Control: no-store`）。
+
+## 5. `0.4.18` 发布与生产保数据升级回执（2026-11-24）
+
+- **发布身份**：GitHub Release [v0.4.18](https://github.com/aiaimimi0920/AssetLibrary/releases/tag/v0.4.18)，精确提交 `515f85e2ab0bddcb9f62968abe57f2ce93588a71`；GitHub Actions CI 运行 [45304432482](https://github.com/aiaimimi0920/AssetLibrary/actions/runs/45304432482) 的 `verify`（441 项测试：440 通过、0 失败、1 默认跳过）与 `secret_scan` 全部通过。
+- **SpringBok 原实例保数据升级（`update`，含 `0015_query_indexes.sql` 索引迁移）**：
+  - 实例 ID：`dc-b20cc87beb7b44c0aa5c73eec88a7292`（`https://assetlibrary.aiaimimi.com`，Worker `assetlibrary`，D1 `assetlibrary-db` / `dd6dc465-2d9a-4ee6-800f-3033ffea0dc1`，私有 R2 `assetlibrary-objects`）。
+  - 任务 ID：`dc-60290eb8ea8d400e958ac554f12261c3`，SpringBok 运行 [45308102021](https://github.com/aiaimimi0920/SpringBok/actions/runs/45308102021)，业务结果 `deployed-unverified`，**7/7 检查通过**（`backup-created`、`data-preserved`、`deployed-bindings`、`release-identity`、`private-dependencies`、`naccount-login-configured`、`scanner-admission-verified`）；回执制品 `14882026409` SHA-256 `6b99c1009bf7847e2e6f53424c056cc93b0d9cb5023fb5b12da0a6360a144ebe` 与 GitHub API digest 核对一致。
+- **SpringBok 独立平台验证（`verify`）与本地无凭据验证**：
+  - 平台验证任务：`dc-5563a3608bb8445c874343991facac2e`（`parentTaskId: dc-60290eb8ea8d400e958ac554f12261c3`），SpringBok 运行 [45308365901](https://github.com/aiaimimi0920/SpringBok/actions/runs/45308365901)，业务结果 `succeeded`（控制台状态 `可用性已验证`），**4/4 检查通过**；回执制品 `14881248626` SHA-256 `675ff745baa8b4249035731c8880cf0590dc4de84067bc5dada8a135f1e25838` 核对一致。
+  - 本地清空 `CLOUDFLARE_API_TOKEN` 与 `SBA_EXECUTE` 后执行 `.sba/springbok.py` `verify`，返回 `succeeded` / 4 项检查通过。
+- **线上边缘实测与耗时对比证据**（保存在 `linshi/trove-release-0418-20261124/verification-summary-0418.json`）：
+  - `GET /healthz` 读回 `version: "0.4.18"`、`sourceSha: "515f85e2ab0bddcb9f62968abe57f2ce93588a71"`。
+  - `/`（含 5 条 `<link rel="modulepreload">` 与 12 处 `?v=<12hex>` 指纹引用）与 `/workspace`（含 9 条 `<link rel="modulepreload">` 与 11 处 `?v=<12hex>` 指纹引用）均返回 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 且**无 `X-Request-ID`**；全部带指纹 CSS／JS／SVG 子资源返回 `Cache-Control: public, max-age=31536000, immutable`、**无 `X-Request-ID`（0 次 Worker 调用）** 且支持 `304`。
+  - `GET /v1/catalog?limit=20` 原有 **10 条发布完整保留**，响应头升级为 `Cache-Control: public, max-age=5, s-maxage=60, stale-while-revalidate=300`；同连接实测冷回源 `X-Traffic-Cache: MISS` 由优化前的约 `1.1–1.35s` 降至约 `409ms`，紧接边缘 `X-Traffic-Cache: HIT` 降至约 `204ms`（`304` 约 `206ms`）；`GET /v1/asset-requests?limit=20` 实测 `MISS` 约 `363ms`、`HIT` 约 `208ms`。
+  - `GET /auth/session`（`no-store`）、超长查询 `414 URI_TOO_LONG`（`no-store`）与非法分页 `400 INVALID_PAGE`（前置零 D1 查询拦截，`no-store`）均验证通过。
