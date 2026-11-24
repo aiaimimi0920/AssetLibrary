@@ -181,7 +181,7 @@ test("匿名目录与求购广场支持 ETag/304 及有界边缘缓存，且绝�
       assert.equal(miss.status, 200, publicPath);
       assert.equal(
         miss.headers.get("cache-control"),
-        "public, max-age=5, s-maxage=10, stale-while-revalidate=20",
+        "public, max-age=5, s-maxage=60, stale-while-revalidate=300",
       );
       const etag = miss.headers.get("etag");
       assert.match(etag ?? "", /^"[0-9a-f]{32}"$/);

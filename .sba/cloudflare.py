@@ -144,7 +144,7 @@ def publish(cloud, request, output):
     ]
     variables = {'APP_ORIGIN': c['origin'], 'NACCOUNT_ISSUER': c['identity']['issuer'],
                  'NACCOUNT_CLIENT_ID': c['identity']['clientId'], 'REVIEWER_PRINCIPALS': json.dumps(reviewer_principals(c)),
-                 'PUBLIC_EDGE_CACHE_SECONDS': '10', 'COVER_EDGE_CACHE_SECONDS': '300',
+                 'PUBLIC_EDGE_CACHE_SECONDS': '60', 'COVER_EDGE_CACHE_SECONDS': '300',
                  'RELEASE_SHA': request['sourceSha'], 'RELEASE_VERSION': request['applicationVersion']}
     if native_client_id(c):
         variables['NACCOUNT_NATIVE_CLIENT_ID'] = native_client_id(c)
@@ -200,7 +200,7 @@ def verify(cloud, request):
         require(actual.get('type') == 'ratelimit' and str(actual.get('namespace_id')) == rb['namespace_id'] and
                 actual.get('simple') == rb['simple'], 'ASSETLIBRARY_DEPLOYED_BINDINGS_MISMATCH')
     require(bindings.get('RELEASE_SHA', {}).get('text') == request['sourceSha'] and
-            bindings.get('PUBLIC_EDGE_CACHE_SECONDS', {}).get('text') == '10' and
+            bindings.get('PUBLIC_EDGE_CACHE_SECONDS', {}).get('text') == '60' and
             bindings.get('COVER_EDGE_CACHE_SECONDS', {}).get('text') == '300' and
             bindings.get('DB', {}).get('id') == c['database']['id'] and
             bindings.get('QUARANTINE', {}).get('bucket_name') == c['bucket'] and

@@ -1,4 +1,3 @@
-import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
 import { pageInput, uuid } from "../page";
 import {
@@ -9,11 +8,8 @@ import {
   publicationView,
 } from "../publications/records";
 import type { ScannerRelease } from "../scanner/deployment";
-import {
-  coverStreamResponse,
-  effectiveVersionSpaceSql,
-  hasShowcaseSchema,
-} from "../spaces/catalog";
+import { coverStreamResponse, effectiveVersionSpaceSql } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 import { ifNoneMatch, notModified, publicCacheHeader } from "../traffic/cache";
 import { catalogAssetFilters, catalogSection, catalogSpace } from "./catalog-sections";
 
@@ -30,13 +26,10 @@ export async function listPublications(
     (!uuid.test(resourceId) || url.searchParams.getAll("resourceId").length !== 1)
   )
     throw new HttpError(400, "INVALID_RESOURCE_ID");
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
   const pagination = new URL(url);
   pagination.searchParams.delete("resourceId");
-  const section = catalogSection(url, showcase);
+  // 先完成全部参数边界校验，非法查询不触发任何 D1 读取。
+  catalogSection(url, true);
   pagination.searchParams.delete("section");
   const space = catalogSpace(url);
   pagination.searchParams.delete("space");
@@ -60,43 +53,47 @@ export async function listPublications(
     assetFilters.style !== null ||
     assetFilters.format !== null ||
     assetFilters.license !== null;
-  if (!assetMarket && hasExplicitAssetFilter) {
-    return json({ items: [], nextAfter: null });
-  }
   const library =
     actor === undefined
       ? ""
       : `AND (r.owner = ? OR EXISTS
     (SELECT 1 FROM download_grants g WHERE g.publication_id = p.id AND g.principal = ? AND g.state = 'active'))`;
-  const args: (string | number)[] = [after];
-  if (resourceId !== null) args.push(resourceId);
-  if (kind !== null) args.push(kind);
-  if (space !== null) args.push(space);
-  if (assetFilters.category !== null) args.push(assetFilters.category);
-  if (assetFilters.style !== null) args.push(assetFilters.style);
-  if (assetFilters.format !== null) args.push(assetFilters.format);
-  if (assetFilters.license !== null) args.push(assetFilters.license);
-  if (query !== null) args.push(query.trim());
-  if (actor !== undefined) args.push(actor, actor);
-  args.push(limit + 1);
-  const result = await db
-    .prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.state = 'published' AND p.id > ?
-    ${resourceId === null ? "" : "AND versions.resource_id = ?"}
-    ${kind === null ? "" : "AND versions.kind = ?"}
-    ${section}
-    ${space === null ? "" : `AND ${effectiveVersionSpaceSql(showcase, "vp", "versions")} = ?`}
-    ${assetFilters.category === null ? "" : "AND COALESCE(va.category, 'general') = ?"}
-    ${assetFilters.style === null ? "" : "AND COALESCE(va.style, 'general') = ?"}
-    ${assetFilters.format === null ? "" : "AND EXISTS (SELECT 1 FROM json_each(COALESCE(va.formats, '[]')) WHERE value = ?)"}
-    ${assetFilters.license === null ? "" : "AND COALESCE(va.license, 'unspecified') = ?"}
-    ${query === null ? "" : "AND instr(lower(versions.title), lower(?)) > 0"}
-    ${library} ORDER BY p.id LIMIT ?`)
-    .bind(...args)
-    .all<PublicationRow>();
-  const scanned = result.results.slice(0, limit);
-  return json({
-    items: scanned.filter((row) => isDistributable(row, release)).map(publicationView),
-    nextAfter: result.results.length > limit ? (scanned.at(-1)?.id ?? null) : null,
+
+  return withOptionalSchemas(db, async (showcase, assetMarket) => {
+    if (!assetMarket && hasExplicitAssetFilter) {
+      return json({ items: [], nextAfter: null });
+    }
+    const section = catalogSection(url, showcase);
+    const args: (string | number)[] = [after];
+    if (resourceId !== null) args.push(resourceId);
+    if (kind !== null) args.push(kind);
+    if (space !== null) args.push(space);
+    if (assetFilters.category !== null) args.push(assetFilters.category);
+    if (assetFilters.style !== null) args.push(assetFilters.style);
+    if (assetFilters.format !== null) args.push(assetFilters.format);
+    if (assetFilters.license !== null) args.push(assetFilters.license);
+    if (query !== null) args.push(query.trim());
+    if (actor !== undefined) args.push(actor, actor);
+    args.push(limit + 1);
+    const result = await db
+      .prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.state = 'published' AND p.id > ?
+      ${resourceId === null ? "" : "AND versions.resource_id = ?"}
+      ${kind === null ? "" : "AND versions.kind = ?"}
+      ${section}
+      ${space === null ? "" : `AND ${effectiveVersionSpaceSql(showcase, "vp", "versions")} = ?`}
+      ${assetFilters.category === null ? "" : "AND COALESCE(va.category, 'general') = ?"}
+      ${assetFilters.style === null ? "" : "AND COALESCE(va.style, 'general') = ?"}
+      ${assetFilters.format === null ? "" : "AND EXISTS (SELECT 1 FROM json_each(COALESCE(va.formats, '[]')) WHERE value = ?)"}
+      ${assetFilters.license === null ? "" : "AND COALESCE(va.license, 'unspecified') = ?"}
+      ${query === null ? "" : "AND instr(lower(versions.title), lower(?)) > 0"}
+      ${library} ORDER BY p.id LIMIT ?`)
+      .bind(...args)
+      .all<PublicationRow>();
+    const scanned = result.results.slice(0, limit);
+    return json({
+      items: scanned.filter((row) => isDistributable(row, release)).map(publicationView),
+      nextAfter: result.results.length > limit ? (scanned.at(-1)?.id ?? null) : null,
+    });
   });
 }
 

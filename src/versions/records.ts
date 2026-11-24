@@ -1,8 +1,9 @@
-import { decodeFormats, defaultAssetAttributes, hasAssetMarketSchema } from "../assets/taxonomy";
+import { decodeFormats, defaultAssetAttributes } from "../assets/taxonomy";
 import { HttpError } from "../http";
 import { policyKindSql } from "../inspections/policy";
 import type { ScannerRelease } from "../scanner/deployment";
-import { defaultPolicySpaceSql, effectiveVersionSpace, hasShowcaseSchema } from "../spaces/catalog";
+import { defaultPolicySpaceSql, effectiveVersionSpace } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 import { versionSafety } from "./safety";
 
 export interface VersionRow {
@@ -119,14 +120,12 @@ export function versionSelectFor(hasShowcase = true, hasAssetMarket = false) {
 export const versionSelect = versionSelectFor(true, true);
 
 export async function loadVersion(db: D1Database, id: string): Promise<VersionRow> {
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
-  const row = await db
-    .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.id = ?`)
-    .bind(id)
-    .first<VersionRow>();
+  const row = await withOptionalSchemas(db, (showcase, assetMarket) =>
+    db
+      .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.id = ?`)
+      .bind(id)
+      .first<VersionRow>(),
+  );
   if (!row) throw new HttpError(404, "NOT_FOUND");
   return row;
 }

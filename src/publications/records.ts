@@ -1,9 +1,10 @@
-import { decodeFormats, defaultAssetAttributes, hasAssetMarketSchema } from "../assets/taxonomy";
+import { decodeFormats, defaultAssetAttributes } from "../assets/taxonomy";
 import { HttpError } from "../http";
 import { distributionPoliciesSql } from "../inspections/policy";
 import { admittedScan, type ScannerRelease } from "../scanner/deployment";
 import { parseScanFact, scanCurrent } from "../scanner/facts";
-import { effectiveVersionSpace, hasShowcaseSchema } from "../spaces/catalog";
+import { effectiveVersionSpace } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 import { currentSnapshotFor } from "../versions/records";
 import { unscannedPackage } from "./unscanned";
 
@@ -72,14 +73,12 @@ export function publicationSelectFor(hasShowcase = true, hasAssetMarket = false)
 export const publicationSelect = publicationSelectFor(true, true);
 
 export async function loadPublication(db: D1Database, id: string) {
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
-  const row = await db
-    .prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.id = ?`)
-    .bind(id)
-    .first<PublicationRow>();
+  const row = await withOptionalSchemas(db, (showcase, assetMarket) =>
+    db
+      .prepare(`${publicationSelectFor(showcase, assetMarket)} WHERE p.id = ?`)
+      .bind(id)
+      .first<PublicationRow>(),
+  );
   if (!row) throw new HttpError(404, "NOT_FOUND");
   return row;
 }

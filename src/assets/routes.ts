@@ -31,7 +31,7 @@ export async function publicAssetRequestRoutes(
 ) {
   const url = new URL(request.url);
   if (!["GET", "HEAD"].includes(request.method)) return null;
-  const publicTtl = parseEdgeTtl(env.PUBLIC_EDGE_CACHE_SECONDS, 60);
+  const publicTtl = parseEdgeTtl(env.PUBLIC_EDGE_CACHE_SECONDS, 300);
   if (url.pathname === "/v1/asset-requests") {
     return withPublicEdgeCache(
       request,

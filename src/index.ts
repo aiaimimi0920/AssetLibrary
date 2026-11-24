@@ -11,7 +11,7 @@ import { readiness } from "./operations/readiness";
 import { scheduledWork } from "./operations/scheduled";
 import { resourceRoutes } from "./resources/routes";
 import type { DeploymentEnv } from "./scanner/deployment";
-import type { TrafficCacheEnv } from "./traffic/cache";
+import { maybePurgePublicEdgeCache, type TrafficCacheEnv } from "./traffic/cache";
 import { enforceTrafficGuard, RateLimitError, type TrafficLimitEnv } from "./traffic/rate-limit";
 import type { UploadEnv } from "./uploads/records";
 import { uploadRoutes } from "./uploads/routes";
@@ -38,6 +38,7 @@ export default {
     let response: Response;
     try {
       response = await route(request, env, ctx);
+      await maybePurgePublicEdgeCache(request, response, ctx);
     } catch (error) {
       // 不记录 JWT、SQL 参数或驱动错误；只返回可安全重试的统一失败状态。
       if (error instanceof RateLimitError) {

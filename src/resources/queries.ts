@@ -1,5 +1,4 @@
-import { hasAssetMarketSchema } from "../assets/taxonomy";
-import { hasShowcaseSchema } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 
 /** 权限判断和目录读取均使用 D1 primary；不使用复制会话或授权缓存。 */
 export function resourceJsonFor(
@@ -52,18 +51,16 @@ export function resourceJoinsFor(hasShowcase = true, hasAssetMarket = true, r = 
 }
 
 export async function getResource(db: D1Database, principal: string, id: string) {
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
-  const join = resourceJoinsFor(showcase, assetMarket);
-  const row = await db
-    .prepare(`SELECT ${resourceJsonFor(showcase, assetMarket)} AS body FROM resources r ${join}
-    WHERE r.id = ? AND r.state = 'draft' AND
-    (r.owner = ? OR EXISTS (SELECT 1 FROM resource_members m
-      WHERE m.resource_id = r.id AND m.principal = ?))`)
-    .bind(id, principal, principal)
-    .first<{ body: string }>();
+  const row = await withOptionalSchemas(db, (showcase, assetMarket) => {
+    const join = resourceJoinsFor(showcase, assetMarket);
+    return db
+      .prepare(`SELECT ${resourceJsonFor(showcase, assetMarket)} AS body FROM resources r ${join}
+      WHERE r.id = ? AND r.state = 'draft' AND
+      (r.owner = ? OR EXISTS (SELECT 1 FROM resource_members m
+        WHERE m.resource_id = r.id AND m.principal = ?))`)
+      .bind(id, principal, principal)
+      .first<{ body: string }>();
+  });
   return row ? JSON.parse(row.body) : null;
 }
 
@@ -91,22 +88,20 @@ export async function listResources(
   after: string,
   limit: number,
 ) {
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
-  const jsonExpr = resourceJsonFor(showcase, assetMarket);
-  const join = resourceJoinsFor(showcase, assetMarket);
-  const rows = await db
-    .prepare(`SELECT r.id, ${jsonExpr} AS body FROM resources r ${join}
-    WHERE r.owner = ? AND r.state = 'draft' AND r.id > ?
-    UNION
-    SELECT r.id, ${jsonExpr} AS body FROM resources r
-    JOIN resource_members m ON m.resource_id = r.id ${join}
-    WHERE m.principal = ? AND r.state = 'draft' AND r.id > ?
-    ORDER BY id LIMIT ?`)
-    .bind(principal, after, principal, after, limit + 1)
-    .all<{ id: string; body: string }>();
+  const rows = await withOptionalSchemas(db, (showcase, assetMarket) => {
+    const jsonExpr = resourceJsonFor(showcase, assetMarket);
+    const join = resourceJoinsFor(showcase, assetMarket);
+    return db
+      .prepare(`SELECT r.id, ${jsonExpr} AS body FROM resources r ${join}
+      WHERE r.owner = ? AND r.state = 'draft' AND r.id > ?
+      UNION
+      SELECT r.id, ${jsonExpr} AS body FROM resources r
+      JOIN resource_members m ON m.resource_id = r.id ${join}
+      WHERE m.principal = ? AND r.state = 'draft' AND r.id > ?
+      ORDER BY id LIMIT ?`)
+      .bind(principal, after, principal, after, limit + 1)
+      .all<{ id: string; body: string }>();
+  });
   const page = rows.results.slice(0, limit);
   return {
     items: page.map((row) => JSON.parse(row.body)),

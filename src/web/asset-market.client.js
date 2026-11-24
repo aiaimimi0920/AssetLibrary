@@ -69,6 +69,7 @@ export function initAssetMarket({
   getView,
   getFilters,
   setFilters,
+  navigateFilters,
   reloadView,
   promptLogin,
   isLoginEnabled,
@@ -130,18 +131,15 @@ export function initAssetMarket({
       const chip = text("button", `${label} ×`, "am-chip");
       chip.type = "button";
       chip.setAttribute("aria-label", `清除筛选：${label}`);
-      chip.addEventListener("click", () =>
-        run((signal) => {
-          const next = { ...getFilters() };
-          delete next[key];
-          if (key === "q") {
-            next.q = "";
-            element("query").value = "";
-          }
-          setFilters(next);
-          return reloadView(signal);
-        }),
-      );
+      chip.addEventListener("click", () => {
+        const next = { ...getFilters() };
+        delete next[key];
+        if (key === "q") {
+          next.q = "";
+          element("query").value = "";
+        }
+        return navigateFilters(next);
+      });
       chips.append(chip);
     }
   }
@@ -190,7 +188,6 @@ export function initAssetMarket({
   async function loadRequests(signal, after = "", reload = false) {
     requestCursor = null;
     element("requests-empty").hidden = true;
-    element("requests-results").replaceChildren();
     syncHubControls();
     const filters = getFilters();
     const mine = connected() && filters.scope === "mine";
@@ -204,11 +201,17 @@ export function initAssetMarket({
       if (filters[key]) params.set(key, filters[key]);
     }
     if (after) params.set("after", after);
-    const page = await api(`${mine ? "/v1/me/asset-requests" : "/v1/asset-requests"}?${params}`, {
-      signal,
-      publicRead: !mine,
-      reload: !mine && reload,
-    });
+    let page;
+    try {
+      page = await api(`${mine ? "/v1/me/asset-requests" : "/v1/asset-requests"}?${params}`, {
+        signal,
+        publicRead: !mine,
+        reload: !mine && reload,
+      });
+    } catch (error) {
+      element("requests-results").replaceChildren();
+      throw error;
+    }
     signal.throwIfAborted();
     requestCursor = page.nextAfter;
     renderRequests(page.items);
@@ -315,31 +318,22 @@ export function initAssetMarket({
     }
   }
 
-  element("am-mode-market").addEventListener("click", () =>
-    run((signal) => {
-      const next = { ...getFilters() };
-      delete next.mode;
-      delete next.scope;
-      setFilters(next);
-      return reloadView(signal);
-    }),
-  );
+  element("am-mode-market").addEventListener("click", () => {
+    const next = { ...getFilters() };
+    delete next.mode;
+    delete next.scope;
+    return navigateFilters(next);
+  });
   element("am-mode-requests").addEventListener("click", () =>
-    run((signal) => {
-      setFilters({ ...getFilters(), mode: "requests" });
-      return reloadView(signal);
-    }),
+    navigateFilters({ ...getFilters(), mode: "requests" }),
   );
   for (const cat of ["all", ...Object.keys(assetCategoryLabels)]) {
-    element(`am-cat-${cat}`).addEventListener("click", () =>
-      run((signal) => {
-        const next = { ...getFilters() };
-        if (cat === "all") delete next.category;
-        else next.category = cat;
-        setFilters(next);
-        return reloadView(signal);
-      }),
-    );
+    element(`am-cat-${cat}`).addEventListener("click", () => {
+      const next = { ...getFilters() };
+      if (cat === "all") delete next.category;
+      else next.category = cat;
+      return navigateFilters(next);
+    });
   }
   for (const [id, key] of [
     ["am-style", "style"],
@@ -348,25 +342,21 @@ export function initAssetMarket({
     ["am-space", "space"],
     ["am-scope", "scope"],
   ]) {
-    element(id).addEventListener("change", () =>
-      run((signal) => {
-        const next = { ...getFilters() };
-        const val = element(id).value;
-        if (!val || (key === "scope" && val === "public")) delete next[key];
-        else next[key] = val;
-        setFilters(next);
-        return reloadView(signal);
-      }),
-    );
+    element(id).addEventListener("change", () => {
+      const next = { ...getFilters() };
+      const val = element(id).value;
+      if (!val || (key === "scope" && val === "public")) delete next[key];
+      else next[key] = val;
+      return navigateFilters(next);
+    });
   }
-  element("am-reset").addEventListener("click", () =>
-    run((signal) => {
-      const mode = getFilters().mode;
-      element("query").value = "";
-      setFilters(mode === "requests" ? { q: "", kind: "", mode: "requests" } : { q: "", kind: "" });
-      return reloadView(signal);
-    }),
-  );
+  element("am-reset").addEventListener("click", () => {
+    const mode = getFilters().mode;
+    element("query").value = "";
+    return navigateFilters(
+      mode === "requests" ? { q: "", kind: "", mode: "requests" } : { q: "", kind: "" },
+    );
+  });
   element("asset-publish").addEventListener("click", () =>
     promptLogin("", element("asset-publish"), "登录后发布素材", "/auth/login?returnTo=workspace"),
   );
@@ -478,8 +468,19 @@ export function initAssetMarket({
   return {
     syncHubControls,
     loadRequests,
-    controls(busy) {
+    controls(busy, mutating = false) {
       element("requests-more").disabled = busy || !requestCursor;
+      for (const id of [
+        "am-style",
+        "am-format",
+        "am-license",
+        "am-space",
+        "am-scope",
+        "am-reset",
+      ]) {
+        const node = element(id);
+        if (node) node.disabled = mutating;
+      }
       element("requests-results").setAttribute("aria-busy", String(busy));
       element("request-compose-close").disabled = false;
       element("request-detail-close").disabled = false;

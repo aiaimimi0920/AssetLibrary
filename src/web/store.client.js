@@ -12,9 +12,11 @@ import { savePackage } from "./download.client.js";
 import { createDownloadTransfer } from "./resume-download.client.js";
 import {
   applicationSpaces,
+  applyStoreActionLocks,
   bindModalScrollLock,
   paintStoreView,
   readStoreRoute,
+  renderStoreCards,
   renderStoreCover,
   spaceLabels,
   storeRoute,
@@ -33,6 +35,7 @@ let scope = "public";
 let cursor = null;
 let selected = null;
 let job = null;
+let mutating = false;
 let initialization = 0;
 let initializing = true;
 let filters = { q: "", kind: "" };
@@ -104,27 +107,24 @@ function showDetail(trigger) {
 function controls() {
   const pending = transfer.snapshot();
   const busy = !!job || initializing;
-  for (const control of document.querySelectorAll(".store button,.store input,.store select"))
-    control.disabled = busy;
-  element("more").disabled = busy || !cursor;
-  element("library").disabled = busy || !connected();
-  element("download").disabled = busy || !connected() || !selected;
+  applyStoreActionLocks(element, {
+    busy,
+    mutating,
+    connected: connected(),
+    cursor,
+    selected,
+    pending,
+  });
   element("login-hint").hidden = connected() || !loginEnabled;
-  element("resume").disabled = busy || !connected() || !pending?.resumable;
-  element("discard").disabled = busy || !pending;
-  element("stop").disabled = !busy && !pending;
-  element("transfer-stop").disabled = !busy && !pending;
   element("transfer").hidden = !pending || pending.publication.id !== selected?.id;
   element("transfer-open").hidden = !pending;
-  element("transfer-open").disabled = false;
-  element("detail-close").disabled = false;
   element("transfer-open").textContent = pending?.resumable ? "下载任务 · 可继续" : "下载任务";
   element("results").setAttribute("aria-busy", String(busy));
   element("publish-login").hidden = connected() || !loginEnabled;
   element("publish-hint").textContent = loginEnabled
     ? "登录后继续操作。"
     : "账号服务暂不可用，请稍后再试。";
-  assetMarket?.controls(busy);
+  assetMarket?.controls(busy, mutating);
 }
 function clearIdentity() {
   setCredential("");
@@ -146,10 +146,11 @@ function clearIdentity() {
   writeRoute();
   context();
 }
-async function run(task) {
+async function run(task, { exclusive = false } = {}) {
   if (job) return;
   const controller = new AbortController();
   job = controller;
+  mutating = exclusive;
   controls();
   try {
     await task(controller.signal);
@@ -159,14 +160,17 @@ async function run(task) {
       clearIdentity();
       element("session").textContent = "登录已失效，请重新登录";
     }
-    status(
-      error.name === "AbortError"
-        ? "请求已停止或超时；不会自动重试。"
-        : `操作失败：${error.message}`,
-      "error",
-    );
+    if (!(error.name === "AbortError" && pendingRoute)) {
+      status(
+        error.name === "AbortError"
+          ? "请求已停止或超时；不会自动重试。"
+          : `操作失败：${error.message}`,
+        "error",
+      );
+    }
   } finally {
     job = null;
+    mutating = false;
     controls();
     if (!initializing && pendingRoute) {
       const route = pendingRoute;
@@ -175,61 +179,38 @@ async function run(task) {
     }
   }
 }
-function render(items) {
-  element("results").replaceChildren();
-  for (const item of items) {
-    const card = text("article", "", "asset-card");
-    const body = text("div", "", "asset-body");
-    const title = text("h3", item.title);
-    title.title = item.title;
-    const spaceTag =
-      item.space && item.space !== "general" && applicationSpaces[item.space]
-        ? ` · ${applicationSpaces[item.space].name} 空间`
-        : "";
-    body.append(text("p", `${kinds[item.kind] ?? item.kind}${spaceTag}`, "asset-type"), title);
-    const badges = renderAssetBadges(item);
-    if (badges) body.append(badges);
-    if (item.summary) body.append(text("p", item.summary, "asset-summary"));
-    const meta = text("p", "", "asset-meta");
-    const size =
-      item.size < 1024
-        ? `${item.size} B`
-        : item.size < 1024 * 1024
-          ? `${(item.size / 1024).toFixed(1)} KiB`
-          : `${(item.size / 1024 / 1024).toFixed(2)} MiB`;
-    meta.append(text("span", `版本 ${item.label}`), text("span", size));
-    body.append(meta);
-    const bottom = text("div", "", "asset-bottom");
-    bottom.append(
-      text(
-        "p",
-        item.scanStatus === "not_scanned" ? "△ 未扫描" : "资格以下载时校验为准",
-        "asset-warning",
-      ),
-    );
-    const button = text("button", "查看详情 ↗", "asset-open");
-    button.type = "button";
-    button.setAttribute("aria-label", `查看资产：${item.title}`);
-    button.addEventListener("click", () => run((signal) => detail(item.id, signal, button)));
-    bottom.append(button);
-    body.append(bottom);
-    card.append(cover(item), body);
-    element("results").append(card);
+
+function navigateStore(nextView, nextFilters) {
+  if (mutating) return;
+  if (job || initializing) {
+    pendingRoute = { view: nextView, filters: nextFilters };
+    if (job) job.abort();
+    return;
   }
+  return run((signal) => changeView(nextView, signal, nextFilters));
+}
+function render(items) {
+  renderStoreCards(element("results"), items, {
+    kinds,
+    codes,
+    renderBadges: renderAssetBadges,
+    onDetail: (id, button) => run((signal) => detail(id, signal, button)),
+  });
 }
 async function load(signal, after = "", reload = false) {
   cursor = null;
   selected = null;
   element("detail").close();
   element("empty").hidden = true;
-  element("results").replaceChildren();
   context();
   writeRoute();
   if (storeViews[view].unavailable) {
+    element("results").replaceChildren();
     status(storeViews[view].unavailable);
     return;
   }
   if (view === "assets" && filters.mode === "requests") {
+    element("results").replaceChildren();
     await assetMarket.loadRequests(signal, after, reload);
     return;
   }
@@ -245,11 +226,17 @@ async function load(signal, after = "", reload = false) {
   if (filters.q) params.set("q", filters.q);
   if (filters.kind) params.set("kind", filters.kind);
   if (after) params.set("after", after);
-  const page = await api(`${scope === "public" ? "/v1/catalog" : "/v1/me/library"}?${params}`, {
-    signal,
-    publicRead: scope === "public",
-    reload: scope === "public" && reload,
-  });
+  let page;
+  try {
+    page = await api(`${scope === "public" ? "/v1/catalog" : "/v1/me/library"}?${params}`, {
+      signal,
+      publicRead: scope === "public",
+      reload: scope === "public" && reload,
+    });
+  } catch (error) {
+    if (!pendingRoute) element("results").replaceChildren();
+    throw error;
+  }
   signal.throwIfAborted();
   cursor = page.nextAfter;
   render(page.items);
@@ -312,28 +299,29 @@ function presentDetail(item, trigger) {
   showDetail(trigger);
   controls();
 }
-function click(id, task) {
-  element(id).addEventListener("click", () => run(task));
+function click(id, task, exclusive = false) {
+  element(id).addEventListener("click", () => run(task, { exclusive }));
 }
 element("search").addEventListener("submit", (event) => {
   event.preventDefault();
-  if (job) return;
-  filters.q = element("query").value.trim();
-  return run((signal) =>
-    storeViews[view].unavailable
-      ? changeView("home", signal, { q: filters.q, kind: "" })
-      : load(signal),
-  );
+  if (mutating) return;
+  const q = element("query").value.trim();
+  const targetView = storeViews[view].unavailable ? "home" : view;
+  const nextFilters = storeViews[view].unavailable ? { q, kind: "" } : { ...filters, q };
+  return navigateStore(targetView, nextFilters);
 });
 for (const name of ["public", "library"])
-  click(name, (signal) => changeView(name === "public" ? "home" : name, signal));
+  element(name).addEventListener("click", () => navigateStore(name === "public" ? "home" : name));
 for (const name of ["games", "apps", "loom", "assets", "community"])
-  click(`section-${name}`, (signal) => changeView(name, signal));
+  element(`section-${name}`).addEventListener("click", () => navigateStore(name));
 for (const kind of ["all", ...Object.keys(kinds)])
-  click(`category-${kind}`, (signal) => {
-    filters = { q: element("query").value.trim(), kind: kind === "all" ? "" : kind };
-    return load(signal);
-  });
+  element(`category-${kind}`).addEventListener("click", () =>
+    navigateStore(view, {
+      ...filters,
+      q: element("query").value.trim(),
+      kind: kind === "all" ? "" : kind,
+    }),
+  );
 element("detail-close").addEventListener("click", () => element("detail").close());
 element("detail-space").addEventListener("click", (event) => {
   const spaceId = selected?.space;
@@ -368,6 +356,7 @@ assetMarket = initAssetMarket({
   setFilters: (next) => {
     filters = next;
   },
+  navigateFilters: (next) => navigateStore("assets", next),
   reloadView: (signal, reload = false) => load(signal, "", reload),
   promptLogin: publish,
   isLoginEnabled: () => loginEnabled,
@@ -405,16 +394,20 @@ async function download(signal, resume = false) {
   savePackage(result.blob, result.versionId);
   status("长度与 SHA-256 已校验，已交给浏览器保存。", "success");
 }
-click("download", (signal) => download(signal));
-click("resume", (signal) => download(signal, true));
+click("download", (signal) => download(signal), true);
+click("resume", (signal) => download(signal, true), true);
 click("discard", () => transfer.clear());
-click("logout", async (signal) => {
-  const url = await logoutSession();
-  clearIdentity();
-  element("session").textContent = "已退出登录";
-  signal.throwIfAborted();
-  window.location.assign(url);
-});
+click(
+  "logout",
+  async (signal) => {
+    const url = await logoutSession();
+    clearIdentity();
+    element("session").textContent = "已退出登录";
+    signal.throwIfAborted();
+    window.location.assign(url);
+  },
+  true,
+);
 function stop() {
   initialization += 1;
   pendingRoute = null;

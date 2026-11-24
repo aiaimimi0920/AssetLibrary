@@ -34,7 +34,7 @@ export async function catalogRoutes(
 ) {
   const url = new URL(request.url);
   if (url.pathname !== "/v1/catalog" && !url.pathname.startsWith("/v1/catalog/")) return null;
-  const publicTtl = parseEdgeTtl(env.PUBLIC_EDGE_CACHE_SECONDS, 60);
+  const publicTtl = parseEdgeTtl(env.PUBLIC_EDGE_CACHE_SECONDS, 300);
   if (url.pathname === "/v1/catalog") {
     if (!["GET", "HEAD"].includes(request.method)) return null;
     const release = deploymentAdmission(env);

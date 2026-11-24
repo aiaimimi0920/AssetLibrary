@@ -122,6 +122,16 @@
   display: grid;
   gap: 14px;
   margin-top: 16px;
+  transition: opacity 120ms ease;
+}
+.am-request-list[aria-busy="true"]:not(:empty) {
+  opacity: 0.62;
+}
+.am-request-list[aria-busy="true"]:empty {
+  min-height: 220px;
+  border-radius: 6px;
+  border: 1px dashed var(--line);
+  background: var(--panel);
 }
 .am-request-card {
   position: relative;
@@ -131,6 +141,8 @@
   border-radius: 6px;
   display: grid;
   gap: 10px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
 }
 .am-request-open {
   padding: 7px 12px;

@@ -1,11 +1,11 @@
 import { HttpError, json } from "../http";
 import { pageInput } from "../page";
 import { parseSpace } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 import {
   type AssetFormat,
   assetFormats,
   decodeFormats,
-  hasAssetMarketSchema,
   parseAssetStyle,
   parseRequestCategory,
   parseRequestLicense,
@@ -116,59 +116,63 @@ function parseListFilters(url: URL) {
 
 export async function listAssetRequests(db: D1Database, url: URL, requester?: string) {
   const filters = parseListFilters(url);
-  if (!(await hasAssetMarketSchema(db))) return json({ items: [], nextAfter: null });
-  const clauses = [requester === undefined ? "r.state = 'open'" : "r.requester = ?", "r.id > ?"];
-  const args: (string | number)[] =
-    requester === undefined ? [filters.after] : [requester, filters.after];
-  if (filters.category !== null) {
-    clauses.push("r.category = ?");
-    args.push(filters.category);
-  }
-  if (filters.style !== null) {
-    clauses.push("r.style = ?");
-    args.push(filters.style);
-  }
-  if (filters.license !== null) {
-    clauses.push("r.license = ?");
-    args.push(filters.license);
-  }
-  if (filters.space !== null) {
-    clauses.push("r.space = ?");
-    args.push(filters.space);
-  }
-  if (filters.format !== null) {
-    clauses.push("EXISTS (SELECT 1 FROM json_each(r.formats) WHERE value = ?)");
-    args.push(filters.format);
-  }
-  if (filters.query !== null) {
-    clauses.push(
-      "(instr(lower(r.title), lower(?)) > 0 OR instr(lower(r.description), lower(?)) > 0)",
-    );
-    args.push(filters.query, filters.query);
-  }
-  args.push(filters.limit + 1);
-  const rows = await db
-    .prepare(
-      `SELECT r.* FROM asset_requests r WHERE ${clauses.join(" AND ")} ORDER BY r.id LIMIT ?`,
-    )
-    .bind(...args)
-    .all<AssetRequestRow>();
-  const page = rows.results.slice(0, filters.limit);
-  const mapper = requester === undefined ? publicRequestView : ownerRequestView;
-  return json({
-    items: page.map(mapper),
-    nextAfter: rows.results.length > filters.limit ? (page.at(-1)?.id ?? null) : null,
+  return withOptionalSchemas(db, async (_showcase, assetMarket) => {
+    if (!assetMarket) return json({ items: [], nextAfter: null });
+    const clauses = [requester === undefined ? "r.state = 'open'" : "r.requester = ?", "r.id > ?"];
+    const args: (string | number)[] =
+      requester === undefined ? [filters.after] : [requester, filters.after];
+    if (filters.category !== null) {
+      clauses.push("r.category = ?");
+      args.push(filters.category);
+    }
+    if (filters.style !== null) {
+      clauses.push("r.style = ?");
+      args.push(filters.style);
+    }
+    if (filters.license !== null) {
+      clauses.push("r.license = ?");
+      args.push(filters.license);
+    }
+    if (filters.space !== null) {
+      clauses.push("r.space = ?");
+      args.push(filters.space);
+    }
+    if (filters.format !== null) {
+      clauses.push("EXISTS (SELECT 1 FROM json_each(r.formats) WHERE value = ?)");
+      args.push(filters.format);
+    }
+    if (filters.query !== null) {
+      clauses.push(
+        "(instr(lower(r.title), lower(?)) > 0 OR instr(lower(r.description), lower(?)) > 0)",
+      );
+      args.push(filters.query, filters.query);
+    }
+    args.push(filters.limit + 1);
+    const rows = await db
+      .prepare(
+        `SELECT r.* FROM asset_requests r WHERE ${clauses.join(" AND ")} ORDER BY r.id LIMIT ?`,
+      )
+      .bind(...args)
+      .all<AssetRequestRow>();
+    const page = rows.results.slice(0, filters.limit);
+    const mapper = requester === undefined ? publicRequestView : ownerRequestView;
+    return json({
+      items: page.map(mapper),
+      nextAfter: rows.results.length > filters.limit ? (page.at(-1)?.id ?? null) : null,
+    });
   });
 }
 
 export async function getPublicAssetRequest(db: D1Database, id: string) {
-  if (!(await hasAssetMarketSchema(db))) throw new HttpError(404, "NOT_FOUND");
-  const row = await db
-    .prepare("SELECT * FROM asset_requests WHERE id = ? AND state = 'open'")
-    .bind(id)
-    .first<AssetRequestRow>();
-  if (!row) throw new HttpError(404, "NOT_FOUND");
-  return json(publicRequestView(row));
+  return withOptionalSchemas(db, async (_showcase, assetMarket) => {
+    if (!assetMarket) throw new HttpError(404, "NOT_FOUND");
+    const row = await db
+      .prepare("SELECT * FROM asset_requests WHERE id = ? AND state = 'open'")
+      .bind(id)
+      .first<AssetRequestRow>();
+    if (!row) throw new HttpError(404, "NOT_FOUND");
+    return json(publicRequestView(row));
+  });
 }
 
 export async function listRequestResponses(
@@ -178,33 +182,35 @@ export async function listRequestResponses(
   url: URL,
 ) {
   const { after, limit } = pageInput(url);
-  if (!(await hasAssetMarketSchema(db))) throw new HttpError(404, "NOT_FOUND");
-  const requestRow = await db
-    .prepare("SELECT * FROM asset_requests WHERE id = ?")
-    .bind(requestId)
-    .first<AssetRequestRow>();
-  if (!requestRow || (requestRow.state !== "open" && requestRow.requester !== principal))
-    throw new HttpError(404, "NOT_FOUND");
-  const isRequester = requestRow.requester === principal;
-  const rows = await db
-    .prepare(
-      `SELECT resp.*, v.title AS publication_title
-       FROM asset_request_responses resp
-       LEFT JOIN publications p ON p.id = resp.publication_id AND p.state = 'published'
-       LEFT JOIN versions v ON v.id = p.version_id
-       WHERE resp.request_id = ? AND resp.id > ?
-       ${isRequester ? "" : "AND resp.responder = ?"}
-       ORDER BY resp.id LIMIT ?`,
-    )
-    .bind(
-      ...(isRequester ? [requestId, after, limit + 1] : [requestId, after, principal, limit + 1]),
-    )
-    .all<AssetResponseRow>();
-  const page = rows.results.slice(0, limit);
-  return json({
-    viewerRole: isRequester ? "requester" : "responder",
-    request: isRequester ? ownerRequestView(requestRow) : publicRequestView(requestRow),
-    items: page.map(responseView),
-    nextAfter: rows.results.length > limit ? (page.at(-1)?.id ?? null) : null,
+  return withOptionalSchemas(db, async (_showcase, assetMarket) => {
+    if (!assetMarket) throw new HttpError(404, "NOT_FOUND");
+    const requestRow = await db
+      .prepare("SELECT * FROM asset_requests WHERE id = ?")
+      .bind(requestId)
+      .first<AssetRequestRow>();
+    if (!requestRow || (requestRow.state !== "open" && requestRow.requester !== principal))
+      throw new HttpError(404, "NOT_FOUND");
+    const isRequester = requestRow.requester === principal;
+    const rows = await db
+      .prepare(
+        `SELECT resp.*, v.title AS publication_title
+         FROM asset_request_responses resp
+         LEFT JOIN publications p ON p.id = resp.publication_id AND p.state = 'published'
+         LEFT JOIN versions v ON v.id = p.version_id
+         WHERE resp.request_id = ? AND resp.id > ?
+         ${isRequester ? "" : "AND resp.responder = ?"}
+         ORDER BY resp.id LIMIT ?`,
+      )
+      .bind(
+        ...(isRequester ? [requestId, after, limit + 1] : [requestId, after, principal, limit + 1]),
+      )
+      .all<AssetResponseRow>();
+    const page = rows.results.slice(0, limit);
+    return json({
+      viewerRole: isRequester ? "requester" : "responder",
+      request: isRequester ? ownerRequestView(requestRow) : publicRequestView(requestRow),
+      items: page.map(responseView),
+      nextAfter: rows.results.length > limit ? (page.at(-1)?.id ?? null) : null,
+    });
   });
 }

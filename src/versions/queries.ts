@@ -1,8 +1,7 @@
-import { hasAssetMarketSchema } from "../assets/taxonomy";
 import { HttpError, json } from "../http";
 import { pageInput } from "../page";
 import type { ScannerRelease } from "../scanner/deployment";
-import { hasShowcaseSchema } from "../spaces/catalog";
+import { withOptionalSchemas } from "../spaces/optional-schemas";
 import { type ReviewConfig, reviewers } from "./policy";
 import { type VersionRow, versionSelectFor, versionView } from "./records";
 
@@ -15,20 +14,18 @@ export async function listVersions(
   release: ScannerRelease | null = null,
 ) {
   const { after, limit } = pageInput(url);
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
   const owner = await db
     .prepare("SELECT id FROM resources WHERE id = ? AND owner = ? AND state = 'draft'")
     .bind(resourceId, principal)
     .first();
   if (!owner) throw new HttpError(404, "NOT_FOUND");
-  const rows = await db
-    .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.resource_id = ? AND r.owner = ?
-    AND r.state = 'draft' AND versions.id > ? ORDER BY versions.id LIMIT ?`)
-    .bind(resourceId, principal, after, limit + 1)
-    .all<VersionRow>();
+  const rows = await withOptionalSchemas(db, (showcase, assetMarket) =>
+    db
+      .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.resource_id = ? AND r.owner = ?
+      AND r.state = 'draft' AND versions.id > ? ORDER BY versions.id LIMIT ?`)
+      .bind(resourceId, principal, after, limit + 1)
+      .all<VersionRow>(),
+  );
   return json({
     items: rows.results.slice(0, limit).map((row) => versionView(row, release)),
     nextCursor: rows.results.length > limit ? rows.results[limit - 1]?.id : null,
@@ -45,16 +42,14 @@ export async function listReviews(
 ) {
   if (!reviewers(config).includes(principal)) throw new HttpError(404, "NOT_FOUND");
   const { after, limit } = pageInput(url);
-  const [showcase, assetMarket] = await Promise.all([
-    hasShowcaseSchema(db),
-    hasAssetMarketSchema(db),
-  ]);
-  const rows = await db
-    .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.state = 'pending_review'
-      AND versions.id > ? AND r.owner <> ? AND r.state = 'draft'
-      ORDER BY versions.id LIMIT ?`)
-    .bind(after, principal, limit + 1)
-    .all<VersionRow>();
+  const rows = await withOptionalSchemas(db, (showcase, assetMarket) =>
+    db
+      .prepare(`${versionSelectFor(showcase, assetMarket)} WHERE versions.state = 'pending_review'
+        AND versions.id > ? AND r.owner <> ? AND r.state = 'draft'
+        ORDER BY versions.id LIMIT ?`)
+      .bind(after, principal, limit + 1)
+      .all<VersionRow>(),
+  );
   return json({
     items: rows.results
       .slice(0, limit)

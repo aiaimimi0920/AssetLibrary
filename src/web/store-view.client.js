@@ -225,6 +225,104 @@ export function renderStoreCover(item, kinds, codes) {
   return node;
 }
 
+/** 渲染商店卡片列表；单张卡片启用 content-visibility 与封面短指纹。 */
+export function renderStoreCards(container, items, { kinds, codes, renderBadges, onDetail }) {
+  const makeNode = (tag, value, className = "") => {
+    const node = document.createElement(tag);
+    node.textContent = value;
+    if (className) node.className = className;
+    return node;
+  };
+  container.replaceChildren();
+  for (const item of items) {
+    const card = makeNode("article", "", "asset-card");
+    const body = makeNode("div", "", "asset-body");
+    const title = makeNode("h3", item.title);
+    title.title = item.title;
+    const spaceTag =
+      item.space && item.space !== "general" && applicationSpaces[item.space]
+        ? ` · ${applicationSpaces[item.space].name} 空间`
+        : "";
+    body.append(makeNode("p", `${kinds[item.kind] ?? item.kind}${spaceTag}`, "asset-type"), title);
+    const badges = renderBadges(item);
+    if (badges) body.append(badges);
+    if (item.summary) body.append(makeNode("p", item.summary, "asset-summary"));
+    const meta = makeNode("p", "", "asset-meta");
+    const size =
+      item.size < 1024
+        ? `${item.size} B`
+        : item.size < 1024 * 1024
+          ? `${(item.size / 1024).toFixed(1)} KiB`
+          : `${(item.size / 1024 / 1024).toFixed(2)} MiB`;
+    meta.append(makeNode("span", `版本 ${item.label}`), makeNode("span", size));
+    body.append(meta);
+    const bottom = makeNode("div", "", "asset-bottom");
+    bottom.append(
+      makeNode(
+        "p",
+        item.scanStatus === "not_scanned" ? "△ 未扫描" : "资格以下载时校验为准",
+        "asset-warning",
+      ),
+    );
+    const button = makeNode("button", "查看详情 ↗", "asset-open");
+    button.type = "button";
+    button.setAttribute("aria-label", `查看资产：${item.title}`);
+    button.addEventListener("click", () => onDetail(item.id, button));
+    bottom.append(button);
+    body.append(bottom);
+    card.append(renderStoreCover(item, kinds, codes), body);
+    container.append(card);
+  }
+}
+
+/** 读取期间保持顶部导航、分类与搜索框随时可点（支持抢占式切换），仅锁定写操作与分页动作。 */
+export function applyStoreActionLocks(
+  element,
+  { busy, mutating, connected, cursor, selected, pending },
+) {
+  for (const id of [
+    "publish",
+    "space-publish",
+    "asset-publish",
+    "request-open",
+    "refresh",
+    "requests-refresh",
+    "req-submit",
+    "req-response-submit",
+    "req-close-action",
+    "logout",
+  ]) {
+    const node = element(id);
+    if (node) node.disabled = busy;
+  }
+  for (const navId of [
+    "public",
+    "section-games",
+    "section-apps",
+    "section-loom",
+    "section-assets",
+    "section-community",
+  ]) {
+    const node = element(navId);
+    if (node) node.disabled = mutating;
+  }
+  for (const control of document.querySelectorAll(".store button,.store input,.store select")) {
+    if (control.className === "asset-open" || control.className === "am-request-open") {
+      control.disabled = mutating;
+    }
+  }
+  element("query").disabled = mutating;
+  element("more").disabled = busy || !cursor;
+  element("library").disabled = mutating || !connected || (busy && !connected);
+  element("download").disabled = busy || !connected || !selected;
+  element("resume").disabled = busy || !connected || !pending?.resumable;
+  element("discard").disabled = busy || !pending;
+  element("stop").disabled = !busy && !pending;
+  element("transfer-stop").disabled = !busy && !pending;
+  element("transfer-open").disabled = false;
+  element("detail-close").disabled = false;
+}
+
 /** 阻止原生 dialog 遮罩区滚轮穿透至文档根滚动容器。 */
 export function bindModalScrollLock(element) {
   window.addEventListener(

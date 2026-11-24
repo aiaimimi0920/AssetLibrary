@@ -24,19 +24,19 @@ const STATIC_HEADERS_TEXT = [
   "  Permissions-Policy: camera=(), microphone=(), geolocation=()",
   "",
   "/",
-  "  Cache-Control: public, max-age=60, must-revalidate",
+  "  Cache-Control: public, max-age=60, stale-while-revalidate=300",
   "",
   "/workspace",
-  "  Cache-Control: public, max-age=60, must-revalidate",
+  "  Cache-Control: public, max-age=60, stale-while-revalidate=300",
   "",
   "/*.css",
-  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "  Cache-Control: public, max-age=31536000, immutable",
   "",
   "/*.js",
-  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "  Cache-Control: public, max-age=31536000, immutable",
   "",
   "/beaver.svg",
-  "  Cache-Control: public, max-age=300, stale-while-revalidate=86400",
+  "  Cache-Control: public, max-age=31536000, immutable",
   "",
 ].join("\n");
 
@@ -48,22 +48,63 @@ function staticContentType(routePath) {
   throw new Error(`UNSUPPORTED_STATIC_ASSET: ${routePath}`);
 }
 
+function shortDigest(bytes) {
+  return createHash("sha256").update(bytes).digest("hex").slice(0, 12);
+}
+
 async function buildStaticAssets(output) {
   const publicDir = path.join(output, "public");
   await mkdir(publicDir, { recursive: true });
   const webEntries = (await readdir(path.join(root, "src/web"))).sort();
-  const mapped = [];
+  const rawSources = new Map();
   for (const name of webEntries) {
     if (!/\.(?:html|css|svg|client\.js)$/.test(name)) continue;
     const targetName =
       name === "store.html" ? "index.html" : name === "index.html" ? "workspace.html" : name;
-    await copyFile(path.join(root, "src/web", name), path.join(publicDir, targetName));
-    mapped.push(targetName);
+    rawSources.set(targetName, await readFile(path.join(root, "src/web", name)));
   }
-  if (mapped.length !== 20) throw new Error("STATIC_ASSET_COVERAGE_INCOMPLETE");
+  if (rawSources.size !== 20) throw new Error("STATIC_ASSET_COVERAGE_INCOMPLETE");
+
+  // 先对静态样式/图标及 ESM 模块图收敛计算 12 位内容指纹，使 HTML 与相对 import 共享完全一致的 ?v= 缓存键。
+  const versions = new Map();
+  const rendered = new Map(rawSources);
+  for (const [name, buf] of rawSources) {
+    if (!name.endsWith(".html")) versions.set(name, shortDigest(buf));
+  }
+  for (let pass = 0; pass < 4; pass++) {
+    for (const [name, buf] of rawSources) {
+      if (!name.endsWith(".client.js")) continue;
+      const rewrittenJs = buf
+        .toString("utf8")
+        .replace(/from "\.\/([a-z-]+\.client\.js)"/g, (_match, dep) => {
+          const ver = versions.get(dep);
+          if (!ver) throw new Error(`UNKNOWN_STATIC_DEP: ${dep}`);
+          return `from "./${dep}?v=${ver}"`;
+        });
+      const outBuf = Buffer.from(rewrittenJs, "utf8");
+      rendered.set(name, outBuf);
+      versions.set(name, shortDigest(outBuf));
+    }
+  }
+  for (const htmlName of ["index.html", "workspace.html"]) {
+    const rewrittenHtml = rawSources
+      .get(htmlName)
+      .toString("utf8")
+      .replace(
+        /\b(href|src)="\/([a-z-]+(?:\.client\.js|\.css|\.svg))"/g,
+        (_match, attr, assetName) => {
+          const ver = versions.get(assetName);
+          if (!ver) throw new Error(`UNKNOWN_HTML_ASSET: ${assetName}`);
+          return `${attr}="/${assetName}?v=${ver}"`;
+        },
+      );
+    rendered.set(htmlName, Buffer.from(rewrittenHtml, "utf8"));
+  }
+
   const files = {};
-  for (const targetName of mapped.sort()) {
-    const raw = await readFile(path.join(publicDir, targetName));
+  for (const targetName of [...rendered.keys()].sort()) {
+    const raw = rendered.get(targetName);
+    await writeFile(path.join(publicDir, targetName), raw);
     const ext = path.extname(targetName).slice(1);
     const hash = blake3
       .hash(raw.toString("base64") + ext)

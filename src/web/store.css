@@ -31,6 +31,31 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px 20px;
+  transition: opacity 120ms ease;
+}
+.asset-grid[aria-busy="true"]:not(:empty) {
+  opacity: 0.62;
+}
+.asset-grid[aria-busy="true"]:empty {
+  min-height: 296px;
+  border-radius: 6px;
+  border: 1px dashed var(--line);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--panel) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: store-pulse 1.4s ease-in-out infinite;
+}
+@keyframes store-pulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .asset-grid[aria-busy="true"]:empty {
+    animation: none;
+  }
 }
 .asset-card {
   position: relative;
@@ -41,6 +66,8 @@
   border-radius: 6px;
   background: var(--surface);
   overflow: clip;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
   transition: border-color 140ms ease;
 }
 .asset-card:hover {

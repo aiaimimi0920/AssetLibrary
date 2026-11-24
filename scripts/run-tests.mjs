@@ -14,12 +14,13 @@ const requested = process.argv.slice(2);
 if (requested.some((file) => !tests.includes(file))) throw new Error("UNKNOWN_TEST_FILE");
 const selected = requested.length ? requested : tests;
 const logPath = path.join(output, "tests.log");
+const concurrency = Number(process.env.ASSETLIBRARY_TEST_CONCURRENCY) || 2;
 const result = runTestProcess(
-  ["--test", "--test-concurrency=1", ...selected.map((file) => `tests/${file}`)],
+  ["--test", `--test-concurrency=${concurrency}`, ...selected.map((file) => `tests/${file}`)],
   {
     cwd: root,
     logPath,
-    timeout: 600000,
+    timeout: 1200000,
     env: { ...process.env, ASSETLIBRARY_BUNDLE: path.join(output, "index.js") },
   },
 );
